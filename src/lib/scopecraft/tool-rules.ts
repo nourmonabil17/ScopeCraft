@@ -2,7 +2,7 @@
 //
 // Knowledge, Tools & Quality Engineer (Yasmin) — deterministic tool rules.
 // These are the business rules priority_score() / plan_sprint() must respect.
-// Kept separate from tools.ts (Nour's math) so domain rules can be reviewed independently.
+// Kept separate from tools.ts (Youssef's implementation) so domain rules can be reviewed independently.
 
 export const TOOL_RULES = {
   // priority_score() must only use these three inputs — no hidden factors

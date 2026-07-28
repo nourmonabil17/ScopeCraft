@@ -11,30 +11,52 @@ import { ScopeCraftResponse } from "@/lib/scopecraft/schema";
 type UiState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "success"; data: ScopeCraftResponse; providerUsed: "gemini" | "groq" }
-  | { status: "error"; message: string };
+  | {
+      status: "success";
+      data: ScopeCraftResponse;
+      providerUsed: "gemini" | "groq";
+      promptVersion: string;
+    }
+  | { status: "error"; message: string; questions?: string[] };
 
 export default function ScopeCraftPage() {
   const [state, setState] = useState<UiState>({ status: "idle" });
-  const [lastRequest, setLastRequest] = useState<{ idea: string; constraints: string } | null>(null);
+  const [lastRequest, setLastRequest] = useState<{
+    idea: string;
+    constraints: string;
+    capacityPerSprint: number;
+  } | null>(null);
 
-  async function submit(idea: string, constraints: string) {
-    setLastRequest({ idea, constraints });
+  async function submit(
+    idea: string,
+    constraints: string,
+    capacityPerSprint: number
+  ) {
+    setLastRequest({ idea, constraints, capacityPerSprint });
     setState({ status: "loading" });
     try {
       const res = await fetch("/api/scopecraft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idea, constraints }),
+        body: JSON.stringify({
+          idea,
+          constraints,
+          capacity_per_sprint: capacityPerSprint,
+        }),
       });
       if (!res.ok) {
         const err = await res.json();
-        setState({ status: "error", message: err.message ?? "Something went wrong." });
+        setState({
+          status: "error",
+          message: err.message ?? "Something went wrong.",
+          questions: Array.isArray(err.questions) ? err.questions : undefined,
+        });
         return;
       }
       const data: ScopeCraftResponse = await res.json();
       const providerUsed = (res.headers.get("X-Provider-Used") as "gemini" | "groq") ?? "gemini";
-      setState({ status: "success", data, providerUsed });
+      const promptVersion = res.headers.get("X-Prompt-Version") ?? "unknown";
+      setState({ status: "success", data, providerUsed, promptVersion });
     } catch {
       setState({ status: "error", message: "Network error. Please check your connection and try again." });
     }
@@ -52,14 +74,24 @@ export default function ScopeCraftPage() {
       {state.status === "error" && (
         <ErrorState
           message={state.message}
-          onRetry={lastRequest ? () => submit(lastRequest.idea, lastRequest.constraints) : undefined}
+          questions={state.questions}
+          onRetry={lastRequest
+            ? () => submit(
+                lastRequest.idea,
+                lastRequest.constraints,
+                lastRequest.capacityPerSprint
+              )
+            : undefined}
         />
       )}
 
       {state.status === "success" && (
         <>
           <ResultView data={state.data} />
-          <EvidencePanel providerUsed={state.providerUsed} />
+          <EvidencePanel
+            providerUsed={state.providerUsed}
+            promptVersion={state.promptVersion}
+          />
         </>
       )}
     </main>

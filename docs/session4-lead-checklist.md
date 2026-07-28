@@ -6,10 +6,14 @@
 - Confirm no secret is prefixed `NEXT_PUBLIC_` (would leak to browser)
 
 ## 2. Production build
-- [ ] `npm run lint` clean
-- [ ] `npm run build` (type-check + build) clean
-- [ ] `npm test` clean
-- Review Youssef's timeout/fallback/error-handling completion, Joe's accessibility/responsive polish, Yasmin's 10-case evaluation + injection tests
+- [x] `npm run lint` clean
+- [x] `npm run build` (type-check + build) clean
+- [x] `npm test` clean
+- [x] Youssef's 10-second timeout, fallback, missing-key handling, and controlled
+  502/504 responses covered by automated tests
+- [ ] Review Joe's accessibility/responsive polish
+- [x] All ten of Yasmin's evaluation cases run offline, including controlled
+  clarification for ambiguous input and prompt-injection safeguards
 
 ## 3. Deployment & rollback
 - Deploy to preview URL, test full journey

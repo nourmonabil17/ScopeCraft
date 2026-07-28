@@ -1,11 +1,15 @@
 // src/app/api/scopecraft/route.ts
 //
-// Session 1 deliverable (AI & Backend Engineer — Nour):
-// Stub Route Handler. Validates input and returns DETERMINISTIC sample data.
-// No real AI provider call yet — that comes in Session 2.
+// AI & Backend endpoint (owner: Youssef).
+// Validates input, calls Gemini with Groq fallback, and returns a
+// deterministically recalculated sprint plan.
 
 import { NextRequest, NextResponse } from "next/server";
-import { validateRequest, ScopeCraftError } from "@/lib/scopecraft/schema";
+import {
+  getClarification,
+  validateRequest,
+  ScopeCraftError,
+} from "@/lib/scopecraft/schema";
 import { runScopeCraft } from "@/lib/scopecraft/service";
 
 export async function POST(req: NextRequest) {
@@ -26,18 +30,42 @@ export async function POST(req: NextRequest) {
     const err: ScopeCraftError = {
       error: true,
       code: "INVALID_INPUT",
-      message: "Field 'idea' is required and must be at least 5 characters.",
+      message: "Request fields are invalid. Check the idea, constraints, and sprint capacity.",
     };
     return NextResponse.json(err, { status: 400 }); // never calls a provider on bad input
   }
 
+  const clarification = getClarification(validated);
+  if (clarification) {
+    return NextResponse.json(
+      {
+        error: true,
+        code: "CLARIFICATION_REQUIRED",
+        message: "Please clarify the product idea before generating a plan.",
+        questions: clarification.questions,
+      },
+      { status: 422 }
+    );
+  }
+
   try {
-    const { data, providerUsed } = await runScopeCraft(validated);
+    const { data, providerUsed, promptVersion } = await runScopeCraft(validated);
     return NextResponse.json(data, {
       status: 200,
-      headers: { "X-Provider-Used": providerUsed },
+      headers: {
+        "X-Provider-Used": providerUsed,
+        "X-Prompt-Version": promptVersion,
+      },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === "TIMEOUT") {
+      const err: ScopeCraftError = {
+        error: true,
+        code: "TIMEOUT",
+        message: "The AI provider timed out. Please try again shortly.",
+      };
+      return NextResponse.json(err, { status: 504 });
+    }
     const err: ScopeCraftError = {
       error: true,
       code: "PROVIDER_ERROR",

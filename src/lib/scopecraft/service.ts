@@ -5,33 +5,43 @@
 // The route handler should call this instead of talking to providers directly.
 
 import { ScopeCraftRequest, ScopeCraftResponse } from "./schema";
-import { generateWithFallback } from "@/lib/ai/providers";
+import { generateWithFallback, PROMPT_VERSION } from "@/lib/ai/providers";
 import { planSprint, ScoringInput } from "./tools";
+import { DEFAULT_TEAM_CAPACITY_PROFILE } from "./tool-rules";
 
 export interface ServiceResult {
   data: ScopeCraftResponse;
   providerUsed: "gemini" | "groq";
+  promptVersion: string;
 }
 
 export async function runScopeCraft(request: ScopeCraftRequest): Promise<ServiceResult> {
   const { result, providerUsed } = await generateWithFallback(request.idea, request.constraints);
 
-  // Re-derive the sprint plan deterministically instead of trusting the AI's math,
-  // in case the model's own priority/effort numbers aren't internally consistent.
+  // Treat the provider's validated story estimates as inputs only. Recalculate
+  // every score and planning output so the returned maps and sprint agree.
   const scoringInputs: ScoringInput[] = result.user_stories.map((story) => ({
     storyId: story.id,
-    value: result.priority[story.id] ?? 5,
-    risk: 5, // default mid-risk if not provided; Yasmin's tool-rules.ts can refine this
-    effort: result.effort[story.id] ?? 3,
+    value: story.value,
+    risk: story.risk,
+    effort: story.effort,
+    dependencies: story.dependencies ?? [],
   }));
 
-  const capacityPerSprint = 10; // placeholder team capacity; see knowledge/scopecraft/capacity-profile.json
-  const sprint = scoringInputs.length
-    ? planSprint({ stories: scoringInputs, capacityPerSprint })
-    : result.sprint;
+  const capacityPerSprint =
+    request.capacity_per_sprint ??
+    DEFAULT_TEAM_CAPACITY_PROFILE.capacityPerSprint;
+  const sprint = planSprint({ stories: scoringInputs, capacityPerSprint });
+  const priority = Object.fromEntries(
+    sprint.map((story) => [story.story_id, story.priority_score])
+  );
+  const effort = Object.fromEntries(
+    scoringInputs.map((story) => [story.storyId, story.effort])
+  );
 
   return {
-    data: { ...result, sprint },
+    data: { ...result, priority, effort, sprint },
     providerUsed,
+    promptVersion: PROMPT_VERSION,
   };
 }

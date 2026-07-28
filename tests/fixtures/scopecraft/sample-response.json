@@ -12,7 +12,10 @@
         "as_a": "team member",
         "i_want": "to generate a PRD from my idea",
         "so_that": "the team has a shared starting document",
-        "acceptance_criteria": ["PRD includes problem, goals, non-goals, requirements"]
+        "acceptance_criteria": ["PRD includes problem, goals, non-goals, requirements"],
+        "value": 8,
+        "risk": 5,
+        "effort": 3
       }
     ],
     "acceptance_criteria": ["Every story has at least one testable acceptance criterion"],

@@ -25,6 +25,12 @@ export function ResultView({ data }: { data: ScopeCraftResponse }) {
           {data.user_stories.map((s) => (
             <li key={s.id}>
               As a {s.as_a}, I want {s.i_want}, so that {s.so_that}
+              <div>
+                Value: {s.value}/10 · Risk: {s.risk}/10 · Effort: {s.effort}
+              </div>
+              {s.dependencies && s.dependencies.length > 0 && (
+                <div>Depends on: {s.dependencies.join(", ")}</div>
+              )}
               <ul>
                 {s.acceptance_criteria.map((ac, i) => <li key={i}>✓ {ac}</li>)}
               </ul>
