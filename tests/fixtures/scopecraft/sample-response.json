@@ -1,0 +1,24 @@
+{
+  "description": "Shared fixture: a minimal valid ScopeCraftResponse, used across UI and API tests.",
+  "sample": {
+    "problem": "Teams struggle to scope an idea into an actionable backlog.",
+    "target_user": "Student capstone teams",
+    "goals": ["Produce a structured PRD"],
+    "non_goals": ["Auto-committing to hard deadlines"],
+    "requirements": ["Discovery wizard", "PRD sections"],
+    "user_stories": [
+      {
+        "id": "US-1",
+        "as_a": "team member",
+        "i_want": "to generate a PRD from my idea",
+        "so_that": "the team has a shared starting document",
+        "acceptance_criteria": ["PRD includes problem, goals, non-goals, requirements"]
+      }
+    ],
+    "acceptance_criteria": ["Every story has at least one testable acceptance criterion"],
+    "risks": [{ "id": "R-1", "description": "Team under-scopes the MVP", "impact": "medium", "likelihood": "medium" }],
+    "priority": { "US-1": 8.5 },
+    "effort": { "US-1": 3 },
+    "sprint": [{ "story_id": "US-1", "priority_score": 8.5, "effort": 3, "sprint": 1 }]
+  }
+}

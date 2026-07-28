@@ -1,0 +1,17 @@
+[
+  {
+    "id": "idea-1",
+    "idea": "An app that helps student capstone teams turn a rough idea into a sprint-ready backlog.",
+    "constraints": "Team of 4, 5 weeks, no budget for paid APIs."
+  },
+  {
+    "id": "idea-2",
+    "idea": "A tool for early-stage startups to convert customer interview notes into a prioritized MVP feature list.",
+    "constraints": "Solo founder, 2 weeks, needs investor-ready output."
+  },
+  {
+    "id": "idea-3",
+    "idea": "A campus-club management app that helps teams plan events, and track volunteer sign-ups sprint by sprint.",
+    "constraints": "Team of 6, semester-long project, must work on mobile."
+  }
+]
