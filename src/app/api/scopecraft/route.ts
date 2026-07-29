@@ -7,15 +7,59 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getClarification,
+  MAX_REQUEST_BODY_BYTES,
   validateRequest,
   ScopeCraftError,
 } from "@/lib/scopecraft/schema";
-import { runScopeCraft } from "@/lib/scopecraft/service";
+import { PlanningError, runScopeCraft } from "@/lib/scopecraft/service";
+
+async function readLimitedBody(
+  req: NextRequest
+): Promise<{ text: string; tooLarge: boolean }> {
+  const declaredLength = Number(req.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
+    return { text: "", tooLarge: true };
+  }
+
+  if (!req.body) return { text: "", tooLarge: false };
+
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.byteLength;
+    if (totalBytes > MAX_REQUEST_BODY_BYTES) {
+      await reader.cancel();
+      return { text: "", tooLarge: true };
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { text: new TextDecoder().decode(body), tooLarge: false };
+}
 
 export async function POST(req: NextRequest) {
   let body: unknown;
   try {
-    body = await req.json();
+    const requestBody = await readLimitedBody(req);
+    if (requestBody.tooLarge) {
+      const err: ScopeCraftError = {
+        error: true,
+        code: "INVALID_INPUT",
+        message: "Request body is too large.",
+      };
+      return NextResponse.json(err, { status: 413 });
+    }
+    body = JSON.parse(requestBody.text);
   } catch {
     const err: ScopeCraftError = {
       error: true,
@@ -58,6 +102,14 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof PlanningError) {
+      const err: ScopeCraftError = {
+        error: true,
+        code: "PLANNING_ERROR",
+        message: "The generated stories could not be converted into a valid sprint plan.",
+      };
+      return NextResponse.json(err, { status: 502 });
+    }
     if (error instanceof Error && error.message === "TIMEOUT") {
       const err: ScopeCraftError = {
         error: true,

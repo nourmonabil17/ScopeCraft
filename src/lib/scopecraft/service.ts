@@ -6,13 +6,20 @@
 
 import { ScopeCraftRequest, ScopeCraftResponse } from "./schema";
 import { generateWithFallback, PROMPT_VERSION } from "@/lib/ai/providers";
-import { planSprint, ScoringInput } from "./tools";
+import { planSprint, PlannedStory, ScoringInput } from "./tools";
 import { DEFAULT_TEAM_CAPACITY_PROFILE } from "./tool-rules";
 
 export interface ServiceResult {
   data: ScopeCraftResponse;
   providerUsed: "gemini" | "groq";
   promptVersion: string;
+}
+
+export class PlanningError extends Error {
+  constructor() {
+    super("PLANNING_ERROR");
+    this.name = "PlanningError";
+  }
 }
 
 export async function runScopeCraft(request: ScopeCraftRequest): Promise<ServiceResult> {
@@ -31,7 +38,12 @@ export async function runScopeCraft(request: ScopeCraftRequest): Promise<Service
   const capacityPerSprint =
     request.capacity_per_sprint ??
     DEFAULT_TEAM_CAPACITY_PROFILE.capacityPerSprint;
-  const sprint = planSprint({ stories: scoringInputs, capacityPerSprint });
+  let sprint: PlannedStory[];
+  try {
+    sprint = planSprint({ stories: scoringInputs, capacityPerSprint });
+  } catch {
+    throw new PlanningError();
+  }
   const priority = Object.fromEntries(
     sprint.map((story) => [story.story_id, story.priority_score])
   );

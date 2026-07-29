@@ -2,6 +2,10 @@
 "use client";
 
 import { useState } from "react";
+import {
+  MAX_CONSTRAINTS_LENGTH,
+  MAX_IDEA_LENGTH,
+} from "@/lib/scopecraft/schema";
 
 export interface InputFormProps {
   onSubmit: (idea: string, constraints: string, capacityPerSprint: number) => void;
@@ -26,6 +30,7 @@ export function InputForm({ onSubmit, disabled }: InputFormProps) {
         value={idea}
         onChange={(e) => setIdea(e.target.value)}
         onBlur={() => setTouched(true)}
+        maxLength={MAX_IDEA_LENGTH}
         rows={3}
         aria-invalid={!!ideaError}
         aria-describedby={ideaError ? "idea-error" : undefined}
@@ -42,6 +47,7 @@ export function InputForm({ onSubmit, disabled }: InputFormProps) {
         id="constraints"
         value={constraints}
         onChange={(e) => setConstraints(e.target.value)}
+        maxLength={MAX_CONSTRAINTS_LENGTH}
         rows={2}
         style={{ width: "100%", marginBottom: 12 }}
       />

@@ -1,7 +1,8 @@
 // src/lib/ai/providers.ts
 //
-// Session 2 deliverable (AI & Backend — Nour):
-// Provider abstraction so we can swap Gemini <-> Groq, with fallback.
+// AI & Backend provider layer (owner: Youssef):
+// AI & Backend provider abstraction (owner: Youssef).
+// Supports Gemini <-> Groq fallback.
 // Both providers are asked to return STRICT JSON matching our schema.
 
 import {
@@ -141,13 +142,13 @@ export async function generateWithFallback(
   try {
     const result = await geminiProvider.generate(prompt);
     return { result, providerUsed: "gemini" };
-  } catch (geminiErr) {
-    console.warn("Gemini failed, falling back to Groq:", geminiErr);
+  } catch {
+    console.warn("Gemini request failed; attempting Groq fallback.");
     try {
       const result = await groqProvider.generate(prompt);
       return { result, providerUsed: "groq" };
     } catch (groqErr) {
-      console.error("Both providers failed:", groqErr);
+      console.error("AI provider fallback exhausted.");
       if (hasErrorMessage(groqErr, "TIMEOUT")) {
         throw new Error("TIMEOUT");
       }

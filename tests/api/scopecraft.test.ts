@@ -1,10 +1,12 @@
 // tests/api/scopecraft.test.ts
 //
-// Session 1 deliverable (AI & Backend Engineer — Nour):
-// First test: one valid case, one invalid/failure case.
+// AI & Backend regression coverage (owner: Youssef).
 
 import {
   getClarification,
+  MAX_CONSTRAINTS_LENGTH,
+  MAX_IDEA_LENGTH,
+  MAX_REQUEST_BODY_BYTES,
   parseScopeCraftResponse,
   validateRequest,
   validateResponse,
@@ -70,6 +72,14 @@ describe("ScopeCraft request validation", () => {
     expect(result).toBeNull();
   });
 
+  it("rejects idea and constraints values above their maximum lengths", () => {
+    expect(validateRequest({ idea: "a".repeat(MAX_IDEA_LENGTH + 1) })).toBeNull();
+    expect(validateRequest({
+      idea: "A valid idea",
+      constraints: "a".repeat(MAX_CONSTRAINTS_LENGTH + 1),
+    })).toBeNull();
+  });
+
   it("does not flag concise legitimate ideas for clarification", () => {
     expect(getClarification({ idea: "Recipe manager" })).toBeNull();
     expect(getClarification({ idea: "Build a CRM" })).toBeNull();
@@ -97,6 +107,21 @@ describe("ScopeCraft response validation", () => {
       risks: [{ ...fakeResponse.risks[0], impact: "critical" }],
     };
     expect(validateResponse(invalidRisk)).toBeNull();
+  });
+
+  it("rejects structurally valid but unusably empty provider output", () => {
+    expect(validateResponse({ ...fakeResponse, goals: [] })).toBeNull();
+    expect(validateResponse({ ...fakeResponse, requirements: [] })).toBeNull();
+    expect(validateResponse({ ...fakeResponse, user_stories: [] })).toBeNull();
+    expect(validateResponse({ ...fakeResponse, acceptance_criteria: [] })).toBeNull();
+    expect(validateResponse({ ...fakeResponse, risks: [] })).toBeNull();
+    expect(validateResponse({
+      ...fakeResponse,
+      user_stories: [{
+        ...fakeResponse.user_stories[0],
+        acceptance_criteria: [],
+      }],
+    })).toBeNull();
   });
 
   it("accepts valid optional story dependencies", () => {
@@ -151,10 +176,15 @@ describe("AI provider fallback", () => {
   });
 
   it("falls back to Groq when Gemini fails", async () => {
+    const warning = jest.spyOn(console, "warn").mockImplementation();
     jest.spyOn(geminiProvider, "generate").mockRejectedValue(new Error("Gemini down"));
     jest.spyOn(groqProvider, "generate").mockResolvedValue(fakeResponse);
     const { providerUsed } = await generateWithFallback("a valid idea here");
     expect(providerUsed).toBe("groq");
+    expect(warning).toHaveBeenCalledWith(
+      "Gemini request failed; attempting Groq fallback."
+    );
+    expect(warning.mock.calls.flat()).not.toContainEqual(expect.any(Error));
   });
 
   it("falls back to Groq when Gemini returns a malformed response", async () => {
@@ -170,9 +200,14 @@ describe("AI provider fallback", () => {
   });
 
   it("throws PROVIDER_ERROR when both providers fail", async () => {
+    const warning = jest.spyOn(console, "warn").mockImplementation();
+    const errorLog = jest.spyOn(console, "error").mockImplementation();
     jest.spyOn(geminiProvider, "generate").mockRejectedValue(new Error("Gemini down"));
     jest.spyOn(groqProvider, "generate").mockRejectedValue(new Error("Groq down"));
     await expect(generateWithFallback("a valid idea here")).rejects.toThrow("PROVIDER_ERROR");
+    expect(warning.mock.calls.flat()).not.toContainEqual(expect.any(Error));
+    expect(errorLog).toHaveBeenCalledWith("AI provider fallback exhausted.");
+    expect(errorLog.mock.calls.flat()).not.toContainEqual(expect.any(Error));
   });
 });
 
@@ -321,6 +356,46 @@ describe("POST /api/scopecraft", () => {
     });
     expect(geminiSpy).not.toHaveBeenCalled();
     expect(groqSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns 413 without contacting a provider when the body is too large", async () => {
+    const geminiSpy = jest.spyOn(geminiProvider, "generate");
+    const groqSpy = jest.spyOn(groqProvider, "generate");
+    const response = await POST(createRequest(JSON.stringify({
+      idea: "a".repeat(MAX_REQUEST_BODY_BYTES),
+    })));
+    const body = await response.json();
+
+    expect(response.status).toBe(413);
+    expect(body).toEqual({
+      error: true,
+      code: "INVALID_INPUT",
+      message: "Request body is too large.",
+    });
+    expect(geminiSpy).not.toHaveBeenCalled();
+    expect(groqSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns a distinct planning error for invalid generated dependencies", async () => {
+    jest.spyOn(geminiProvider, "generate").mockResolvedValue({
+      ...fakeResponse,
+      user_stories: [{
+        ...fakeResponse.user_stories[0],
+        dependencies: ["US-404"],
+      }],
+    });
+
+    const response = await POST(
+      createRequest(JSON.stringify({ idea: "A valid product planning idea" }))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(body).toEqual({
+      error: true,
+      code: "PLANNING_ERROR",
+      message: "The generated stories could not be converted into a valid sprint plan.",
+    });
   });
 
   it("returns 502 PROVIDER_ERROR when both providers fail", async () => {

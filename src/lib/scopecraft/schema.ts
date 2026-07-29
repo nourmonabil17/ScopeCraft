@@ -11,6 +11,10 @@ export interface ScopeCraftRequest {
   capacity_per_sprint?: number; // optional positive integer; defaults to Team 10 profile
 }
 
+export const MAX_IDEA_LENGTH = 2_000;
+export const MAX_CONSTRAINTS_LENGTH = 4_000;
+export const MAX_REQUEST_BODY_BYTES = 16_384;
+
 // ---------- RESPONSE (the 11 required structured fields) ----------
 export interface UserStory {
   id: string;
@@ -58,6 +62,7 @@ export interface ScopeCraftError {
   code:
     | "INVALID_INPUT"
     | "CLARIFICATION_REQUIRED"
+    | "PLANNING_ERROR"
     | "PROVIDER_ERROR"
     | "TIMEOUT";
   message: string;
@@ -108,6 +113,10 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isNonEmptyString);
 }
 
+function isNonEmptyStringArray(value: unknown): value is string[] {
+  return isStringArray(value) && value.length > 0;
+}
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -149,7 +158,7 @@ function isUserStory(value: unknown): value is UserStory {
     isNonEmptyString(value.as_a) &&
     isNonEmptyString(value.i_want) &&
     isNonEmptyString(value.so_that) &&
-    isStringArray(value.acceptance_criteria) &&
+    isNonEmptyStringArray(value.acceptance_criteria) &&
     isFiniteNumber(value.value) &&
     Number.isInteger(value.value) &&
     value.value >= 1 &&
@@ -220,13 +229,15 @@ export function validateResponse(value: unknown): ScopeCraftResponse | null {
   const valid =
     isNonEmptyString(value.problem) &&
     isNonEmptyString(value.target_user) &&
-    isStringArray(value.goals) &&
+    isNonEmptyStringArray(value.goals) &&
     isStringArray(value.non_goals) &&
-    isStringArray(value.requirements) &&
+    isNonEmptyStringArray(value.requirements) &&
     Array.isArray(value.user_stories) &&
+    value.user_stories.length > 0 &&
     value.user_stories.every(isUserStory) &&
-    isStringArray(value.acceptance_criteria) &&
+    isNonEmptyStringArray(value.acceptance_criteria) &&
     Array.isArray(value.risks) &&
+    value.risks.length > 0 &&
     value.risks.every(isRisk) &&
     isNumberRecord(value.priority) &&
     isNumberRecord(value.effort, true) &&
@@ -249,10 +260,18 @@ export function validateRequest(body: unknown): ScopeCraftRequest | null {
   if (typeof body !== "object" || body === null) return null;
   const b = body as Record<string, unknown>;
 
-  if (typeof b.idea !== "string" || b.idea.trim().length < 5) {
+  if (
+    typeof b.idea !== "string" ||
+    b.idea.trim().length < 5 ||
+    b.idea.length > MAX_IDEA_LENGTH
+  ) {
     return null; // idea missing or too short — reject before calling any AI provider
   }
-  if (b.constraints !== undefined && typeof b.constraints !== "string") {
+  if (
+    b.constraints !== undefined &&
+    (typeof b.constraints !== "string" ||
+      b.constraints.length > MAX_CONSTRAINTS_LENGTH)
+  ) {
     return null;
   }
   if (
