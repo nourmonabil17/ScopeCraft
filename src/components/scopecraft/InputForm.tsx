@@ -2,15 +2,20 @@
 "use client";
 
 import { useState } from "react";
+import {
+  MAX_CONSTRAINTS_LENGTH,
+  MAX_IDEA_LENGTH,
+} from "@/lib/scopecraft/schema";
 
 export interface InputFormProps {
-  onSubmit: (idea: string, constraints: string) => void;
+  onSubmit: (idea: string, constraints: string, capacityPerSprint: number) => void;
   disabled?: boolean;
 }
 
 export function InputForm({ onSubmit, disabled }: InputFormProps) {
   const [idea, setIdea] = useState("");
   const [constraints, setConstraints] = useState("");
+  const [capacityPerSprint, setCapacityPerSprint] = useState(10);
   const [touched, setTouched] = useState(false);
 
   const ideaError = touched && idea.trim().length < 5
@@ -25,6 +30,7 @@ export function InputForm({ onSubmit, disabled }: InputFormProps) {
         value={idea}
         onChange={(e) => setIdea(e.target.value)}
         onBlur={() => setTouched(true)}
+        maxLength={MAX_IDEA_LENGTH}
         rows={3}
         aria-invalid={!!ideaError}
         aria-describedby={ideaError ? "idea-error" : undefined}
@@ -41,14 +47,35 @@ export function InputForm({ onSubmit, disabled }: InputFormProps) {
         id="constraints"
         value={constraints}
         onChange={(e) => setConstraints(e.target.value)}
+        maxLength={MAX_CONSTRAINTS_LENGTH}
         rows={2}
         style={{ width: "100%", marginBottom: 12 }}
+      />
+
+      <label htmlFor="capacity">Sprint capacity (story points)</label>
+      <input
+        id="capacity"
+        type="number"
+        min={1}
+        max={100}
+        step={1}
+        value={capacityPerSprint}
+        onChange={(e) => setCapacityPerSprint(Number(e.target.value))}
+        disabled={disabled}
+        style={{ display: "block", marginBottom: 12 }}
       />
 
       <button
         onClick={() => {
           setTouched(true);
-          if (idea.trim().length >= 5) onSubmit(idea, constraints);
+          if (
+            idea.trim().length >= 5 &&
+            Number.isInteger(capacityPerSprint) &&
+            capacityPerSprint >= 1 &&
+            capacityPerSprint <= 100
+          ) {
+            onSubmit(idea, constraints, capacityPerSprint);
+          }
         }}
         disabled={disabled}
       >

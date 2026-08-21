@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My ScopeCraft Completion Checklist</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #667085;
+      --paper: #ffffff;
+      --canvas: #f3f6fb;
+      --line: #dce3ee;
+      --done: #087f5b;
+      --pending: #9a6700;
+      --accent: #3457d5;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--canvas);
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(100% - 32px, 980px);
+      margin: 40px auto;
+      padding: 44px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 18px 55px rgba(23, 32, 51, 0.08);
+    }
+    header {
+      padding-bottom: 24px;
+      border-bottom: 2px solid var(--line);
+    }
+    h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.1; }
+    h2 { margin: 34px 0 12px; color: var(--accent); font-size: 1.25rem; }
+    p { margin: 8px 0; }
+    .meta, .note { color: var(--muted); }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fafcff;
+    }
+    .card strong { display: block; font-size: 1.45rem; color: var(--done); }
+    ul { margin: 0; padding: 0; list-style: none; }
+    li {
+      position: relative;
+      margin: 8px 0;
+      padding-left: 30px;
+    }
+    li::before {
+      position: absolute;
+      left: 0;
+      top: 1px;
+      width: 21px;
+      height: 21px;
+      border-radius: 5px;
+      text-align: center;
+      font-size: 14px;
+      line-height: 21px;
+      font-weight: 700;
+    }
+    li.done::before { content: "✓"; color: white; background: var(--done); }
+    li.pending::before { content: "○"; color: var(--pending); border: 2px solid var(--pending); line-height: 17px; }
+    code {
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: #eef2f8;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    footer {
+      margin-top: 38px;
+      padding-top: 20px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+    }
+    @media (max-width: 650px) {
+      main { width: 100%; margin: 0; padding: 24px 18px; border: 0; border-radius: 0; }
+    }
+    @media print {
+      body { background: white; }
+      main { width: 100%; margin: 0; padding: 0; border: 0; box-shadow: none; }
+      h2 { break-after: avoid; }
+      li { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>My ScopeCraft Completion Checklist</h1>
+      <p class="meta">Prepared by Yousef Hasabo · July 29, 2026</p>
+      <p>
+        I completed and verified the AI/backend safety, deterministic planning,
+        evaluation, UI integration, documentation, security, and CI work listed below.
+      </p>
+      <div class="summary">
+        <div class="card"><strong>44/44</strong>automated tests passing</div>
+        <div class="card"><strong>10/10</strong>evaluation cases automated</div>
+        <div class="card"><strong>0</strong>known production vulnerabilities</div>
+        <div class="card"><strong>PASS</strong>lint, types, and production build</div>
+      </div>
+    </header>
+
+    <section>
+      <h2>1. AI response safety</h2>
+      <ul>
+        <li class="done">I added runtime validation for the complete AI response and all nested structures.</li>
+        <li class="done">I reject missing fields, unknown fields, incorrect types, invalid risks, and malformed JSON.</li>
+        <li class="done">I removed the unsafe direct TypeScript cast from provider output.</li>
+        <li class="done">I made invalid Gemini output trigger the Groq fallback.</li>
+        <li class="done">I return controlled errors when neither provider produces a valid response.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>2. API behavior</h2>
+      <ul>
+        <li class="done">I tested the real <code>POST /api/scopecraft</code> route.</li>
+        <li class="done">I verified HTTP 200 success with provider and prompt-version headers.</li>
+        <li class="done">I implemented HTTP 400 for invalid input and malformed request JSON.</li>
+        <li class="done">I implemented HTTP 422 with clarification questions for gibberish-like input.</li>
+        <li class="done">I implemented HTTP 502 for controlled provider failure.</li>
+        <li class="done">I implemented HTTP 504 for final-provider timeout.</li>
+        <li class="done">I verified invalid and ambiguous inputs never contact either provider.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>3. Provider reliability and prompt protection</h2>
+      <ul>
+        <li class="done">I kept Gemini as primary and Groq as fallback.</li>
+        <li class="done">I detect missing API keys before making network requests.</li>
+        <li class="done">I added a 10-second abortable timeout to both providers.</li>
+        <li class="done">I upgraded the prompt to <code>v2</code> with explicit untrusted-input boundaries.</li>
+        <li class="done">I added instructions against prompt overrides and secret disclosure.</li>
+        <li class="done">I expose the active prompt version through <code>X-Prompt-Version</code>.</li>
+        <li class="done">I updated Gemini to <code>gemini-3.5-flash-lite</code>.</li>
+        <li class="done">I updated Groq to <code>openai/gpt-oss-120b</code>.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>4. Deterministic planning</h2>
+      <ul>
+        <li class="done">I added validated value, risk, and effort inputs to every story.</li>
+        <li class="done">I require value and risk to be integers from 1–10.</li>
+        <li class="done">I require effort to be a positive integer.</li>
+        <li class="done">I removed the hidden hardcoded risk value.</li>
+        <li class="done">I recalculate priority, effort, and sprint output in backend code.</li>
+        <li class="done">I guarantee top-level priority values match sprint priority scores.</li>
+        <li class="done">I added validated configurable sprint capacity from 1–100 with a default of 10.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>5. Dependencies and sprint safety</h2>
+      <ul>
+        <li class="done">I added optional story dependencies.</li>
+        <li class="done">I reject duplicate IDs, missing dependencies, self-dependencies, and cycles.</li>
+        <li class="done">I schedule prerequisites before dependent stories.</li>
+        <li class="done">I preserve priority ordering among currently available stories.</li>
+        <li class="done">I reject stories larger than the configured sprint capacity.</li>
+        <li class="done">I prevent negative remaining capacity.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>6. Evaluation and automated testing</h2>
+      <ul>
+        <li class="done">I converted all ten evaluation cases into executable offline checks.</li>
+        <li class="done">I covered normal, malformed, ambiguous, and prompt-injection cases.</li>
+        <li class="done">I confirmed malformed provider output is rejected.</li>
+        <li class="done">I confirmed ambiguous input returns clarification without calling AI.</li>
+        <li class="done">I confirmed deterministic scores, capacity, and dependencies remain consistent.</li>
+        <li class="done">I ran three suites with 44 of 44 tests passing.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>7. UI integration</h2>
+      <ul>
+        <li class="done">I added a sprint-capacity input to the form.</li>
+        <li class="done">I display story value, risk, effort, and dependencies.</li>
+        <li class="done">I display clarification questions returned by the API.</li>
+        <li class="done">I display the actual prompt version instead of a hardcoded value.</li>
+        <li class="done">I preserve idea, constraints, and capacity when retrying.</li>
+        <li class="done">I verified clarification and controlled provider-error flows in the real local browser.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>8. CI, linting, and build</h2>
+      <ul>
+        <li class="done">I added ESLint with Next.js Core Web Vitals and TypeScript rules.</li>
+        <li class="done">I added <code>npm run lint</code> and <code>npm run typecheck</code>.</li>
+        <li class="done">I created GitHub Actions CI for pushes and pull requests to <code>dev</code> and <code>main</code>.</li>
+        <li class="done">CI performs locked installation, linting, type-checking, tests, and production build.</li>
+        <li class="done">I completed a clean <code>npm ci</code> verification.</li>
+        <li class="done">ESLint finished with zero warnings and zero errors.</li>
+        <li class="done">TypeScript validation passed.</li>
+        <li class="done">The Next.js production build and all application routes completed successfully.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>9. Framework and dependency security</h2>
+      <ul>
+        <li class="done">I upgraded Next.js from 14.2.35 to 16.2.12.</li>
+        <li class="done">I upgraded React and React DOM from 18.3.1 to 19.2.0.</li>
+        <li class="done">I pinned patched PostCSS and Sharp transitive versions.</li>
+        <li class="done">I regenerated and verified the dependency lockfile.</li>
+        <li class="done">The production-only audit reports zero known vulnerabilities.</li>
+        <li class="done">I documented development-only advisory limitations without using an unsafe forced fix.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>10. Documentation and repository checks</h2>
+      <ul>
+        <li class="done">I updated the API contract, release checklist, session checklists, and README.</li>
+        <li class="done">I documented prompt versions, provider models, evaluation results, and security decisions.</li>
+        <li class="done">I corrected obsolete ownership and Session 1 stub comments.</li>
+        <li class="done">I verified that no real Gemini or Groq secrets are present.</li>
+        <li class="done">I verified that the Git diff contains no whitespace errors.</li>
+        <li class="done">I preserved the agreed ownership: Nour as Integration Lead and Youssef as AI/Backend Engineer.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>11. External follow-up</h2>
+      <ul>
+        <li class="pending">I still need protected real API keys to evaluate live Gemini and Groq output quality.</li>
+        <li class="pending">The team should confirm the pushed GitHub Actions run passes remotely.</li>
+        <li class="pending">The Integration Lead should enable branch protection and require CI before merging.</li>
+        <li class="pending">The team should review and merge the feature branch through a pull request.</li>
+        <li class="pending">A preview deployment, production deployment, and rollback test remain external release tasks.</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>
+        My local implementation, automated tests, linting, type-checking,
+        production build, browser verification, and production dependency audit all pass.
+      </p>
+    </footer>
+  </main>
+</body>
+</html>

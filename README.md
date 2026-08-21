@@ -16,6 +16,22 @@ npm run dev                  # http://localhost:3000
 npm test
 ```
 
+The current suite has 44 passing tests
+covering request/response
+validation, the real API route, provider fallback, timeouts, missing API keys,
+sprint capacity, deterministic scoring, and story dependencies. TypeScript can
+be checked with:
+
+```bash
+npm run typecheck
+npm run lint
+```
+
+Provider requests use a 10-second timeout. Gemini is attempted first and Groq is
+used as fallback. Configure both keys for full fallback coverage. Current model
+IDs and dependency-audit decisions are documented in
+`docs/security-review.md`.
+
 ## Project structure
 
 ```

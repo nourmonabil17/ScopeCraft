@@ -8,7 +8,9 @@ Everyone builds against this from now on — changing it requires team agreement
 - **Success (200):** full `ScopeCraftResponse` JSON (see `src/lib/scopecraft/schema.ts`)
 - **Client error (400):** `{ error: true, code: "INVALID_INPUT", message }`
 - **Provider error (502):** `{ error: true, code: "PROVIDER_ERROR", message }`
+- **Provider timeout (504):** `{ error: true, code: "TIMEOUT", message }`
 - Response includes header `X-Provider-Used: gemini|groq` so UI/QA can see which provider answered.
+- User stories may include optional `dependencies: string[]`.
 
 📌 Post this contract in the team channel — Joe builds the UI against it, Yasmin writes edge-case tests against it.
 
@@ -24,7 +26,7 @@ Everyone builds against this from now on — changing it requires team agreement
 
 ## 4. Session 2 Checkpoint
 - [ ] API contract frozen and shared with team
-- [ ] Youssef's provider + fallback code reviewed and merged
+- [x] Youssef's provider + fallback code merged locally and covered by tests
 - [ ] Joe's UI wired to real (not stub) endpoint
 - [ ] Yasmin's edge-case tests passing against the real endpoint
-- [ ] `.env.example` file added to repo (key names only, no real keys)
+- [x] `.env.example` file added to repo (key names only, no real keys)

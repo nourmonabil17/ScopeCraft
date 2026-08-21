@@ -8,6 +8,7 @@ export interface ScoringInput {
   value: number;   // business value, 1-10
   risk: number;    // risk if delayed, 1-10
   effort: number;  // estimated effort/story points, > 0
+  dependencies?: string[]; // story IDs that must be planned first
 }
 
 /**
@@ -15,6 +16,13 @@ export interface ScoringInput {
  * Higher value/risk with lower effort => higher priority.
  */
 export function priorityScore({ value, risk, effort }: ScoringInput): number {
+  if (!Number.isInteger(value) || value < 1 || value > 10) {
+    throw new Error("value must be an integer from 1 to 10");
+  }
+  if (!Number.isInteger(risk) || risk < 1 || risk > 10) {
+    throw new Error("risk must be an integer from 1 to 10");
+  }
+  if (!Number.isInteger(effort)) throw new Error("effort must be an integer");
   if (effort <= 0) throw new Error("effort must be greater than 0");
   return Number(((value + risk) / effort).toFixed(2));
 }
@@ -38,21 +46,60 @@ export interface PlannedStory {
 export function planSprint({ stories, capacityPerSprint }: SprintPlanInput): PlannedStory[] {
   if (capacityPerSprint <= 0) throw new Error("capacityPerSprint must be greater than 0");
 
-  const scored = stories
+  const storyIds = new Set(stories.map((story) => story.storyId));
+  if (storyIds.size !== stories.length) {
+    throw new Error("story IDs must be unique");
+  }
+
+  for (const story of stories) {
+    if (story.effort > capacityPerSprint) {
+      throw new Error(
+        `story ${story.storyId} effort exceeds sprint capacity`
+      );
+    }
+    for (const dependency of story.dependencies ?? []) {
+      if (!storyIds.has(dependency)) {
+        throw new Error(
+          `story ${story.storyId} has missing dependency ${dependency}`
+        );
+      }
+      if (dependency === story.storyId) {
+        throw new Error(`story ${story.storyId} cannot depend on itself`);
+      }
+    }
+  }
+
+  const pending = stories
     .map((s) => ({ ...s, score: priorityScore(s) }))
     .sort((a, b) => b.score - a.score);
 
   const plan: PlannedStory[] = [];
+  const scheduled = new Set<string>();
   let sprint = 1;
   let remaining = capacityPerSprint;
 
-  for (const s of scored) {
-    if (s.effort > remaining) {
+  while (pending.length > 0) {
+    const nextIndex = pending.findIndex((story) =>
+      (story.dependencies ?? []).every((dependency) => scheduled.has(dependency))
+    );
+
+    if (nextIndex === -1) {
+      throw new Error("story dependencies contain a cycle");
+    }
+
+    const [story] = pending.splice(nextIndex, 1);
+    if (story.effort > remaining) {
       sprint += 1;
       remaining = capacityPerSprint;
     }
-    plan.push({ story_id: s.storyId, priority_score: s.score, effort: s.effort, sprint });
-    remaining -= s.effort;
+    plan.push({
+      story_id: story.storyId,
+      priority_score: story.score,
+      effort: story.effort,
+      sprint,
+    });
+    scheduled.add(story.storyId);
+    remaining -= story.effort;
   }
 
   return plan;
