@@ -1,0 +1,69 @@
+/* ── Dark mode (default) ───────────────────────────── */
+:root {
+  --bg: #0a0f1e;
+  --bg-card: #111827;
+  --bg-card-hover: #1a2540;
+  --surface: #1e2d4a;
+  --border: #2a3a5c;
+  --border-bright: #3d5280;
+  --primary: #6366f1;
+  --primary-glow: rgba(99,102,241,0.25);
+  --primary-bright: #818cf8;
+  --cyan: #22d3ee;
+  --cyan-dim: rgba(34,211,238,0.12);
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --risk-amber: #fbbf24;
+  --risk-bg: rgba(251,191,36,0.06);
+  --risk-border: rgba(251,191,36,0.18);
+  --error: #f87171;
+  --success: #34d399;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 18px;
+  --header-bg: rgba(10,15,30,0.88);
+}
+
+/* ── Light mode ────────────────────────────────────── */
+[data-theme="light"] {
+  --bg: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --surface: #e2e8f0;
+  --border: #cbd5e1;
+  --border-bright: #94a3b8;
+  --primary: #4f46e5;
+  --primary-glow: rgba(79,70,229,0.15);
+  --primary-bright: #4f46e5;
+  --cyan: #0891b2;
+  --cyan-dim: rgba(8,145,178,0.1);
+  --text: #0f172a;
+  --text-muted: #334155;
+  --text-dim: #64748b;
+  --risk-amber: #d97706;
+  --risk-bg: rgba(217,119,6,0.06);
+  --risk-border: rgba(217,119,6,0.2);
+  --error: #dc2626;
+  --success: #059669;
+  --header-bg: rgba(241,245,249,0.92);
+}
+
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter','Segoe UI',system-ui,sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-bright); }
+::selection { background: rgba(99,102,241,0.3); color: var(--text); }
+button:focus-visible, textarea:focus-visible, input:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 2px;
+}
+a { color: inherit; text-decoration: none; }
