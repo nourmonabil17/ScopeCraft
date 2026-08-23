@@ -1,6 +1,6 @@
 # Dependency Security Review
 
-Date: 2026-07-29
+Date: 2026-08-24
 
 ## Production dependencies
 
@@ -9,20 +9,36 @@ Date: 2026-07-29
 - Pinned patched transitive releases with npm overrides:
   - `postcss` 8.5.24
   - `sharp` 0.35.3
-- `npm audit --omit=dev` result: zero known vulnerabilities.
+- Ran `npm audit fix` (2026-08-24) to resolve a high-severity advisory pulled
+  in transitively via `nanoid <3.3.18`
+  ([GHSA-2v37-7h3g-55p8](https://github.com/advisories/GHSA-2v37-7h3g-55p8) —
+  custom generators can loop indefinitely when size is zero). The fix
+  installed a patched `nanoid` release with no major-version bump and no
+  application code changes required.
+- `npm audit --omit=dev` result (post-fix): zero known vulnerabilities.
 
 ## Development dependencies
 
-The full audit still reports advisories in development-only Jest and ESLint
-dependency chains. They are not included in the production deployment bundle.
-The automated fixes proposed by npm are incompatible major-version changes, so
-no forced audit fix was applied. Revisit these when the Jest/TypeScript and
-Next.js ESLint ecosystems provide compatible upgrade paths.
+The full audit (`npm audit`, all deps) reports two further high-severity
+advisories confined to development-only ESLint tooling chains:
+`brace-expansion` (via `@typescript-eslint/typescript-estree`) and `js-yaml`
+(via `@eslint/eslintrc`). Neither ships in the production bundle — both are
+absent from `npm audit --omit=dev`. The fixes npm proposes for these are
+incompatible major-version changes to the ESLint toolchain, so no forced
+audit fix was applied. Revisit when the ESLint/TypeScript-ESLint ecosystem
+offers a compatible upgrade path.
 
 ## Provider lifecycle review
 
-- Gemini uses `gemini-3.5-flash-lite`.
-- Groq uses `openai/gpt-oss-120b`.
+Model IDs are defined once, in code, at `src/lib/ai/models.ts` — that file is
+the source of truth, not this document. As of this review:
 
-Provider model IDs should be reviewed before each release because hosted model
-availability changes independently of this repository.
+- NVIDIA NIM uses `deepseek-ai/deepseek-v4-flash-0731`.
+- Groq uses `llama-3.3-70b-versatile`.
+- Gemini uses `gemini-1.5-flash`.
+
+All three are overridable per-environment via `NVIDIA_MODEL`, `GROQ_MODEL`,
+and `GEMINI_MODEL` without a code change. Provider model IDs should be
+reviewed before each release because hosted model availability changes
+independently of this repository — check `models.ts` directly rather than
+trusting this table if the two ever disagree.
