@@ -3,25 +3,58 @@
   "sample": {
     "problem": "Teams struggle to scope an idea into an actionable backlog.",
     "target_user": "Student capstone teams",
-    "goals": ["Produce a structured PRD"],
-    "non_goals": ["Auto-committing to hard deadlines"],
-    "requirements": ["Discovery wizard", "PRD sections"],
+    "goals": [
+      "Produce a structured PRD"
+    ],
+    "non_goals": [
+      "Auto-committing to hard deadlines"
+    ],
+    "requirements": [
+      "Discovery wizard",
+      "PRD sections"
+    ],
     "user_stories": [
       {
         "id": "US-1",
         "as_a": "team member",
         "i_want": "to generate a PRD from my idea",
         "so_that": "the team has a shared starting document",
-        "acceptance_criteria": ["PRD includes problem, goals, non-goals, requirements"],
-        "value": 8,
-        "risk": 5,
-        "effort": 3
+        "acceptance_criteria": [
+          "PRD includes problem, goals, non-goals, requirements"
+        ],
+        "value": 4,
+        "risk": 2,
+        "points": 3,
+        "dependencies": []
       }
     ],
-    "acceptance_criteria": ["Every story has at least one testable acceptance criterion"],
-    "risks": [{ "id": "R-1", "description": "Team under-scopes the MVP", "impact": "medium", "likelihood": "medium" }],
-    "priority": { "US-1": 8.5 },
-    "effort": { "US-1": 3 },
-    "sprint": [{ "story_id": "US-1", "priority_score": 8.5, "effort": 3, "sprint": 1 }]
+    "acceptance_criteria": [
+      "Every story has at least one testable acceptance criterion"
+    ],
+    "risks": [
+      {
+        "id": "R-1",
+        "description": "Team under-scopes the MVP",
+        "impact": "medium",
+        "likelihood": "medium"
+      }
+    ],
+    "priority": {
+      "US-1": 2.0
+    },
+    "effort": {
+      "US-1": 3
+    },
+    "sprint": [
+      {
+        "story_id": "US-1",
+        "priority_score": 2.0,
+        "effort": 3,
+        "sprint": 1
+      }
+    ],
+    "moscow": {
+      "US-1": "should"
+    }
   }
 }
