@@ -1,8 +1,88 @@
 // src/components/common/LoadingState.tsx
-export function LoadingState({ label = "Generating your plan..." }: { label?: string }) {
+//
+// UI state 2 of 7: Loading (owner: Joe).
+//
+// Two things happen at once here, deliberately kept separate:
+//  - A skeleton shows something is happening, for sighted users scanning the
+//    page. It is purely decorative (aria-hidden) — a shimmering gray bar
+//    conveys nothing a screen reader should announce.
+//  - A step list announces real progress through `role="status"` +
+//    `aria-live="polite"`, updated on an interval. This is honest progress
+//    reporting for a chain we know the general shape of (validate → contact
+//    provider → structure → compute), not a fabricated progress percentage —
+//    the actual request either completes or fails; these steps describe what
+//    is happening, not how close to done it is.
+//
+// The interval exists only to give a screen-reader user something better than
+// silence during a multi-second wait; it does not reflect real server-side
+// checkpoints, and stops advancing after the last step rather than looping,
+// so a slow request doesn't repeat "Validating your request" forever.
+
+"use client";
+
+import { useEffect, useState } from "react";
+import styles from "./StateViews.module.css";
+
+const STEPS = [
+  "Validating your request",
+  "Contacting the AI provider",
+  "Structuring your PRD",
+  "Calculating priority, MoSCoW, and sprint capacity",
+] as const;
+
+/** How long each step is shown before advancing to the next. Tuned so a fast
+ *  response (a second or two) still shows at least the first step, and a slow
+ *  one reaches the final, most-accurate step rather than looking stuck. */
+const STEP_INTERVAL_MS = 1400;
+
+export interface LoadingStateProps {
+  label?: string;
+}
+
+export function LoadingState({ label = "Generating your plan" }: LoadingStateProps) {
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    if (stepIndex >= STEPS.length - 1) return;
+    const timer = setTimeout(() => setStepIndex((i) => i + 1), STEP_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [stepIndex]);
+
   return (
-    <div role="status" aria-live="polite" style={{ padding: 16, textAlign: "center" }}>
-      <p>{label}</p>
+    <div className={styles.loadingCard} data-testid="loading-state">
+      <p className={styles.heading}>{label}…</p>
+
+      <div className={styles.skeletonStack} aria-hidden="true">
+        <div className={styles.skeletonRow} style={{ width: "90%" }} />
+        <div className={styles.skeletonRow} style={{ width: "75%" }} />
+        <div className={styles.skeletonRow} style={{ width: "60%" }} />
+      </div>
+
+      {/* Visual step list — not a live region. A live region wrapping this
+          would re-announce the entire, ever-growing list on every step. */}
+      <ol className={styles.stepList} aria-hidden="true">
+        {STEPS.map((step, i) => (
+          <li
+            key={step}
+            className={
+              i < stepIndex
+                ? styles.stepDone
+                : i === stepIndex
+                  ? styles.stepCurrent
+                  : styles.stepPending
+            }
+          >
+            {i < stepIndex ? "✓ " : i === stepIndex ? "… " : ""}
+            {step}
+          </li>
+        ))}
+      </ol>
+
+      {/* The actual announcement: one short line per step, so a screen-reader
+          user hears each transition once instead of the cumulative list. */}
+      <p className={styles.srOnly} role="status" aria-live="polite">
+        {STEPS[stepIndex]}
+      </p>
     </div>
   );
 }

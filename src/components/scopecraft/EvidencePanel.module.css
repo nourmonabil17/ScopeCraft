@@ -1,0 +1,90 @@
+/* src/components/scopecraft/EvidencePanel.module.css (owner: Joe) */
+
+.panel {
+  border-top: 1px solid var(--sc-border);
+  padding-top: 1rem;
+  font-size: 0.8125rem;
+  color: var(--sc-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--sc-text);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+}
+
+.metaGrid dt {
+  font-weight: 600;
+  color: var(--sc-text);
+}
+
+.metaGrid dd {
+  margin: 0;
+}
+
+.boundary {
+  border: 1px solid var(--sc-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background: var(--sc-surface-raised);
+}
+
+.boundaryRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 0.375rem 0;
+}
+
+.boundaryLabel {
+  flex: 0 0 auto;
+  font-weight: 700;
+  border-radius: 0.25rem;
+  padding: 0.0625rem 0.375rem;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.labelModel {
+  color: var(--sc-could);
+  background: var(--sc-could-surface);
+}
+
+.labelDeterministic {
+  color: var(--sc-success);
+  background: var(--sc-success-surface);
+}
+
+.formula {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.8125rem;
+  background: var(--sc-surface-subtle);
+  border-radius: 0.375rem;
+  padding: 0.125rem 0.375rem;
+}
+
+.sources {
+  margin: 0;
+  padding-inline-start: 1.125rem;
+}
+
+.sources li {
+  margin: 0.25rem 0;
+}
+
+.sources a {
+  color: var(--sc-accent);
+}
