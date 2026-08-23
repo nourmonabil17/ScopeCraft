@@ -1,82 +1,233 @@
 // src/lib/scopecraft/schema.ts
 //
-// Typed request/response schema for ScopeCraft (owner: Youssef).
-// This is the CONTRACT everyone else (UI, Lead, Quality) builds against.
-// No AI call happens here; this module provides types and runtime validation.
+// Typed request/response contract for ScopeCraft (owner: Youssef) — Module 2.
+// Zod is the single source of truth: every type below is inferred from a schema,
+// so the compile-time type and the runtime check can never drift apart.
+//
+// No AI call happens here. This module provides types and validation only.
 
-// ---------- REQUEST ----------
-export interface ScopeCraftRequest {
-  idea: string;            // raw product idea from the user
-  constraints?: string;    // optional constraints (budget, timeline, team size, etc.)
-  capacity_per_sprint?: number; // optional positive integer; defaults to Team 10 profile
-}
+import { z } from "zod";
 
+// ---------- LIMITS ----------
+export const MIN_IDEA_LENGTH = 20;
 export const MAX_IDEA_LENGTH = 2_000;
-export const MAX_CONSTRAINTS_LENGTH = 4_000;
+export const MAX_CONSTRAINTS_LENGTH = 1_000;
 export const MAX_REQUEST_BODY_BYTES = 16_384;
 
-// ---------- RESPONSE (the 11 required structured fields) ----------
-export interface UserStory {
-  id: string;
-  as_a: string;
-  i_want: string;
-  so_that: string;
-  acceptance_criteria: string[];
-  dependencies?: string[];
-  value: number;
-  risk: number;
-  effort: number;
+export const MIN_TEAM_CAPACITY_POINTS = 1;
+export const MAX_TEAM_CAPACITY_POINTS = 500;
+export const DEFAULT_TEAM_CAPACITY_POINTS = 30;
+export const MIN_SPRINT_LENGTH_DAYS = 5;
+export const MAX_SPRINT_LENGTH_DAYS = 30;
+export const DEFAULT_SPRINT_LENGTH_DAYS = 14;
+
+// Story estimation scale. `points` follows a Fibonacci-style 1..13 range;
+// `value` and `risk` are 1..5. The MoSCoW bands in taxonomy.ts are calibrated
+// against exactly this scale — changing either range requires recalibrating
+// toMoscow(), because the two are a single unit.
+export const MIN_STORY_POINTS = 1;
+export const MAX_STORY_POINTS = 13;
+export const MIN_VALUE = 1;
+export const MAX_VALUE = 5;
+export const MIN_RISK = 1;
+export const MAX_RISK = 5;
+
+// ---------- REQUEST ----------
+export const ConstraintsSchema = z
+  .union([z.string().max(MAX_CONSTRAINTS_LENGTH), z.array(z.string().max(MAX_CONSTRAINTS_LENGTH))])
+  .optional();
+
+export const RequestSchema = z.object({
+  idea: z.string().trim().min(MIN_IDEA_LENGTH).max(MAX_IDEA_LENGTH),
+  constraints: ConstraintsSchema,
+  team_capacity_points: z
+    .number()
+    .int()
+    .min(MIN_TEAM_CAPACITY_POINTS)
+    .max(MAX_TEAM_CAPACITY_POINTS)
+    .default(DEFAULT_TEAM_CAPACITY_POINTS),
+  sprint_length_days: z
+    .number()
+    .int()
+    .min(MIN_SPRINT_LENGTH_DAYS)
+    .max(MAX_SPRINT_LENGTH_DAYS)
+    .default(DEFAULT_SPRINT_LENGTH_DAYS),
+});
+
+export type ScopeCraftRequest = z.infer<typeof RequestSchema>;
+
+/**
+ * The browser currently posts `capacity_per_sprint`. The canonical field is
+ * `team_capacity_points`; the legacy name is accepted so the existing UI keeps
+ * working, and should be removed once the client migrates.
+ */
+export function normalizeRequestInput(body: unknown): unknown {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return body;
+  const b = { ...(body as Record<string, unknown>) };
+  if (b.team_capacity_points === undefined && b.capacity_per_sprint !== undefined) {
+    b.team_capacity_points = b.capacity_per_sprint;
+  }
+  delete b.capacity_per_sprint;
+  return b;
 }
 
-export interface Risk {
-  id: string;
-  description: string;
-  impact: "low" | "medium" | "high";
-  likelihood: "low" | "medium" | "high";
+/** Flattens the string | string[] constraint shape for prompt construction. */
+export function constraintsToText(constraints?: string | string[]): string | undefined {
+  if (constraints === undefined) return undefined;
+  const text = Array.isArray(constraints) ? constraints.join("\n") : constraints;
+  const trimmed = text.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
-export interface SprintItem {
-  story_id: string;
-  priority_score: number; // from priority_score()
-  effort: number;         // story points / days
-  sprint: number;         // which sprint it lands in
+// ---------- RESPONSE ----------
+export const MOSCOW_BUCKETS = ["must", "should", "could", "wont"] as const;
+export const MoscowSchema = z.enum(MOSCOW_BUCKETS);
+export type MoscowBucket = z.infer<typeof MoscowSchema>;
+
+export const IMPACT_SCHEMA = z.enum(["low", "medium", "high"]);
+
+export const StorySchema = z.object({
+  id: z.string().min(1),
+  as_a: z.string().min(1),
+  i_want: z.string().min(1),
+  so_that: z.string().min(1),
+  acceptance_criteria: z.array(z.string().min(1)).min(1),
+  points: z.number().int().min(MIN_STORY_POINTS).max(MAX_STORY_POINTS),
+  value: z.number().int().min(MIN_VALUE).max(MAX_VALUE),
+  risk: z.number().int().min(MIN_RISK).max(MAX_RISK),
+  dependencies: z.array(z.string().min(1)).default([]),
+})
+  .refine((story) => !story.dependencies.includes(story.id), {
+    message: "a story cannot depend on itself",
+    path: ["dependencies"],
+  })
+  .refine(
+    (story) => new Set(story.dependencies).size === story.dependencies.length,
+    { message: "dependencies must be unique", path: ["dependencies"] }
+  );
+
+export type UserStory = z.infer<typeof StorySchema>;
+
+export const RiskSchema = z.object({
+  id: z.string().min(1),
+  description: z.string().min(1),
+  impact: IMPACT_SCHEMA,
+  likelihood: IMPACT_SCHEMA,
+});
+
+export type Risk = z.infer<typeof RiskSchema>;
+
+export const SprintItemSchema = z.object({
+  story_id: z.string().min(1),
+  priority_score: z.number().finite(),
+  effort: z.number().int().positive(),
+  sprint: z.number().int().positive(),
+});
+
+export type SprintItem = z.infer<typeof SprintItemSchema>;
+
+/**
+ * The first-sprint commitment, as named by the handbook tool contract and
+ * consumed by the interactive sprint board.
+ *
+ * `sprint` (SprintItem[]) answers "which sprint does each story land in" across
+ * the whole backlog. This answers the different question the board actually
+ * asks: "what is the team committing to *now*, and what slipped?" — so the two
+ * are complementary rather than redundant. `included` and `deferred` are in
+ * planner order (priority descending, story ID as the stable tie-break), and
+ * every story ID appears in exactly one of them.
+ */
+export const SprintPlanResultSchema = z.object({
+  capacity_points: z.number().int().positive(),
+  committed_points: z.number().int().nonnegative(),
+  included: z.array(z.string().min(1)),
+  deferred: z.array(z.string().min(1)),
+}).refine((plan) => plan.committed_points <= plan.capacity_points, {
+  message: "committed_points cannot exceed capacity_points",
+  path: ["committed_points"],
+});
+
+export type SprintPlanResult = z.infer<typeof SprintPlanResultSchema>;
+
+/**
+ * What the AI provider is asked to return: the descriptive PRD fields plus
+ * story estimates. The four deterministic fields (priority, effort, sprint,
+ * moscow) are computed by tools.ts and are NOT trusted from the model, so they
+ * are optional here and overwritten by the service layer.
+ */
+export const ProviderOutputSchema = z.object({
+  problem: z.string().min(1),
+  target_user: z.string().min(1),
+  goals: z.array(z.string().min(1)).min(1),
+  non_goals: z.array(z.string().min(1)),
+  requirements: z.array(z.string().min(1)).min(1),
+  user_stories: z.array(StorySchema).min(1),
+  acceptance_criteria: z.array(z.string().min(1)).min(1),
+  risks: z.array(RiskSchema).min(1),
+  priority: z.record(z.string(), z.number()).optional(),
+  effort: z.record(z.string(), z.number()).optional(),
+  sprint: z.array(SprintItemSchema).optional(),
+  sprint_plan: SprintPlanResultSchema.optional(),
+  moscow: z.record(z.string(), MoscowSchema).optional(),
+});
+
+export type ProviderOutput = z.infer<typeof ProviderOutputSchema>;
+
+/**
+ * The safe-refusal envelope. A model that is asked to plan something outside
+ * software product planning returns this instead of a fabricated PRD. It is a
+ * *valid* model response — not a malformed one — so the failover chain must not
+ * treat it as a provider failure and retry the next provider.
+ */
+export const OutOfDomainSchema = z.object({
+  out_of_domain: z.literal(true),
+  message: z.string().min(1),
+});
+
+export type OutOfDomain = z.infer<typeof OutOfDomainSchema>;
+
+/** Either a usable plan or an explicit refusal. Anything else is malformed. */
+export const ModelReplySchema = z.union([OutOfDomainSchema, ProviderOutputSchema]);
+export type ModelReply = z.infer<typeof ModelReplySchema>;
+
+export function isOutOfDomain(reply: ModelReply): reply is OutOfDomain {
+  return "out_of_domain" in reply && reply.out_of_domain === true;
 }
 
-export interface ScopeCraftResponse {
-  problem: string;
-  target_user: string;
-  goals: string[];
-  non_goals: string[];
-  requirements: string[];
-  user_stories: UserStory[];
-  acceptance_criteria: string[]; // top-level PRD acceptance criteria
-  risks: Risk[];
-  priority: Record<string, number>; // story_id -> priority_score
-  effort: Record<string, number>;   // story_id -> effort estimate
-  sprint: SprintItem[];
+/**
+ * Parses a model reply, accepting both the plan and the refusal shapes.
+ * Returns null on anything else so the caller can fail over.
+ */
+export function validateModelReply(value: unknown): ModelReply | null {
+  const parsed = ModelReplySchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
-// ---------- ERROR SHAPE ----------
-export interface ScopeCraftError {
-  error: true;
-  code:
-    | "INVALID_INPUT"
-    | "CLARIFICATION_REQUIRED"
-    | "PLANNING_ERROR"
-    | "PROVIDER_ERROR"
-    | "TIMEOUT";
-  message: string;
-}
+/**
+ * The API response contract: all 11 mandatory fields plus the deterministic
+ * `moscow` classification. Every field here is required — by the time a response
+ * reaches the client, the service layer has computed the deterministic ones.
+ */
+export const ScopeCraftResponseSchema = z.object({
+  problem: z.string().min(1),
+  target_user: z.string().min(1),
+  goals: z.array(z.string().min(1)).min(1),
+  non_goals: z.array(z.string().min(1)),
+  requirements: z.array(z.string().min(1)).min(1),
+  user_stories: z.array(StorySchema).min(1),
+  acceptance_criteria: z.array(z.string().min(1)).min(1),
+  risks: z.array(RiskSchema).min(1),
+  priority: z.record(z.string(), z.number()),
+  effort: z.record(z.string(), z.number().int().positive()),
+  sprint: z.array(SprintItemSchema),
+  sprint_plan: SprintPlanResultSchema,
+  moscow: z.record(z.string(), MoscowSchema),
+});
 
-export interface ClarificationResult {
-  required: true;
-  questions: string[];
-}
+export type ScopeCraftResponse = z.infer<typeof ScopeCraftResponseSchema>;
 
-// ---------- RESPONSE RUNTIME VALIDATION ----------
-// TypeScript interfaces are removed when the app runs, so provider output must
-// be checked at runtime before the rest of the application is allowed to use it.
-const RESPONSE_KEYS = [
+/** The 11 mandatory field names, asserted against the schema at compile time. */
+export const REQUIRED_RESPONSE_FIELDS = [
   "problem",
   "target_user",
   "goals",
@@ -88,166 +239,64 @@ const RESPONSE_KEYS = [
   "priority",
   "effort",
   "sprint",
+] as const satisfies readonly (keyof ScopeCraftResponse)[];
+
+// ---------- ERROR SHAPE ----------
+/**
+ * The closed set of error codes the endpoint can return. Each names one
+ * distinct failure, so a caller can branch on the code without parsing prose.
+ *
+ * Module 5 split the former catch-all `INVALID_INPUT` into `PAYLOAD_TOO_LARGE`
+ * (413) and `INVALID_JSON` (400), and gave a schema violation its own
+ * `SCHEMA_VIOLATION` code so "the model returned garbage twice" is
+ * distinguishable from "every provider was unreachable".
+ */
+export const ERROR_CODES = [
+  "PAYLOAD_TOO_LARGE",
+  "INVALID_JSON",
+  "VALIDATION_ERROR",
+  "CLARIFICATION_REQUIRED",
+  "OUT_OF_DOMAIN",
+  "PLANNING_ERROR",
+  "SCHEMA_VIOLATION",
+  "PROVIDER_ERROR",
+  "TIMEOUT",
 ] as const;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+export type ScopeCraftErrorCode = (typeof ERROR_CODES)[number];
+
+export interface ScopeCraftError {
+  error: true;
+  code: ScopeCraftErrorCode;
+  message: string;
 }
 
-function hasExactKeys(
-  value: Record<string, unknown>,
-  expectedKeys: readonly string[]
-): boolean {
-  const actualKeys = Object.keys(value);
-  return (
-    actualKeys.length === expectedKeys.length &&
-    actualKeys.every((key) => expectedKeys.includes(key))
-  );
+/**
+ * A single field-level validation failure, as returned alongside a 422
+ * VALIDATION_ERROR. Carries the field path and the rule that failed — never the
+ * value the caller submitted, so an error response cannot echo user data.
+ */
+export interface ValidationIssue {
+  path: string;
+  message: string;
 }
 
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
+export interface ClarificationResult {
+  required: true;
+  questions: string[];
 }
 
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every(isNonEmptyString);
+// ---------- VALIDATION HELPERS ----------
+/**
+ * Validates provider output. Returns null instead of throwing so the failover
+ * loop can treat a malformed response as "try the next provider".
+ */
+export function validateResponse(value: unknown): ProviderOutput | null {
+  const parsed = ProviderOutputSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
-function isNonEmptyStringArray(value: unknown): value is string[] {
-  return isStringArray(value) && value.length > 0;
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isNumberRecord(value: unknown, positiveOnly = false): value is Record<string, number> {
-  return (
-    isRecord(value) &&
-    Object.entries(value).every(
-      ([key, item]) =>
-        isNonEmptyString(key) &&
-        isFiniteNumber(item) &&
-        (!positiveOnly || item > 0)
-    )
-  );
-}
-
-function isUserStory(value: unknown): value is UserStory {
-  if (!isRecord(value)) return false;
-  const requiredKeys = [
-    "id",
-    "as_a",
-    "i_want",
-    "so_that",
-    "acceptance_criteria",
-    "value",
-    "risk",
-    "effort",
-  ];
-  const allowedKeys = [...requiredKeys, "dependencies"];
-  const actualKeys = Object.keys(value);
-  if (
-    !requiredKeys.every((key) => actualKeys.includes(key)) ||
-    actualKeys.some((key) => !allowedKeys.includes(key))
-  ) {
-    return false;
-  }
-  return (
-    isNonEmptyString(value.id) &&
-    isNonEmptyString(value.as_a) &&
-    isNonEmptyString(value.i_want) &&
-    isNonEmptyString(value.so_that) &&
-    isNonEmptyStringArray(value.acceptance_criteria) &&
-    isFiniteNumber(value.value) &&
-    Number.isInteger(value.value) &&
-    value.value >= 1 &&
-    value.value <= 10 &&
-    isFiniteNumber(value.risk) &&
-    Number.isInteger(value.risk) &&
-    value.risk >= 1 &&
-    value.risk <= 10 &&
-    isFiniteNumber(value.effort) &&
-    Number.isInteger(value.effort) &&
-    value.effort > 0 &&
-    (value.dependencies === undefined ||
-      (isStringArray(value.dependencies) &&
-        new Set(value.dependencies).size === value.dependencies.length &&
-        !value.dependencies.includes(value.id)))
-  );
-}
-
-function isRisk(value: unknown): value is Risk {
-  if (!isRecord(value)) return false;
-  if (
-    !hasExactKeys(value, [
-      "id",
-      "description",
-      "impact",
-      "likelihood",
-    ])
-  ) {
-    return false;
-  }
-  const levels = ["low", "medium", "high"];
-  return (
-    isNonEmptyString(value.id) &&
-    isNonEmptyString(value.description) &&
-    typeof value.impact === "string" &&
-    levels.includes(value.impact) &&
-    typeof value.likelihood === "string" &&
-    levels.includes(value.likelihood)
-  );
-}
-
-function isSprintItem(value: unknown): value is SprintItem {
-  if (!isRecord(value)) return false;
-  if (
-    !hasExactKeys(value, [
-      "story_id",
-      "priority_score",
-      "effort",
-      "sprint",
-    ])
-  ) {
-    return false;
-  }
-  return (
-    isNonEmptyString(value.story_id) &&
-    isFiniteNumber(value.priority_score) &&
-    isFiniteNumber(value.effort) &&
-    value.effort > 0 &&
-    isFiniteNumber(value.sprint) &&
-    Number.isInteger(value.sprint) &&
-    value.sprint > 0
-  );
-}
-
-export function validateResponse(value: unknown): ScopeCraftResponse | null {
-  if (!isRecord(value) || !hasExactKeys(value, RESPONSE_KEYS)) return null;
-
-  const valid =
-    isNonEmptyString(value.problem) &&
-    isNonEmptyString(value.target_user) &&
-    isNonEmptyStringArray(value.goals) &&
-    isStringArray(value.non_goals) &&
-    isNonEmptyStringArray(value.requirements) &&
-    Array.isArray(value.user_stories) &&
-    value.user_stories.length > 0 &&
-    value.user_stories.every(isUserStory) &&
-    isNonEmptyStringArray(value.acceptance_criteria) &&
-    Array.isArray(value.risks) &&
-    value.risks.length > 0 &&
-    value.risks.every(isRisk) &&
-    isNumberRecord(value.priority) &&
-    isNumberRecord(value.effort, true) &&
-    Array.isArray(value.sprint) &&
-    value.sprint.every(isSprintItem);
-
-  return valid ? (value as unknown as ScopeCraftResponse) : null;
-}
-
-export function parseScopeCraftResponse(value: unknown): ScopeCraftResponse {
+export function parseScopeCraftResponse(value: unknown): ProviderOutput {
   const validated = validateResponse(value);
   if (!validated) {
     throw new Error("INVALID_PROVIDER_RESPONSE");
@@ -255,42 +304,18 @@ export function parseScopeCraftResponse(value: unknown): ScopeCraftResponse {
   return validated;
 }
 
-// ---------- VALIDATION (no external libs needed for Session 1 stub) ----------
-export function validateRequest(body: unknown): ScopeCraftRequest | null {
-  if (typeof body !== "object" || body === null) return null;
-  const b = body as Record<string, unknown>;
+/** Validates the fully-assembled API response, including deterministic fields. */
+export function parseFinalResponse(value: unknown): ScopeCraftResponse {
+  return ScopeCraftResponseSchema.parse(value);
+}
 
-  if (
-    typeof b.idea !== "string" ||
-    b.idea.trim().length < 5 ||
-    b.idea.length > MAX_IDEA_LENGTH
-  ) {
-    return null; // idea missing or too short — reject before calling any AI provider
-  }
-  if (
-    b.constraints !== undefined &&
-    (typeof b.constraints !== "string" ||
-      b.constraints.length > MAX_CONSTRAINTS_LENGTH)
-  ) {
-    return null;
-  }
-  if (
-    b.capacity_per_sprint !== undefined &&
-    (typeof b.capacity_per_sprint !== "number" ||
-      !Number.isInteger(b.capacity_per_sprint) ||
-      b.capacity_per_sprint <= 0 ||
-      b.capacity_per_sprint > 100)
-  ) {
-    return null;
-  }
-  return {
-    idea: b.idea.trim(),
-    constraints: typeof b.constraints === "string" ? b.constraints.trim() : undefined,
-    capacity_per_sprint:
-      typeof b.capacity_per_sprint === "number"
-        ? b.capacity_per_sprint
-        : undefined,
-  };
+/**
+ * Request validation. Returns null on failure; Module 4 switches the route to
+ * `RequestSchema.safeParse` directly so field-level issues reach the client.
+ */
+export function validateRequest(body: unknown): ScopeCraftRequest | null {
+  const parsed = RequestSchema.safeParse(normalizeRequestInput(body));
+  return parsed.success ? parsed.data : null;
 }
 
 /**
@@ -322,13 +347,14 @@ export function getClarification(
   };
 }
 
-// ---------- SAMPLE VALID REQUEST (for docs / tests) ----------
+// ---------- SAMPLES (docs / tests) ----------
 export const SAMPLE_VALID_REQUEST: ScopeCraftRequest = {
   idea: "An app that helps student teams turn a rough idea into a sprint-ready backlog.",
   constraints: "Team of 4, 5 weeks, no budget for paid APIs.",
+  team_capacity_points: DEFAULT_TEAM_CAPACITY_POINTS,
+  sprint_length_days: DEFAULT_SPRINT_LENGTH_DAYS,
 };
 
-// ---------- SAMPLE INVALID REQUEST (for docs / tests) ----------
 export const SAMPLE_INVALID_REQUEST = {
-  idea: "hi", // too short — must fail validation
+  idea: "hi", // below MIN_IDEA_LENGTH — must fail validation
 };

@@ -26,7 +26,7 @@ export function ResultView({ data }: { data: ScopeCraftResponse }) {
             <li key={s.id}>
               As a {s.as_a}, I want {s.i_want}, so that {s.so_that}
               <div>
-                Value: {s.value}/10 · Risk: {s.risk}/10 · Effort: {s.effort}
+                Value: {s.value}/5 · Risk: {s.risk}/5 · Points: {s.points}
               </div>
               {s.dependencies && s.dependencies.length > 0 && (
                 <div>Depends on: {s.dependencies.join(", ")}</div>
