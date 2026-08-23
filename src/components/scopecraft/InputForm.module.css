@@ -1,0 +1,294 @@
+/* src/components/scopecraft/InputForm.module.css
+ *
+ * Intake wizard styling (owner: Joe).
+ *
+ * The spec called for Tailwind's `focus-visible:ring-2 focus-visible:ring-offset-2`.
+ * This project has no Tailwind and no CSS at all — every component styles itself
+ * with inline `style={{}}` — so rather than pull a build-time framework into a
+ * shared repo mid-project, the same visual contract is implemented here directly:
+ * a 2px ring with a 2px offset, drawn only on keyboard focus.
+ *
+ * Accessibility notes that are load-bearing, not decoration:
+ *  - `:focus-visible` (not `:focus`) so a mouse click does not paint a ring, but
+ *    every keyboard tab does. WCAG 2.2 SC 2.4.7 / 2.4.13.
+ *  - The ring uses `outline` + `outline-offset`, which follow the element's
+ *    border radius and are never clipped by `overflow: hidden` — a box-shadow
+ *    ring can be silently cut off, which is how focus indicators quietly vanish.
+ *  - Interactive targets are at least 44x44px. WCAG 2.2 SC 2.5.8 requires 24px;
+ *    44px is the comfortable target and costs nothing here.
+ *  - Error state is never signalled by colour alone: the field gets a thicker
+ *    border, an icon-prefixed message, and `aria-invalid`. WCAG SC 1.4.1.
+ */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 46rem;
+  margin: 0 auto;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--sc-text);
+}
+
+/* Light palette, with a dark variant driven by the OS setting. Slightly
+   blue-biased neutrals rather than pure grey, so the surface reads as chosen. */
+.form {
+  --sc-text: #1a1c22;
+  --sc-text-muted: #5a6070;
+  --sc-border: #c9cedb;
+  --sc-border-strong: #8b93a7;
+  --sc-surface: #ffffff;
+  --sc-surface-subtle: #f5f6fa;
+  --sc-accent: #2f4fd4;
+  --sc-accent-contrast: #ffffff;
+  --sc-danger: #a3231f;
+  --sc-danger-surface: #fdf2f2;
+}
+
+@media (prefers-color-scheme: dark) {
+  .form {
+    --sc-text: #e8eaf0;
+    --sc-text-muted: #a2a9bb;
+    --sc-border: #3d4351;
+    --sc-border-strong: #6b7385;
+    --sc-surface: #14161c;
+    --sc-surface-subtle: #1c1f27;
+    --sc-accent: #8ea6ff;
+    --sc-accent-contrast: #10131a;
+    --sc-danger: #ff9b95;
+    --sc-danger-surface: #2a1618;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.label {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.required {
+  color: var(--sc-danger);
+  margin-inline-start: 0.125rem;
+}
+
+.hint {
+  font-size: 0.8125rem;
+  color: var(--sc-text-muted);
+  margin: 0;
+}
+
+.control {
+  font: inherit;
+  color: inherit;
+  background: var(--sc-surface);
+  border: 1px solid var(--sc-border);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
+}
+
+.control:hover:not(:disabled) {
+  border-color: var(--sc-border-strong);
+}
+
+/* The focus ring. Equivalent of ring-2 + ring-offset-2. */
+.control:focus-visible,
+.button:focus-visible,
+.preset:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 2px;
+}
+
+.control:disabled {
+  background: var(--sc-surface-subtle);
+  color: var(--sc-text-muted);
+  cursor: not-allowed;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 6rem;
+  line-height: 1.5;
+}
+
+/* Invalid: thicker border AND a message AND aria-invalid — never colour alone. */
+.control[aria-invalid="true"] {
+  border-color: var(--sc-danger);
+  border-width: 2px;
+}
+
+.counterRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.8125rem;
+  color: var(--sc-text-muted);
+}
+
+.counter {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.counterWarn {
+  color: var(--sc-danger);
+  font-weight: 600;
+}
+
+.fieldError {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  color: var(--sc-danger);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* Submit-time summary. role="alert" + focused, so a keyboard or screen-reader
+   user is told what went wrong instead of silently getting nothing. */
+.errorBanner {
+  background: var(--sc-danger-surface);
+  border: 2px solid var(--sc-danger);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1rem;
+  color: var(--sc-danger);
+}
+
+.errorBanner:focus-visible {
+  outline: 2px solid var(--sc-danger);
+  outline-offset: 2px;
+}
+
+.errorBannerTitle {
+  margin: 0 0 0.375rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.errorBannerList {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  font-size: 0.875rem;
+}
+
+.presetGroup {
+  border: 1px solid var(--sc-border);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1rem 1rem;
+  margin: 0;
+}
+
+.presetLegend {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--sc-text-muted);
+  padding-inline: 0.375rem;
+}
+
+.presetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.preset {
+  font: inherit;
+  font-size: 0.875rem;
+  background: var(--sc-surface-subtle);
+  color: var(--sc-text);
+  border: 1px solid var(--sc-border);
+  border-radius: 999px;
+  padding: 0.5rem 0.875rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+
+.preset:hover:not(:disabled) {
+  border-color: var(--sc-accent);
+}
+
+.preset:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.numberRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* One column on narrow screens; the two number fields stop fighting for width. */
+@media (max-width: 30rem) {
+  .numberRow {
+    grid-template-columns: 1fr;
+  }
+
+  .preset {
+    flex: 1 1 100%;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.button {
+  font: inherit;
+  font-weight: 600;
+  background: var(--sc-accent);
+  color: var(--sc-accent-contrast);
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  padding: 0.6875rem 1.25rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.secondaryButton {
+  composes: button;
+  background: transparent;
+  color: var(--sc-text);
+  border-color: var(--sc-border);
+}
+
+/* Visible only to screen readers — used for status announcements that would be
+   redundant noise on screen. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .control,
+  .button,
+  .preset {
+    transition: none;
+  }
+}

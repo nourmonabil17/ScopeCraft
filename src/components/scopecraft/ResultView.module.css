@@ -1,0 +1,195 @@
+/* src/components/scopecraft/ResultView.module.css (owner: Joe) */
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 52rem;
+  margin: 0 auto;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.sectionHeading {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.sectionNumber {
+  color: var(--sc-text-muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  margin-inline-end: 0.375rem;
+}
+
+.prose {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.list {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.storyGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.storyCard {
+  border: 1px solid var(--sc-border);
+  border-radius: 0.625rem;
+  padding: 1rem;
+  background: var(--sc-surface-raised);
+  box-shadow: var(--sc-shadow);
+}
+
+.storyHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.storyId {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--sc-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.storyBadges {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badgeMust { color: var(--sc-must); background: var(--sc-must-surface); }
+.badgeShould { color: var(--sc-should); background: var(--sc-should-surface); }
+.badgeCould { color: var(--sc-could); background: var(--sc-could-surface); }
+.badgeWont { color: var(--sc-wont); background: var(--sc-wont-surface); }
+
+.storyStatement {
+  margin: 0.625rem 0;
+  line-height: 1.6;
+}
+
+.storyStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--sc-text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.625rem;
+}
+
+.storyDependencies {
+  font-size: 0.8125rem;
+  color: var(--sc-text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.acLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--sc-text-muted);
+  margin: 0 0 0.375rem;
+}
+
+.gherkinList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.gherkinItem {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.gherkinKeyword {
+  flex: 0 0 auto;
+  font-weight: 700;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: var(--sc-accent);
+}
+
+.riskTable,
+.sprintTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.riskTable th,
+.riskTable td,
+.sprintTable th,
+.sprintTable td {
+  text-align: left;
+  padding: 0.5rem 0.625rem;
+  border-bottom: 1px solid var(--sc-border);
+}
+
+.riskTable th,
+.sprintTable th {
+  font-weight: 700;
+  color: var(--sc-text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.impactChip {
+  display: inline-flex;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.impactHigh { color: var(--sc-danger); background: var(--sc-danger-surface); }
+.impactMedium { color: var(--sc-warning); background: var(--sc-warning-surface); }
+.impactLow { color: var(--sc-text-muted); background: var(--sc-surface-subtle); }
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.disclaimer {
+  font-size: 0.8125rem;
+  color: var(--sc-text-muted);
+  border-top: 1px dashed var(--sc-border);
+  padding-top: 0.75rem;
+}
