@@ -358,9 +358,9 @@ Server-only. Never prefix any of these with `NEXT_PUBLIC_`.
 | `GEMINI_API_KEY` | Fallback 2 credential | — |
 | `PRIMARY_AI_PROVIDER` | `nvidia` \| `groq` \| `gemini` | `nvidia` |
 | `AI_TIMEOUT_MS` | Per-attempt abort timeout | `15000` |
-| `NVIDIA_MODEL` | Model override | `deepseek-ai/deepseek-v4-flash-0731` |
-| `GROQ_MODEL` | Model override | `llama-3.3-70b-versatile` |
-| `GEMINI_MODEL` | Model override | `gemini-1.5-flash` |
+| `NVIDIA_MODEL` | Model override | `meta/llama-3.1-8b-instruct` |
+| `GROQ_MODEL` | Model override | `openai/gpt-oss-120b` |
+| `GEMINI_MODEL` | Model override | `gemini-3.5-flash-lite` |
 
 A provider with no credential is **skipped**, not failed, so a team configuring one key
 still gets a working endpoint. If no provider is configured the chain raises

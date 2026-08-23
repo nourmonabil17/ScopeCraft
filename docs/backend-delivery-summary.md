@@ -19,7 +19,7 @@ verified, what is *not* verified, and exactly what Joe and Yasmin need to do nex
 | Tests | `npm test` | **130 passing**, 3 suites, 0 skipped |
 | Build | `npm run build` | exit 0 — 4 routes, `/api/scopecraft` dynamic |
 | Client secret scan | `grep -rqE "AIza…\|gsk_…\|nvapi-…" .next/static` | `CLEAN` |
-| Live connectivity | `npm run smoke` | **not yet run with real keys — see §7** |
+| Live connectivity | `npm run smoke` | **run 2026-08-24 with real keys — all 3 providers green after model-ID fix, see §7** |
 
 | Suite | Tests | Covers |
 |---|---|---|
@@ -41,9 +41,9 @@ POST /api/scopecraft
    │
    ══════════ no provider module is touched above this line ══════════
    │
-   ├─ NVIDIA NIM · deepseek-ai/deepseek-v4-flash-0731   (primary)
-   │     └─ on failure ─► Groq · llama-3.3-70b-versatile (fallback 1)
-   │                        └─ on failure ─► Gemini · gemini-1.5-flash (fallback 2)
+   ├─ NVIDIA NIM · meta/llama-3.1-8b-instruct   (primary)
+   │     └─ on failure ─► Groq · openai/gpt-oss-120b (fallback 1)
+   │                        └─ on failure ─► Gemini · gemini-3.5-flash-lite (fallback 2)
    │
    ├─ ModelReplySchema ──► plan | refusal | (retry once) → 502 SCHEMA_VIOLATION
    ├─ deterministic tools ► 502 PLANNING_ERROR
@@ -207,10 +207,22 @@ the displayed scale would otherwise have been wrong.
 
 Stated plainly, because a green test suite is not the same as a working product.
 
-1. **No live provider call has ever been made from this repository.** Every automated
-   test mocks the network. A retired model ID passes all 130 tests and fails only in
-   production. `scripts/smoke-test.ts` exists to close this and **has not been run with
-   real credentials** — nobody on the team has done it yet:
+1. **RESOLVED 2026-08-24 — `npm run smoke` was run with real credentials for the first
+   time.** Every automated test still mocks the network, so this remains the only real
+   proof of live connectivity — and it caught exactly what it exists to catch: all three
+   default model IDs were dead. Groq and Gemini returned `404` (credential valid, model
+   retired); NVIDIA's `deepseek-v4-flash-0731` hung to the full timeout instead of
+   erroring (confirmed via direct `curl` against `integrate.api.nvidia.com`: the model is
+   catalog-listed but its `chat/completions` route never responds on this account, unlike
+   a cleanly-unavailable model). All three defaults in `src/lib/ai/models.ts` were
+   replaced with IDs verified live with a real `200 OK`: `meta/llama-3.1-8b-instruct`
+   (NVIDIA), `openai/gpt-oss-120b` (Groq), `gemini-3.5-flash-lite` (Gemini). Full details
+   in `docs/decision-log.md` item 5.
+
+   A second bug surfaced in the same run: `npm run smoke` reported every provider
+   `SKIPPED` even with a populated `.env.local`, because `tsx` doesn't auto-load `.env`
+   files. Fixed by changing the script to
+   `tsx --env-file-if-exists=.env.local scripts/smoke-test.ts`.
 
    ```bash
    npm run smoke
@@ -218,18 +230,25 @@ Stated plainly, because a green test suite is not the same as a working product.
 
    It prints `[PROVIDER] [MODEL_ID] [STATUS]`, never a key or a response body, costs
    about one token per provider, and exits non-zero if a configured provider fails.
-   **Known limit:** providers authenticate before resolving the model ID, so an invalid
-   key returns 401 and masks whether the model is live. Only a run with real keys is
-   evidence about model IDs.
+   **Known limit still applies:** providers authenticate before resolving the model ID,
+   so an invalid key returns 401 and masks whether the model is live — re-verify with a
+   real key if this ever needs re-checking, don't trust a green run made with a bad key.
 
-2. **No test proves a live model refuses an injection.** The suite asserts our side of
-   the boundary: the fence cannot be forged, exactly one closing delimiter survives, the
+2. **Partially closed 2026-08-24.** The suite still only asserts our side of the
+   boundary: the fence cannot be forged, exactly one closing delimiter survives, the
    rules precede user text, no credential reaches the prompt, and non-conforming output
-   is rejected then fails closed. None of that proves the model complied.
+   is rejected then fails closed — all against a mocked transport. What's new: one
+   adversarial prompt (developer-mode override + credential-exfiltration attempt) was
+   sent live through the running app to the real NVIDIA endpoint and correctly refused
+   with `422 OUT_OF_DOMAIN`, response scanned clean of any credential. That's one prompt,
+   one provider, once — not the five-case-by-three-provider coverage the mocked suite
+   has. Full detail and the honest scope of what's still not covered: decision-log item 2.
 
-3. **The refusal path depends on the model emitting the envelope.** A model that ignores
-   rule 4 and answers a medical question in valid PRD shape passes schema validation and
-   is returned. A server-side domain classifier would close this; it is not built.
+3. **The refusal path depends on the model emitting the envelope — same live evidence as
+   above applies here too**, since it's the same mechanism (`OutOfDomainSchema` /
+   `422 OUT_OF_DOMAIN`) being exercised. A model that ignores rule 4 and answers a medical
+   question in valid PRD shape would still pass schema validation and be returned — a
+   server-side domain classifier would close this and remains not built.
 
 4. **Greedy packing is not optimal packing.** `scheduleSprints` does not backfill a
    smaller later story into leftover capacity. Deliberate — predictable and explainable
@@ -278,5 +297,6 @@ Stated plainly, because a green test suite is not the same as a working product.
 > messages are unchanged and the browser client reads `message`, not `code`, so no UI
 > change is required to merge.
 >
-> **Not verified:** no live provider call has been made. Run `npm run smoke` with real
-> keys before the demo — see §7 of `docs/backend-delivery-summary.md`.
+> **Verified 2026-08-24:** `npm run smoke` was run with real keys against all three
+> providers. It caught three dead default model IDs — fixed, all three now green — see
+> §7 of `docs/backend-delivery-summary.md`.

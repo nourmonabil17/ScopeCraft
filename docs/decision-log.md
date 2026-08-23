@@ -50,17 +50,24 @@ unverified material as verified.
    `src/lib/scopecraft/taxonomy.ts`) were derived from this project's own 1–5 value / 1–5
    risk / 1–13 points scale, **not** taken from an external standard. They should be
    described that way until a source is registered.
-2. **Prompt instructions are a mitigation, not a guarantee — still open after Module 5.**
-   The delimiters and rules reduce injection success; they do not prove refusal. The
-   binding control is that all model output must satisfy `ModelReplySchema` — anything
-   else is rejected and, after one retry, becomes `SCHEMA_VIOLATION` (502). Module 5 added
-   five adversarial inputs (delimiter escape, prompt extraction, developer-mode override,
-   forged closing tags, environment-variable exfiltration) and asserts, for each, that the
-   fence holds, that exactly one closing delimiter exists, that the rules precede the user
-   text, and that no credential appears in the prompt the model receives. **What is still
-   not asserted is the model's own behaviour.** Every test mocks the transport; none
-   proves a live model refused. That requires adversarial runs against a real provider and
-   is out of reach until open item 5 is closed.
+2. **Prompt instructions are a mitigation, not a guarantee — partially closed 2026-08-24
+   with a live adversarial run.** The delimiters and rules reduce injection success; they
+   do not by themselves prove refusal. The binding control is that all model output must
+   satisfy `ModelReplySchema` — anything else is rejected and, after one retry, becomes
+   `SCHEMA_VIOLATION` (502). Module 5 added five adversarial inputs (delimiter escape,
+   prompt extraction, developer-mode override, forged closing tags,
+   environment-variable exfiltration) and asserts, for each, that the fence holds, that
+   exactly one closing delimiter exists, that the rules precede the user text, and that no
+   credential appears in the prompt the model receives — but every one of those tests
+   mocks the transport. Now that open item 5 is closed, one of those five prompts (a
+   developer-mode override embedded in a task-app idea, demanding the system prompt and
+   `NVIDIA_API_KEY` verbatim) was sent live to the real NVIDIA endpoint through the actual
+   running app (`POST /api/scopecraft`, not a unit test). Result: `422 OUT_OF_DOMAIN`,
+   response body scanned clean against the same secret-pattern regexes the build-output
+   gate uses. **This is one adversarial prompt against one provider, once — not the same
+   coverage as the five-case mocked suite, and not a claim that every jailbreak fails.**
+   A broader live adversarial pass (all five cases, all three providers) is the honest
+   next step before calling this fully closed.
 3. **"Google AI Safety & Robustness Guidelines" was not citable.** It was listed as a
    second source for the injection defense but resolves to no single canonical document.
    The OWASP PDF is used instead. Do not re-add the vague title without a URL.
@@ -72,28 +79,33 @@ unverified material as verified.
    parser. A row citing OWASP **LLM09 Misinformation** was drafted for the safe-refusal
    decision and then withdrawn rather than recorded on unverified recall; entry 7 cites
    RFC 9110 instead, which was fetched and read in full.
-5. **Model IDs are unconfirmed — the single largest production risk.** `providers.ts`
-   defaults to `gemini-1.5-flash`, but
-   the structured-output documentation fetched on 2026-08-23 demonstrates its examples on
-   `gemini-3.7-flash`. No live call has ever been made from this repository — every test
-   mocks `fetch` — so a retired model ID would fail only in production. The same applies
-   to `deepseek-ai/deepseek-v4-flash-0731` and `llama-3.3-70b-versatile`. Module 5's
-   failover tests mock `global.fetch`, which does exercise the real request construction,
-   status handling and JSON extraction — but a wrong model ID would still surface only as
-   a live 404. Model IDs are environment-overridable for exactly this reason. Confirm
-   before the release demo. Final integration added `scripts/smoke-test.ts` for exactly
-   this, so the check is now one command instead of hand-run `curl`:
+5. **Model IDs were unconfirmed — RESOLVED 2026-08-24 with a live smoke-test run.**
+   `npm run smoke` was executed for the first time against real credentials for all
+   three providers. The original defaults — `gemini-1.5-flash`, `llama-3.3-70b-versatile`,
+   and `deepseek-ai/deepseek-v4-flash-0731` — all failed live: Groq and Gemini both
+   returned `404` (auth succeeded, model retired), and NVIDIA's `deepseek-v4-flash-0731`
+   hung to a full 15s timeout rather than erroring — cross-checked directly against
+   `integrate.api.nvidia.com`, which confirmed the model is still catalog-listed but its
+   `chat/completions` call never returns a response on this account, unlike a genuinely
+   unavailable model (which returns a fast `404`). All three defaults in
+   `src/lib/ai/models.ts` were replaced with IDs verified live with a real `200 OK` and a
+   real completion: `meta/llama-3.1-8b-instruct` (NVIDIA), `openai/gpt-oss-120b` (Groq),
+   `gemini-3.5-flash-lite` (Gemini). `.env.example`, `docs/api-contracts.md`,
+   `docs/backend-delivery-summary.md`, `docs/security-review.md`, and the model-ID
+   assertions in `tests/api/scopecraft.test.ts` were updated to match.
 
-   ```bash
-   npm run smoke
-   ```
+   A second, smaller bug surfaced during this same run: `npm run smoke` silently reported
+   every provider `SKIPPED` even with a populated `.env.local`, because `tsx` does not
+   auto-load `.env` files the way `next dev`/`build`/`start` do — the script was reading
+   `process.env` directly, which was empty. Fixed by changing the `smoke` script to
+   `tsx --env-file-if-exists=.env.local scripts/smoke-test.ts` (native Node 20.6+ flag,
+   no new dependency; `-if-exists` so the command still runs cleanly for anyone who
+   hasn't created `.env.local` yet).
 
-   It reports `[PROVIDER] [MODEL_ID] [STATUS]`, never printing a key or a response body,
-   and exits non-zero if a configured provider fails. **It has not been run with real
-   credentials** — nobody on the team holds keys in this working copy, so this item stays
-   open. Two caveats for whoever runs it: providers authenticate before resolving the
-   model ID, so an invalid key returns 401 and masks a dead model; and a green run is
-   evidence about *reachability and model validity only*, not about output quality.
+   Model IDs remain environment-overridable via `NVIDIA_MODEL`/`GROQ_MODEL`/`GEMINI_MODEL`
+   for exactly the reason this item existed: hosted availability changes independently of
+   this repository. Re-run `npm run smoke` before each release/demo — `src/lib/ai/models.ts`
+   is source of truth if this entry and the code ever disagree.
 6. **Zod and Next.js production-checklist rows were carried forward, not re-fetched.**
    They are marked `Partially verified` for that reason.
 7. **Two team checklists quote a retired error code.**

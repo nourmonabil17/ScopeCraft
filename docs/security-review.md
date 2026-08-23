@@ -31,14 +31,27 @@ offers a compatible upgrade path.
 ## Provider lifecycle review
 
 Model IDs are defined once, in code, at `src/lib/ai/models.ts` — that file is
-the source of truth, not this document. As of this review:
+the source of truth, not this document, and this table is only as fresh as
+its last live verification.
 
-- NVIDIA NIM uses `deepseek-ai/deepseek-v4-flash-0731`.
-- Groq uses `llama-3.3-70b-versatile`.
-- Gemini uses `gemini-1.5-flash`.
+**Live-verified 2026-08-24** via `npm run smoke` with real credentials for
+all three providers, each confirmed with a real `200 OK`:
+
+- NVIDIA NIM uses `meta/llama-3.1-8b-instruct`.
+- Groq uses `openai/gpt-oss-120b`.
+- Gemini uses `gemini-3.5-flash-lite`.
+
+The prior defaults (`deepseek-ai/deepseek-v4-flash-0731`,
+`llama-3.3-70b-versatile`, `gemini-1.5-flash`) were all dead: Groq and Gemini
+returned `404` (retired model, valid credential), and NVIDIA's model hung to
+a full timeout instead of erroring — see `docs/decision-log.md` item 5 for
+the full diagnosis. A previous version of this document briefly claimed
+`models.ts` should be trusted over this table without anyone having actually
+run a live check — that was an error; neither source is trustworthy on its
+own without a recent `npm run smoke` run to back it up.
 
 All three are overridable per-environment via `NVIDIA_MODEL`, `GROQ_MODEL`,
 and `GEMINI_MODEL` without a code change. Provider model IDs should be
 reviewed before each release because hosted model availability changes
-independently of this repository — check `models.ts` directly rather than
-trusting this table if the two ever disagree.
+independently of this repository — run `npm run smoke` rather than trusting
+either this document or `models.ts` from memory.

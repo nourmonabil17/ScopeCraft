@@ -9,7 +9,7 @@
     "test": "jest",
     "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint . --max-warnings=0",
-    "smoke": "tsx scripts/smoke-test.ts"
+    "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke-test.ts"
   },
   "dependencies": {
     "next": "^16.2.12",

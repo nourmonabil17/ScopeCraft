@@ -2,7 +2,13 @@
 //
 // scripts/smoke-test.ts — live provider connectivity check (owner: Youssef).
 //
-//   npx tsx scripts/smoke-test.ts        # or: npm run smoke
+//   npx tsx --env-file-if-exists=.env.local scripts/smoke-test.ts   # or: npm run smoke
+//
+// `npm run smoke` passes --env-file-if-exists=.env.local so credentials in
+// that file are picked up automatically. tsx does not load .env files on its
+// own — running the bare `npx tsx scripts/smoke-test.ts` form above without
+// that flag will report every provider SKIPPED even with a real .env.local
+// present, because nothing put the values into process.env.
 //
 // WHY THIS EXISTS
 // Every automated test in this repository mocks the network. That is correct for

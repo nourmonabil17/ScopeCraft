@@ -13,9 +13,9 @@ export const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
-export const DEFAULT_NVIDIA_MODEL = "deepseek-ai/deepseek-v4-flash-0731";
-export const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
-export const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
+export const DEFAULT_NVIDIA_MODEL = "meta/llama-3.1-8b-instruct";
+export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 /**
  * Model IDs are environment-overridable because hosted availability changes

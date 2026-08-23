@@ -1564,9 +1564,9 @@ describe("provider model registry", () => {
     const models = await import("@/lib/ai/models");
     const providers = await import("@/lib/ai/providers");
 
-    expect(models.DEFAULT_NVIDIA_MODEL).toBe("deepseek-ai/deepseek-v4-flash-0731");
-    expect(models.DEFAULT_GROQ_MODEL).toBe("llama-3.3-70b-versatile");
-    expect(models.DEFAULT_GEMINI_MODEL).toBe("gemini-1.5-flash");
+    expect(models.DEFAULT_NVIDIA_MODEL).toBe("meta/llama-3.1-8b-instruct");
+    expect(models.DEFAULT_GROQ_MODEL).toBe("openai/gpt-oss-120b");
+    expect(models.DEFAULT_GEMINI_MODEL).toBe("gemini-3.5-flash-lite");
 
     // providers.ts re-exports rather than redeclaring.
     expect(providers.DEFAULT_NVIDIA_MODEL).toBe(models.DEFAULT_NVIDIA_MODEL);
@@ -1582,7 +1582,7 @@ describe("provider model registry", () => {
     expect(modelFor("groq")).toBe("llama-4-hypothetical");
 
     delete process.env.GROQ_MODEL;
-    expect(modelFor("groq")).toBe("llama-3.3-70b-versatile");
+    expect(modelFor("groq")).toBe("openai/gpt-oss-120b");
   });
 
   it("names the credential env vars without exposing any value", async () => {
