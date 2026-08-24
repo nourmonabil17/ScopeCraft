@@ -151,12 +151,19 @@ absent from tracked files. **Do not commit it.** `npm run smoke` reads it via
 
 ### Joe / Youssef Alaaeldin — Product UI & Workflow Engineer
 - [x] 7 UI states, structured rendering, evidence panel, a11y, responsive — all built
-- [ ] **Zero screenshots or recordings committed** — `find` for `*.png/mp4/gif/mov`
-      returns nothing. Required evidence.
-- [ ] Responsive-views evidence
-- [ ] Accessibility checklist as a document
-- [ ] **AI_USAGE section is a placeholder** (`_To be completed by Joe._`)
+- [x] **Screenshots — done.** 16 in `docs/evidence/ui/shots/`, all seven workflow states
+      captured live plus three widths, both themes and Arabic RTL.
+      Regenerate: `npm run capture:ui`.
+- [x] Responsive-views evidence — measured, not asserted; no horizontal overflow at
+      1280 / 768 / 390px
+- [x] Accessibility checklist — `docs/evidence/ui/accessibility-checklist.md`, WCAG 2.2 AA,
+      every row measured or test-backed, with a machine-readable `accessibility-audit.txt`
+- [ ] **AI_USAGE section is a placeholder** (`_To be completed by Joe._`) ← only gap left
 - [ ] User-journey defense prep
+
+> Seven real a11y defects were found and fixed while capturing this (skip link, sticky-header
+> clearance, 10px horizontal overflow below 768px, autocomplete, theme-color, `translate="no"`,
+> touch-action). Tests went 242 → 245.
 
 ### Yasmin Mohamed Islam — Knowledge, Tools & Quality Engineer
 - [x] Source register, corpus, taxonomy, tool rules, 10 evaluation cases, injection tests
@@ -221,6 +228,7 @@ npx tsc --noEmit
 npm run build
 npm run smoke            # live provider check — needs .env.local
 npm run capture:evidence # re-capture docs/evidence/ (needs a build first; real calls)
+npm run capture:ui       # re-capture UI screenshots + a11y audit (needs servers on 3200/3201)
 npm run dev              # localhost:3000/scopecraft
 
 # secret scan (gate 5, run after build)
