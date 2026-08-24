@@ -1,5 +1,21 @@
 # Session 4 — Integration Lead Checklist (Nour's role)
 
+> **Status note added 2026-08-24 (Yousef).** Boxes are **yours to tick** — this only supplies
+> the evidence:
+>
+> - Production build clean; `/scopecraft` still statically prerendered.
+> - Environment variables: documented in `.env.example` and `docs/release-checklist.md`.
+>   **One discrepancy found** — three consecutive production generations were served by Groq
+>   and Gemini, never NVIDIA, which is the signature of `NVIDIA_API_KEY` being unset in the
+>   hosting environment. Worth checking the dashboard before you sign this off.
+> - No secret is prefixed `NEXT_PUBLIC_`: verified, zero occurrences in `src/`, and
+>   `.next/static` scanned clean for key patterns.
+> - Production URL completes the main journey **and** the refusal path — both verified live.
+>   A **preview**-environment test has not been done; production was tested directly.
+> - Rollback plan: documented in `docs/release-checklist.md`.
+> - Known limitations: updated in `README.md`, now including the unauthenticated-endpoint and
+>   rate-limiting boundary.
+
 ## 1. Release branch & environment
 - Create a `release` branch from `dev` once Session 3 checkpoint is met
 - Configure environment variables on the hosting provider (e.g. Vercel): `GEMINI_API_KEY`, `GROQ_API_KEY`

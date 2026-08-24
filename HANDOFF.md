@@ -126,10 +126,13 @@ absent from tracked files. **Do not commit it.** `npm run smoke` reads it via
 - [ ] **PR #2 is still OPEN** (`youssef72003`) — this currently *fails* the written
       criterion *"every member has at least one identifiable contribution merged
       through review."* Highest-priority item in the project.
-- [ ] **No git tag exists** — checklist requires a "tagged release"
+- [ ] **No git tag exists** — checklist requires a "tagged release". Confirmed still true
+      on 2026-08-24 (`git tag -l` is empty)
 - [ ] Milestone Tracker: all 5 sessions "Not Started", 0%
 - [ ] Submission Checklist: all 16 rows "Not Started"
-- [ ] Production smoke tests — 17 unchecked boxes in `docs/release-checklist.md`
+- [ ] Production smoke tests — **10** unchecked boxes left in `docs/release-checklist.md`
+      (was 17; the externally verifiable ones were checked on 2026-08-24). The remaining
+      ones need dashboard access or a preview deployment
 - [ ] Decide: repoint Vercel at the team repo (§1.1)
 - [x] Architecture, branch rules, contracts, release checklist, contribution matrix
 

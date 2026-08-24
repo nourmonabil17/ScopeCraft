@@ -2,7 +2,7 @@
 
 **Name:** Yousef Mohmed Hasabo
 **Role:** AI & Backend Engineer
-**Last verified:** 2026-08-24 against commit `8846f52`
+**Last verified:** 2026-08-24 against commit `aa37291`
 
 > Every line below was re-checked against the code on the date above, not carried
 > forward from a previous session. Where an earlier version of this file claimed
@@ -215,8 +215,11 @@ providers by `scripts/capture-evidence.sh` (`npm run capture:evidence`).
 - [ ] A server-side domain classifier. The refusal currently depends on the model
       emitting the envelope; a model that ignores rule 4 and answers in valid PRD
       shape would pass validation.
-- [ ] Backend defense preparation for Session 5 — see
-      [`docs/defense-prep-backend.md`](defense-prep-backend.md).
+- [x] Backend defense preparation for Session 5 — done:
+      [`docs/defense-prep-backend.md`](defense-prep-backend.md) covers the end-to-end trace
+      with file:line anchors, each decision paired with the alternative it rejected, a
+      modify-map of likely live change requests, the failure matrix, and the limitations to
+      concede rather than argue.
 
 ## Final result
 

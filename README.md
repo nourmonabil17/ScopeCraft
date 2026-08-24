@@ -3,17 +3,23 @@
 Turn a raw product idea into a structured PRD, user stories, risks, and a capacity-bounded
 sprint plan.
 
-**Status:** pre-release, live-verified. Lint, type-check, **201/201 tests** and the
-production build all pass. All three AI providers have been confirmed live with real
-credentials (`npm run smoke`, 2026-08-24) and a real generated plan has been produced
-end-to-end through the actual API route — see
-[Live verification](#live-verification). Not yet deployed publicly; see
-[Known limitations](#known-limitations--safe-refusals) for what live verification has and
-has not covered.
+**Live public beta:** **https://scope-craft-nine.vercel.app/scopecraft**
 
-**Live public beta:** not yet deployed. Once the Vercel project is live, its URL will be
-recorded here — see `docs/release-checklist.md` for the deployment steps. Until then, run
-the app locally with the instructions below.
+**Status:** deployed and live-verified. Lint, type-check, **245/245 tests** and the
+production build all pass. All three AI providers are confirmed reachable with real
+credentials (`npm run smoke`), and the full journey has been exercised **against the
+deployed production URL** — a real idea returns a coherent 11-field PRD with a
+capacity-respecting `sprint_plan`, and an out-of-domain request is refused with
+`422 OUT_OF_DOMAIN` rather than answered. See [Live verification](#live-verification), and
+[Known limitations](#known-limitations--safe-refusals) for what that does and does not
+cover.
+
+> **Production note (2026-08-24).** Three consecutive production generations were served by
+> Groq and Gemini, never by NVIDIA — the configured primary. A provider with no credential
+> is *skipped* rather than failed, so the most likely cause is that `NVIDIA_API_KEY` is not
+> set in the hosting environment. The failover chain is doing exactly its job and users are
+> unaffected, but the deployed environment does not match `.env.example`. Tracked in
+> `docs/release-checklist.md`.
 
 ## Setup
 
@@ -93,7 +99,7 @@ npm run smoke
 ```
 
 This was run for the first time on 2026-08-24 and immediately caught a real bug: all
-three default model IDs were dead in production despite passing all 201 mocked tests.
+three default model IDs were dead in production despite passing all mocked tests.
 Full story in `docs/decision-log.md` item 5. After the fix, all three providers report
 `200 OK`, and a real product idea sent through the running app
 (`POST /api/scopecraft`) returns a coherent 11-field PRD with a valid `sprint_plan` — the
@@ -109,7 +115,7 @@ once.
 ## Test and verify
 
 ```bash
-npm test          # 201 tests, 6 suites
+npm test          # 245 tests, 8 suites
 npm run typecheck
 npm run lint
 npm run build

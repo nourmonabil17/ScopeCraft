@@ -79,6 +79,19 @@
       background: #eef2f8;
       font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
     }
+    .superseded {
+      margin: 0 0 28px;
+      padding: 18px 20px;
+      border: 2px solid #9a6700;
+      border-left-width: 6px;
+      border-radius: 12px;
+      background: #fff8e6;
+    }
+    .superseded h2 { margin: 0 0 8px; color: #7a5200; font-size: 1.1rem; }
+    .superseded p { margin: 8px 0; }
+    .superseded table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 0.92rem; }
+    .superseded th, .superseded td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e6d5a8; vertical-align: top; }
+    .superseded th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #7a5200; }
     footer {
       margin-top: 38px;
       padding-top: 20px;
@@ -98,6 +111,36 @@
 </head>
 <body>
   <main>
+    <div class="superseded">
+      <h2>Superseded snapshot — kept as a record, do not read as current</h2>
+      <p>
+        This page is a point-in-time record of the work as it stood on
+        <strong>29 July 2026</strong>. The project changed substantially afterwards, so
+        several statements below are no longer true of the code. It is preserved rather than
+        rewritten because the drift is part of the decision trail the handbook grades —
+        editing the content under a July date would falsify the record.
+      </p>
+      <p>
+        <strong>Current sources of truth:</strong>
+        <code>docs/youssef-ai-backend-checklist.md</code> (living checklist),
+        <code>docs/api-contracts.md</code> (the contract),
+        <code>docs/evidence/</code> (captured proof).
+      </p>
+      <table>
+        <thead><tr><th>This page says</th><th>Current reality</th></tr></thead>
+        <tbody>
+          <tr><td>44/44 tests passing</td><td><strong>245/245</strong>, 8 suites</td></tr>
+          <tr><td>Gemini primary, Groq fallback</td><td>Three tiers: <strong>NVIDIA → Groq → Gemini</strong></td></tr>
+          <tr><td>10-second timeout</td><td><strong>15 s</strong> default, via <code>AI_TIMEOUT_MS</code></td></tr>
+          <tr><td>Prompt version v2</td><td><strong>v5</strong></td></tr>
+          <tr><td>Value and risk are 1–10</td><td><strong>1–5</strong>; story points 1–13. The MoSCoW bands were recalibrated with them</td></tr>
+          <tr><td>Sprint capacity 1–100, default 10</td><td><strong>1–500, default 30</strong></td></tr>
+          <tr><td>HTTP 400 for invalid input</td><td>Split: <strong>400 <code>INVALID_JSON</code></strong> (syntax), <strong>422 <code>VALIDATION_ERROR</code></strong> (semantics), <strong>413 <code>PAYLOAD_TOO_LARGE</code></strong> (size)</td></tr>
+          <tr><td>Invalid Gemini output triggers Groq</td><td>Any tier's unusable output retries the <em>whole chain</em> once, then fails closed as <strong>502 <code>SCHEMA_VIOLATION</code></strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <header>
       <h1>My ScopeCraft Completion Checklist</h1>
       <p class="meta">Prepared by Yousef Hasabo · July 29, 2026</p>

@@ -1,5 +1,19 @@
 # Session 3 — Integration Lead Checklist (Nour's role)
 
+> **Status note added 2026-08-24 (Yousef).** The boxes below are **yours to tick** — they are
+> lead sign-off, and nobody else can perform your review. This note only supplies the facts
+> so the review is quick:
+>
+> - Full journey end-to-end: **verified against the production URL**, not just locally —
+>   `200`, 13 fields, 6 stories, `committed 29 <= capacity 30`. See `docs/evidence/ui/`.
+> - Not-found / ambiguous handling: `422 CLARIFICATION_REQUIRED` captured live; out-of-domain
+>   refusal captured live as `422 OUT_OF_DOMAIN` (screenshot `16-domain-refusal.png`).
+> - Injection cases: schema conformance holds; the binding control is `ModelReplySchema`, not
+>   the prompt text. Live adversarial coverage is **one case against one provider** — see
+>   decision-log item 2, which is Yasmin's to close.
+> - `dev` builds and passes: **245/245 tests**, 8 suites, lint and type-check clean.
+> - `docs/api-contracts.md` is current as of `aa37291`.
+
 ## 1. Integrate grounding & tool modules
 - Review Youssef's grounded retrieval/tool interface work (secure argument validation before tool execution)
 - Review Yasmin's taxonomy/tool-rules — confirm Youssef's `tools.ts` actually respects them (capacity, dependencies)

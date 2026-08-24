@@ -10,3 +10,10 @@ node_modules
 # the evidence folder commits with its central file missing.
 !docs/evidence/raw/*.log
 *.tsbuildinfo
+
+# macOS and local tool droppings. These have no business in a graded repo, and a
+# stray `git add -A` sweeps them in — which happened once on 2026-08-24.
+.DS_Store
+**/.DS_Store
+.claude-flow/
+**/.claude-flow/

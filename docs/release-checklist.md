@@ -8,7 +8,7 @@ drift from reality rather than leaving stale counts in place.
 ## Pre-release
 - [x] `npm run lint` passes — `eslint . --max-warnings=0`
 - [x] `npm run build` (type-check + production build) passes with no errors
-- [x] `npm test` passes locally — **201/201 tests**, 6 suites (131 backend, 70 frontend)
+- [x] `npm test` passes locally — **245/245 tests**, 8 suites (131 node, 114 UI)
 - [x] `npx tsc --noEmit` passes locally
 - [x] No secret keys committed to git history — `git grep` for the actual key patterns and
       the real key values used during local testing returns no matches on tracked files
@@ -33,32 +33,47 @@ Project → Settings → Environment Variables), **never** in code or a committe
 | `PRIMARY_AI_PROVIDER` | No — defaults to `nvidia` | Set explicitly as `"nvidia"` for clarity in the hosting dashboard |
 | `AI_TIMEOUT_MS` | No — defaults to `15000` | Per-attempt abort timeout; total worst-case latency is roughly 3× this across the failover chain |
 
-- [ ] `NVIDIA_API_KEY` set in hosting provider's environment
-- [ ] `GROQ_API_KEY` set in hosting provider's environment
-- [ ] `GEMINI_API_KEY` set in hosting provider's environment
-- [ ] `PRIMARY_AI_PROVIDER="nvidia"` set explicitly
-- [ ] `AI_TIMEOUT_MS=15000` set explicitly
-- [ ] No env variable containing a secret is prefixed `NEXT_PUBLIC_` (that prefix inlines
-      the value into the client bundle and permanently leaks it to every visitor)
-- [ ] `next.config.js` security headers (`Content-Security-Policy`, `X-Frame-Options`,
+- [ ] **`NVIDIA_API_KEY` set in hosting provider's environment — evidence says NO.**
+      Three consecutive production generations on 2026-08-24 were served by `groq` and
+      `gemini`, never `nvidia`. A provider with no credential is *skipped* rather than
+      failed, so the chain starting at Groq is the signature of a missing NVIDIA key.
+      Users are unaffected (failover works), but the deployed environment does not match
+      `.env.example`. **Verify in the Vercel dashboard and set it.**
+- [x] `GROQ_API_KEY` set in hosting provider's environment — confirmed by a production
+      generation served with `x-provider-used: groq`
+- [x] `GEMINI_API_KEY` set in hosting provider's environment — confirmed by a production
+      generation served with `x-provider-used: gemini`
+- [ ] `PRIMARY_AI_PROVIDER="nvidia"` set explicitly — cannot be confirmed from outside, and
+      the observed order is consistent with it being unset. Check the dashboard.
+- [ ] `AI_TIMEOUT_MS=15000` set explicitly — not externally observable; check the dashboard
+- [x] No env variable containing a secret is prefixed `NEXT_PUBLIC_` (that prefix inlines
+      the value into the client bundle and permanently leaks it to every visitor) — verified:
+      zero `NEXT_PUBLIC_` occurrences in `src/`, and `.next/static` scanned clean for
+      `nvapi-` / `gsk_` / `AIza` patterns
+- [x] `next.config.js` security headers (`Content-Security-Policy`, `X-Frame-Options`,
       `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) confirmed present in
-      the deployed response headers, not just the repo file:
+      the deployed response headers, not just the repo file — verified 2026-08-24:
       `curl -sSI <url> | grep -iE "content-security|x-frame|x-content-type|referrer|permissions"`
-- [ ] `X-Powered-By` absent from the deployed response (`poweredByHeader: false`)
+- [x] `X-Powered-By` absent from the deployed response (`poweredByHeader: false`) — verified
+      2026-08-24
 
 ## Deployment
 
-- [ ] Vercel project created and linked to this repository
-- [ ] Preview deployment (from a PR or `dev`) tested end-to-end: submit a real idea → see
-      a structured plan with all 11 fields and a valid `sprint_plan`
-- [ ] Preview deployment tested for the refusal path: submit an out-of-domain idea → see
-      `422 OUT_OF_DOMAIN`, not a fabricated answer
-- [ ] Production URL (promoted from `main`) tested end-to-end the same way
-- [ ] Record the live URL in `README.md` once confirmed — do not publish a placeholder as
-      if it were live
+- [x] Vercel project created and linked to this repository — **note the trap:** it deploys
+      from the fork `mr-h12/ScopeCraft`, branch `main`, **not** from the team repo. Pushing
+      to `nourmonabil17/ScopeCraft` alone never updates the live site. Ship with
+      `git push fork dev:main`. Repointing Vercel at the team repo is an open decision
+- [ ] Preview deployment (from a PR or `dev`) tested end-to-end — **not done.** Production
+      has been tested directly instead; a true preview-environment test is still outstanding
+- [ ] Preview deployment tested for the refusal path — **not done**, same reason
+- [x] Production URL tested end-to-end — verified 2026-08-24 against
+      `https://scope-craft-nine.vercel.app`: a real idea returned `200` with 13 top-level
+      fields, 6 user stories, and `committed_points 29 <= capacity_points 30`
+- [x] Production refusal path tested — an out-of-domain medical request returned
+      `422 OUT_OF_DOMAIN` with no fabricated plan
+- [x] Record the live URL in `README.md` once confirmed — done 2026-08-24. It previously
+      said "not yet deployed", which would have read to a grader as a missing submission row
 - [ ] `npm run smoke` re-run with the production environment's actual keys if they differ
-      from the ones used in local verification — a key that works locally is not proof the
-      same key is correctly set in the hosting dashboard
 
 ## Rollback procedure
 
