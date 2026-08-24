@@ -1,0 +1,6 @@
+{
+  "idea": "A web app that helps university students form study groups by matching them on course, availability and preferred study style.",
+  "constraints": "Team of four, five weeks, no paid APIs.",
+  "team_capacity_points": 30,
+  "sprint_length_days": 14
+}

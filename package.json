@@ -9,7 +9,8 @@
     "test": "jest",
     "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint . --max-warnings=0",
-    "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke-test.ts"
+    "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke-test.ts",
+    "capture:evidence": "bash scripts/capture-evidence.sh"
   },
   "dependencies": {
     "next": "^16.2.12",

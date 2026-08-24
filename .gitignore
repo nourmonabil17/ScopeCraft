@@ -5,4 +5,8 @@ node_modules
 .env.*
 !.env.example
 *.log
+# ...except captured provider evidence, which is a graded artifact. Without this
+# negation `*.log` silently swallows docs/evidence/raw/provider-fallback.log and
+# the evidence folder commits with its central file missing.
+!docs/evidence/raw/*.log
 *.tsbuildinfo
