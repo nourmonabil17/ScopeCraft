@@ -132,11 +132,12 @@ describe("Header", () => {
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 
-  it("translates the brand and reset action", () => {
+  it("translates its actions but keeps the brand name as-is", () => {
     renderWithProviders(<Header onReset={jest.fn()} />, { locale: "ar" });
 
-    expect(screen.getByText("سكوب كرافت")).toBeInTheDocument();
     expect(screen.getByTestId("header-reset")).toHaveTextContent("وثيقة جديدة");
+    // The brand is a name, not a string to localize.
+    expect(screen.getByText("ScopeCraft")).toBeInTheDocument();
   });
 });
 

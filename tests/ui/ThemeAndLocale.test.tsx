@@ -214,14 +214,30 @@ describe("translations", () => {
   });
 
   it("leaves no Arabic value empty or accidentally left in English", () => {
+    // Deliberately identical across locales — each for its own reason, so a
+    // future "untranslated string" sweep doesn't silently localize them:
+    //   app.name           the product's brand name
+    //   header.language.*  each language is named in its own language
+    //   header.theme.system  names the OS setting, which the device labels
+    //                        "System"
+    const sharedByDesign = [
+      "app.name",
+      "header.language.en",
+      "header.language.ar",
+      "header.theme.system",
+    ];
+
     for (const [key, value] of Object.entries(TRANSLATIONS.ar)) {
       expect(value.trim().length).toBeGreaterThan(0);
-      // Language/product names are legitimately shared between the two.
-      const sharedByDesign = ["header.language.en", "header.language.ar"];
       if (!sharedByDesign.includes(key)) {
         expect(value).not.toBe(TRANSLATIONS.en[key as keyof typeof TRANSLATIONS.en]);
       }
     }
+  });
+
+  it("keeps the brand name and the System label untranslated", () => {
+    expect(TRANSLATIONS.ar["app.name"]).toBe("ScopeCraft");
+    expect(TRANSLATIONS.ar["header.theme.system"]).toBe("System");
   });
 
   it("substitutes placeholders and leaves unknown ones untouched", () => {

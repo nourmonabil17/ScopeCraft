@@ -222,7 +222,10 @@ export type TranslationKey = keyof typeof en;
 
 const ar: Record<TranslationKey, string> = {
   // ---- Header / navigation ----
-  "app.name": "سكوب كرافت",
+  // The product name is a brand, not prose — it stays "ScopeCraft" in every
+  // locale. Transliterating it would give the same product two different
+  // names and break recognition against the repo, the URL, and the docs.
+  "app.name": "ScopeCraft",
   "app.tagline":
     "حوّل فكرة منتجك إلى وثيقة متطلبات منظمة وقصص مستخدمين ومخاطر وخطة سبرنت محكومة بالسعة.",
   "header.status.live": "مباشر",
@@ -232,7 +235,9 @@ const ar: Record<TranslationKey, string> = {
   "header.theme.toggle": "تبديل المظهر",
   "header.theme.light": "فاتح",
   "header.theme.dark": "داكن",
-  "header.theme.system": "النظام",
+  // Left in English deliberately: this names the OS-level setting the user
+  // would go looking for, which their device presents as "System".
+  "header.theme.system": "System",
   "header.language.toggle": "تغيير اللغة",
   "header.language.en": "English",
   "header.language.ar": "العربية",
