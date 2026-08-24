@@ -60,6 +60,11 @@
   border-radius: 0.5rem;
   padding: 0.625rem 0.75rem;
   width: 100%;
+  /* Without this the horizontal padding and border are added *outside* the
+     100% width, pushing the document 10px wider than the viewport and giving
+     the whole page a horizontal scrollbar below ~800px. Textareas default to
+     content-box, so this is not inherited from anywhere. */
+  box-sizing: border-box;
   min-height: 2.75rem;
   transition: border-color 140ms ease;
 }

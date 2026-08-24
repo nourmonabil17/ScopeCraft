@@ -150,7 +150,7 @@ export default function ScopeCraftPage() {
         }
       />
 
-      <main className={styles.main}>
+      <main id="main-content" className={styles.main} tabIndex={-1}>
         <div>
           <h1 className={styles.title}>{t("app.name")}</h1>
           <p className={styles.subtitle}>{t("app.tagline")}</p>

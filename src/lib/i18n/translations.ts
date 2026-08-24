@@ -27,6 +27,7 @@ const en = {
   "app.name": "ScopeCraft",
   "app.tagline":
     "Turn a product idea into a structured PRD, user stories, risks, and a capacity-bounded sprint plan.",
+  "header.skipToContent": "Skip to main content",
   "header.status.live": "Live",
   "header.status.description": "Deployed and running",
   "header.reset": "New PRD",
@@ -228,6 +229,7 @@ const ar: Record<TranslationKey, string> = {
   "app.name": "ScopeCraft",
   "app.tagline":
     "حوّل فكرة منتجك إلى وثيقة متطلبات منظمة وقصص مستخدمين ومخاطر وخطة سبرنت محكومة بالسعة.",
+  "header.skipToContent": "تخطَّ إلى المحتوى الرئيسي",
   "header.status.live": "مباشر",
   "header.status.description": "منشور وقيد التشغيل",
   "header.reset": "وثيقة جديدة",

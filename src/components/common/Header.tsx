@@ -26,13 +26,23 @@ export function Header({ onReset }: HeaderProps) {
 
   return (
     <header className={styles.header} data-testid="app-header">
+      {/* First focusable thing on the page. The header is sticky and the form
+          sits below several toggles, so a keyboard user would otherwise tab
+          through the whole chrome on every visit. */}
+      <a className="sc-skip-link" href="#main-content">
+        {t("header.skipToContent")}
+      </a>
       <div className={styles.inner}>
         <div className={styles.brand}>
           <span className={styles.mark} aria-hidden="true">
             SC
           </span>
           <span className={styles.brandText}>
-            <span className={styles.brandName}>{t("app.name")}</span>
+            {/* translate="no": "ScopeCraft" is a product name, not a phrase.
+                Machine translation renders it as "craft of scope" in Arabic. */}
+            <span className={styles.brandName} translate="no">
+              {t("app.name")}
+            </span>
             <span className={styles.status} title={t("header.status.description")}>
               <span className={styles.statusDot} aria-hidden="true" />
               {t("header.status.live")}

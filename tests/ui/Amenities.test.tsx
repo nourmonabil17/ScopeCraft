@@ -139,6 +139,35 @@ describe("Header", () => {
     // The brand is a name, not a string to localize.
     expect(screen.getByText("ScopeCraft")).toBeInTheDocument();
   });
+
+  // The header is sticky and precedes the form with several toggles in between,
+  // so without this a keyboard user tabs the entire chrome on every visit.
+  it("offers a skip link as the first focusable element, pointing at main", () => {
+    renderWithProviders(<Header onReset={jest.fn()} />);
+
+    const skip = screen.getByRole("link", { name: /skip to main content/i });
+    expect(skip).toHaveAttribute("href", "#main-content");
+
+    // "First focusable" is the property that makes it useful; a skip link that
+    // arrives after the toggles has skipped nothing.
+    const focusable = screen.getByRole("banner").querySelectorAll("a, button");
+    expect(focusable[0]).toBe(skip);
+  });
+
+  it("localizes the skip link", () => {
+    renderWithProviders(<Header />, { locale: "ar" });
+
+    expect(
+      screen.getByRole("link", { name: "تخطَّ إلى المحتوى الرئيسي" })
+    ).toBeInTheDocument();
+  });
+
+  // Machine translation renders "ScopeCraft" as "craft of scope" in Arabic.
+  it("marks the brand name as non-translatable", () => {
+    renderWithProviders(<Header />);
+
+    expect(screen.getByText("ScopeCraft")).toHaveAttribute("translate", "no");
+  });
 });
 
 // ---------------------------------------------------------------------------

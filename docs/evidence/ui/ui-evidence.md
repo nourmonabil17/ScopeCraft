@@ -1,0 +1,144 @@
+# UI, Responsive & Workflow Evidence
+
+**Row:** Product UI & Workflow Engineer (Joe). **Captured by:** Yousef, who authored the
+frontend in [PR #3](https://github.com/nourmonabil17/ScopeCraft/pull/3).
+**Captured:** 2026-08-24, at commit `4896897`, from a **production build** (`next start`)
+talking to live providers.
+
+Until this capture the repository contained **zero** screenshots or recordings — a
+repo-wide search for `*.png`, `*.gif`, `*.mp4`, `*.mov` returned nothing, while the
+acceptance row requires "screen recording or screenshots", "responsive views" and
+"loading/error demonstrations".
+
+## How to reproduce
+
+```bash
+npm run build
+npx next start -p 3200 &
+NVIDIA_API_KEY=INVALID_KEY_FOR_EVIDENCE_CAPTURE \
+  GROQ_API_KEY=INVALID_KEY_FOR_EVIDENCE_CAPTURE \
+  GEMINI_API_KEY=INVALID_KEY_FOR_EVIDENCE_CAPTURE npx next start -p 3201 &
+npm run capture:ui
+```
+
+[`scripts/capture-ui-evidence.mjs`](../../../scripts/capture-ui-evidence.mjs) drives headless
+Chrome over the DevTools Protocol using Node 22's built-in `WebSocket` — **no Playwright, no
+Puppeteer, no new dependency**. It fills the real form and submits it, so the loading,
+success and error shots are of real application states, not components rendered in isolation
+with fake props. The second server exists only so the provider-failure state can be captured
+against genuinely dead credentials.
+
+## The seven workflow states — all captured live
+
+The acceptance criterion asks that "idle, loading, success, empty, validation-error,
+provider-error, and retry states are visible and correct". Each is a real screen here, and
+each also has a unit test in [`tests/ui/StateTransitions.test.tsx`](../../../tests/ui/StateTransitions.test.tsx).
+
+| # | State | Screenshot | What it shows |
+|---|---|---|---|
+| 1 | Idle | [`01-idle-desktop-light`](shots/01-idle-desktop-light.png) | Three starter presets, labelled fields, character counters |
+| 2 | Loading | [`09-loading`](shots/09-loading.png) | Progress steps announced politely; form disabled and `aria-busy` |
+| 3 | Success | [`10-success-desktop`](shots/10-success-desktop.png) | Tabbed PRD — Overview / Sprint Backlog / Traceability |
+| 4 | Empty | [`15-empty-cleared`](shots/15-empty-cleared.png) | "Results cleared" placeholder — **the typed idea survives the clear** |
+| 5 | Validation error | [`07-validation-error`](shots/07-validation-error.png) | Summary banner takes focus, plus per-field inline errors |
+| 6 | Domain refusal | [`16-domain-refusal`](shots/16-domain-refusal.png) | A medical request is refused, not answered |
+| 7 | Provider error + retry | [`14-provider-error`](shots/14-provider-error.png) | Safe message and a **Retry generation** action |
+
+State 6 is the one worth pausing on. The idea submitted was *"Diagnose my chest pain and
+prescribe a treatment plan for me this week."* The product answered:
+
+> **Outside ScopeCraft's scope** — ScopeCraft only plans software products.
+> Try describing a software product, tool, or app instead — what it does and who it's for.
+
+No fabricated medical plan, no invented sources, and a route back into the workflow. That is
+the safe-refusal behaviour the handbook asks for, demonstrated end to end rather than mocked.
+
+State 7 is equally load-bearing for the backend row: the message names no provider, no model
+and no endpoint, and the user's input is preserved so retrying costs them nothing.
+
+## Responsive views
+
+The same idle screen at three widths, plus the result at mobile width.
+
+| Width | Screenshot |
+|---|---|
+| 1280×900 desktop | [`01-idle-desktop-light`](shots/01-idle-desktop-light.png) |
+| 768×1024 tablet | [`02-idle-tablet`](shots/02-idle-tablet.png) |
+| 390×844 mobile (touch emulation) | [`03-idle-mobile`](shots/03-idle-mobile.png) |
+| 390×844 mobile, result view | [`13-success-mobile`](shots/13-success-mobile.png) |
+
+Horizontal overflow is **measured, not asserted** — the script compares
+`documentElement.scrollWidth` against the viewport at each width and fails the run on a
+mismatch:
+
+```
+  desktop  1280px : scrollWidth 1280 vs viewport 1280 — no horizontal scroll
+  tablet    768px : scrollWidth  768 vs viewport  768 — no horizontal scroll
+  mobile    390px : scrollWidth  390 vs viewport  390 — no horizontal scroll
+```
+
+**That check found a real bug on its first run.** At both tablet and mobile the document was
+exactly 10px wider than the viewport, giving the whole page a horizontal scrollbar. Cause:
+`.control` in `InputForm.module.css` set `width: 100%` alongside horizontal padding and a
+border, and textareas default to `box-sizing: content-box`, so the padding was added *outside*
+the 100%. Fixed by setting `box-sizing: border-box` on that one rule; the numbers above are
+the re-measured result.
+
+## Theme and direction
+
+| | Screenshot |
+|---|---|
+| Dark theme (explicit choice, not just OS) | [`04-idle-desktop-dark`](shots/04-idle-desktop-dark.png) |
+| Arabic, `dir="rtl"` | [`05-arabic-rtl`](shots/05-arabic-rtl.png) |
+
+Both are asserted by the capture: the script reads back `document.documentElement.dir` and
+records `rtl`. Themes are driven by a `.dark` class rather than `prefers-color-scheme` alone,
+so "I want light while my OS is dark" is expressible — and the theme is applied by a blocking
+inline script before first paint, so there is no flash of the wrong theme.
+
+## Structured output, and telling tool results from model prose
+
+The result is a real ARIA tablist, not prose parsed out of a blob:
+
+- [`11-sprint-board`](shots/11-sprint-board.png) — **Sprint Backlog.** Capacity meter reads
+  **23 / 30 points · 77%** in the committed capture (the value is recorded into
+  [`accessibility-audit.txt`](accessibility-audit.txt) by the script, so it cannot drift out
+  of sync with the screenshot). Each story carries an editable Points field and a Defer
+  button; the capacity math recomputes client-side and **never re-invokes the AI**. This is
+  the "editable by humans" half of the shared criterion.
+- [`12-evidence-panel`](shots/12-evidence-panel.png) — **Traceability & Evidence.** Provider
+  and prompt version are surfaced here, kept visually distinct from the model's prose, which
+  is the "evidence/source information … clearly distinguishable from model explanation"
+  criterion.
+
+Every value the board displays — score, MoSCoW bucket, sprint assignment — is computed
+server-side and recomputed client-side by the same pure functions. The model never decides
+them.
+
+## Known gap found during this capture
+
+**`PLANNING_ERROR` is intermittent, and it is a real defect, not a capture artefact.**
+Across the capture session, **4 of 9** generations of the same study-group idea returned
+`502 PLANNING_ERROR` instead of a plan. The deterministic planner is correctly rejecting the
+model's estimates — most often a story that depends on a story the model never emitted — so
+no invalid plan is ever shown. But from a first-time user's seat it reads as "the product
+failed", and the demo could hit it.
+
+The capture script therefore retries up to four times and **records how many attempts the
+committed screenshots took** (see the header of
+[`accessibility-audit.txt`](accessibility-audit.txt)) rather than silently presenting a
+first-try success.
+
+This is worth raising at the defense rather than hiding: the *safety* property holds
+perfectly — a plan that would violate dependencies or capacity is never rendered. The
+*reliability* property does not. The likely fix is a repair pass that drops dangling
+dependencies before planning, instead of failing the whole request.
+
+## What is **not** evidenced here
+
+- **No screen recording**, only stills. The seven states are each captured, but the
+  transitions between them are not.
+- **No real screen-reader run.** The audit measures the DOM contract that assistive tech
+  reads; it is not a substitute for driving VoiceOver or NVDA by hand.
+- **No automated `axe` scan** — the project has no such dependency. The audit in
+  [`accessibility-checklist.md`](accessibility-checklist.md) is hand-written and measured.

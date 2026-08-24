@@ -25,6 +25,19 @@ npm run capture:evidence
 | [`raw/200-response-gemini.json`](raw/200-response-gemini.json) | Full `200` body served by Gemini after two failover hops |
 | [`raw/request-valid.json`](raw/request-valid.json) | The request payload used throughout, so the commands run verbatim |
 
+## UI evidence (Product UI & Workflow row)
+
+Captured by [`scripts/capture-ui-evidence.mjs`](../../scripts/capture-ui-evidence.mjs)
+(`npm run capture:ui`), which drives headless Chrome over the DevTools Protocol — no new
+dependency — and fills the real form so every state shot is a real state.
+
+| File | What it is |
+|---|---|
+| [`ui/ui-evidence.md`](ui/ui-evidence.md) | All seven workflow states, responsive views, theme and RTL, plus the `PLANNING_ERROR` reliability finding |
+| [`ui/accessibility-checklist.md`](ui/accessibility-checklist.md) | WCAG 2.2 AA checklist, each row measured or test-backed |
+| [`ui/accessibility-audit.txt`](ui/accessibility-audit.txt) | Raw measured output — contrast table, control names, landmarks, overflow |
+| [`ui/shots/`](ui/shots) | 16 screenshots at 1280 / 768 / 390px, light and dark, English and Arabic RTL |
+
 ## Acceptance criteria → evidence
 
 | Criterion | Where it is evidenced |

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint . --max-warnings=0",
     "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke-test.ts",
-    "capture:evidence": "bash scripts/capture-evidence.sh"
+    "capture:evidence": "bash scripts/capture-evidence.sh",
+    "capture:ui": "node scripts/capture-ui-evidence.mjs"
   },
   "dependencies": {
     "next": "^16.2.12",

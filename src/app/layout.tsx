@@ -16,7 +16,7 @@
 // declared in CSS, so native controls (scrollbars, date pickers, form fields)
 // follow the *chosen* theme instead of the OS one.
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Providers } from "./providers";
 import { THEME_INIT_SCRIPT } from "@/context/ThemeContext";
 import { LANGUAGE_INIT_SCRIPT } from "@/context/LanguageContext";
@@ -24,6 +24,19 @@ import { LANGUAGE_INIT_SCRIPT } from "@/context/LanguageContext";
 export const metadata: Metadata = {
   title: "ScopeCraft",
   description: "Turn an idea into a structured product plan.",
+};
+
+/**
+ * Matches --bg in each theme, so the mobile browser chrome does not sit at a
+ * different colour from the page it frames. Lives on the `viewport` export
+ * rather than `metadata` — Next moved themeColor there, and leaving it on
+ * metadata is a build warning, not an error, so it would ship silently wrong.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f1116" },
+  ],
 };
 
 const rootStyle = `
@@ -93,6 +106,42 @@ const rootStyle = `
     --sc-could-surface: #172538;
     --sc-wont: #a2a9bb;
     --sc-wont-surface: #23262f;
+  }
+
+  /* Skip link: off-screen until focused, then pinned above everything. The
+     header is sticky, so a link that merely became visible could still be
+     covered by it — hence the explicit z-index. */
+  .sc-skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    z-index: 1000;
+    padding: 0.6rem 1rem;
+    background: var(--sc-accent);
+    color: var(--sc-accent-contrast);
+    border-radius: 0 0 6px 0;
+    font: inherit;
+    text-decoration: none;
+  }
+  .sc-skip-link:focus {
+    left: 0;
+  }
+
+  /* The header is sticky, so any in-page anchor target — the skip link's
+     destination above all — would otherwise land underneath it. Reserving more
+     than the header's height means "skip to content" actually lands on content. */
+  #main-content,
+  [id][class*="title"],
+  h1[id], h2[id], h3[id] {
+    scroll-margin-top: 5rem;
+  }
+
+  /* Pointer ergonomics: removes the 300ms double-tap delay on touch and stops
+     the grey flash on tap, which reads as a rendering glitch rather than
+     feedback. Focus and hover styling carry the feedback instead. */
+  button, a, [role="button"], input, select, textarea, summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {

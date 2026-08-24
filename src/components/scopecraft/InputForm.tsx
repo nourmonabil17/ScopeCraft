@@ -350,6 +350,7 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
         <textarea
           id={id("idea")}
           name="idea"
+          autoComplete="off"
           className={`${styles.control} ${styles.textarea}`}
           value={values.idea}
           onChange={(event) => update("idea", event.target.value)}
@@ -400,6 +401,7 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
         <textarea
           id={id("constraints")}
           name="constraints"
+          autoComplete="off"
           className={`${styles.control} ${styles.textarea}`}
           value={values.constraints}
           onChange={(event) => update("constraints", event.target.value)}
@@ -448,6 +450,7 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
             <input
               id={id("team_capacity_points")}
               name="team_capacity_points"
+              autoComplete="off"
               className={`${styles.control} ${styles.capacityNumber}`}
               type="number"
               inputMode="numeric"
@@ -503,6 +506,7 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
           <input
             id={id("sprint_length_days")}
             name="sprint_length_days"
+            autoComplete="off"
             className={styles.control}
             type="number"
             inputMode="numeric"
