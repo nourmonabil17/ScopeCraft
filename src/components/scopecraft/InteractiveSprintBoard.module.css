@@ -22,9 +22,25 @@
   margin-bottom: 0.5rem;
 }
 
+.meterNumbersGroup {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
 .meterNumbers {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
+}
+
+.meterPercent {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--sc-accent);
+  background: var(--sc-accent-subtle);
+  border-radius: 999px;
+  padding: 0.0625rem 0.4375rem;
 }
 
 .meterTrack {
@@ -237,4 +253,20 @@
   font-size: 0.75rem;
   color: var(--sc-warning);
   margin: 0;
+}
+
+/* The capacity announcement's live region. This class was referenced by the
+   component but never defined here, so `styles.srOnly` resolved to undefined
+   and the announcement rendered as visible body text under the meter —
+   duplicating the caption on screen for every capacity change. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }

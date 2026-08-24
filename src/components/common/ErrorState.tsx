@@ -8,7 +8,13 @@
 // try again" shape even though it is a 422. `onRetry` re-fires the exact same
 // request the page already built, so the form state the user typed is never
 // lost or asked for twice.
+//
+// `message` and `questions` come from the server verbatim (English); only the
+// retry action is localized. See DomainRefusalState for the reasoning.
 
+"use client";
+
+import { useLanguage } from "@/context/LanguageContext";
 import styles from "./StateViews.module.css";
 
 export interface ErrorStateProps {
@@ -18,6 +24,8 @@ export interface ErrorStateProps {
 }
 
 export function ErrorState({ message, questions, onRetry }: ErrorStateProps) {
+  const { t } = useLanguage();
+
   return (
     <div className={styles.errorCard} role="alert" data-testid="error-state">
       <p className={styles.heading}>{message}</p>
@@ -31,7 +39,7 @@ export function ErrorState({ message, questions, onRetry }: ErrorStateProps) {
       {onRetry && (
         <div className={styles.actions}>
           <button type="button" className={styles.retryButton} onClick={onRetry}>
-            Retry generation
+            {t("state.error.retry")}
           </button>
         </div>
       )}

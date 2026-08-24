@@ -5,8 +5,9 @@
 // InteractiveSprintBoard component itself — toggling, editing, capacity math,
 // and keyboard operability (owner: Joe).
 
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithProviders } from "./render-helpers";
 import {
   recalcCapacity,
   recalcScore,
@@ -170,7 +171,7 @@ function setup(
   sprintPlan: SprintPlanResult = SPRINT_PLAN
 ) {
   const user = userEvent.setup();
-  render(
+  renderWithProviders(
     <InteractiveSprintBoard
       stories={STORIES}
       priority={PRIORITY}

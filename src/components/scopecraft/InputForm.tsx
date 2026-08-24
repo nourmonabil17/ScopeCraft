@@ -1,6 +1,6 @@
 // src/components/scopecraft/InputForm.tsx
 //
-// Intake Discovery Wizard (owner: Joe) — Module 1.
+// Intake Discovery Wizard (owner: Joe) — Module 1, internationalized.
 //
 // Mirrors RequestSchema from @/lib/scopecraft/schema. Every bound and default
 // below is imported from that module rather than retyped, so the form and the
@@ -22,6 +22,10 @@
 //  - Errors appear on blur or on submit, never on first keystroke — validating
 //    an idea as "too short" while someone is still typing the first word is
 //    technically correct and practically obnoxious.
+//  - The capacity slider and number input are ONE control, not two: the slider
+//    is `aria-hidden` and the number input keeps the label. Exposing both to
+//    assistive tech would announce the same setting twice with no indication
+//    they are linked.
 
 "use client";
 
@@ -35,6 +39,8 @@ import {
   MIN_SPRINT_LENGTH_DAYS,
   MIN_TEAM_CAPACITY_POINTS,
 } from "@/lib/scopecraft/schema";
+import { useLanguage } from "@/context/LanguageContext";
+import { translate, type TranslationKey } from "@/lib/i18n/translations";
 import {
   STARTER_PRESETS,
   emptyFormValues,
@@ -55,64 +61,131 @@ export interface InputFormProps {
 
 type FieldName = keyof IntakeFormValues;
 
-const FIELD_LABELS: Record<FieldName, string> = {
-  idea: "Product idea",
-  constraints: "Constraints",
-  team_capacity_points: "Team capacity",
-  sprint_length_days: "Sprint length",
+const FIELD_LABEL_KEY: Record<FieldName, TranslationKey> = {
+  idea: "form.idea.label",
+  constraints: "form.constraints.label",
+  team_capacity_points: "form.capacity.label",
+  sprint_length_days: "form.sprintLength.label",
 };
+
+/** Preset copy lives in the dictionary, keyed off the preset's stable id. */
+const PRESET_LABEL_KEY: Record<string, TranslationKey> = {
+  capstone: "preset.capstone.label",
+  "developer-tool": "preset.developerTool.label",
+  "mobile-mvp": "preset.mobileMvp.label",
+};
+
+const PRESET_DESCRIPTION_KEY: Record<string, TranslationKey> = {
+  capstone: "preset.capstone.description",
+  "developer-tool": "preset.developerTool.description",
+  "mobile-mvp": "preset.mobileMvp.description",
+};
+
+/** Minimal translator shape, so validateIntake can be called without React. */
+type MessageFn = (key: TranslationKey, values?: Record<string, string | number>) => string;
+
+/** English by default — keeps `validateIntake(values)` usable from plain tests
+ *  and any non-React caller without threading a locale through. */
+const englishMessages: MessageFn = (key, values) => translate("en", key, values);
 
 /**
  * Pure validation over form state. Kept outside the component and exported so
  * the rules can be tested directly, without rendering anything.
  */
 export function validateIntake(
-  values: IntakeFormValues
+  values: IntakeFormValues,
+  t: MessageFn = englishMessages
 ): Partial<Record<FieldName, string>> {
   const errors: Partial<Record<FieldName, string>> = {};
 
   const idea = values.idea.trim();
   if (idea.length === 0) {
-    errors.idea = "Product idea is required.";
+    errors.idea = t("validation.idea.required");
   } else if (idea.length < MIN_IDEA_LENGTH) {
-    errors.idea = `Product idea must be at least ${MIN_IDEA_LENGTH} characters long.`;
+    errors.idea = t("validation.idea.tooShort", { min: MIN_IDEA_LENGTH });
   } else if (idea.length > MAX_IDEA_LENGTH) {
-    errors.idea = `Product idea must be ${MAX_IDEA_LENGTH} characters or fewer.`;
+    errors.idea = t("validation.idea.tooLong", { max: MAX_IDEA_LENGTH });
   }
 
   if (values.constraints.length > MAX_CONSTRAINTS_LENGTH) {
-    errors.constraints = `Constraints must be ${MAX_CONSTRAINTS_LENGTH} characters or fewer.`;
+    errors.constraints = t("validation.constraints.tooLong", {
+      max: MAX_CONSTRAINTS_LENGTH,
+    });
   }
 
   const capacity = Number(values.team_capacity_points);
   if (values.team_capacity_points.trim() === "" || !Number.isInteger(capacity)) {
-    errors.team_capacity_points = "Team capacity must be a whole number.";
+    errors.team_capacity_points = t("validation.capacity.integer");
   } else if (
     capacity < MIN_TEAM_CAPACITY_POINTS ||
     capacity > MAX_TEAM_CAPACITY_POINTS
   ) {
-    errors.team_capacity_points = `Team capacity must be between ${MIN_TEAM_CAPACITY_POINTS} and ${MAX_TEAM_CAPACITY_POINTS} points.`;
+    errors.team_capacity_points = t("validation.capacity.range", {
+      min: MIN_TEAM_CAPACITY_POINTS,
+      max: MAX_TEAM_CAPACITY_POINTS,
+    });
   }
 
   const sprintLength = Number(values.sprint_length_days);
   if (values.sprint_length_days.trim() === "" || !Number.isInteger(sprintLength)) {
-    errors.sprint_length_days = "Sprint length must be a whole number.";
+    errors.sprint_length_days = t("validation.sprintLength.integer");
   } else if (
     sprintLength < MIN_SPRINT_LENGTH_DAYS ||
     sprintLength > MAX_SPRINT_LENGTH_DAYS
   ) {
-    errors.sprint_length_days = `Sprint length must be between ${MIN_SPRINT_LENGTH_DAYS} and ${MAX_SPRINT_LENGTH_DAYS} days.`;
+    errors.sprint_length_days = t("validation.sprintLength.range", {
+      min: MIN_SPRINT_LENGTH_DAYS,
+      max: MAX_SPRINT_LENGTH_DAYS,
+    });
   }
 
   return errors;
 }
 
+/** Circular fill showing progress toward the minimum idea length, then toward
+ *  the maximum. Purely decorative — the numeric counter beside it is the
+ *  accessible source of truth, so this is aria-hidden. */
+function ProgressRing({ ratio, tone }: { ratio: number; tone: "short" | "ok" | "over" }) {
+  const radius = 9;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(1, ratio));
+  const offset = circumference * (1 - clamped);
+
+  return (
+    <svg
+      className={`${styles.ring} ${
+        tone === "short" ? styles.ringShort : tone === "over" ? styles.ringOver : styles.ringOk
+      }`}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle className={styles.ringTrack} cx="12" cy="12" r={radius} />
+      <circle
+        className={styles.ringFill}
+        cx="12"
+        cy="12"
+        r={radius}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+      />
+    </svg>
+  );
+}
+
 export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
+  const { t } = useLanguage();
   const [values, setValues] = useState<IntakeFormValues>(emptyFormValues);
-  const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [blurred, setBlurred] = useState<Partial<Record<FieldName, boolean>>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+
+  // Derived, never stored. `validateIntake` is pure, so recomputing on each
+  // render is both cheaper and more correct than mirroring into state: a
+  // locale switch re-translates every visible message for free, and there is
+  // no window where the displayed error disagrees with the current values.
+  // *When* an error is shown is a separate concern, handled by `showError`.
+  const errors = validateIntake(values, t);
 
   const bannerRef = useRef<HTMLDivElement>(null);
   const [focusSummaryToken, setFocusSummaryToken] = useState(0);
@@ -133,8 +206,20 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
   const id = (name: string) => `${uid}-${name}`;
 
   const ideaLength = values.idea.length;
+  const trimmedIdeaLength = values.idea.trim().length;
   const constraintsLength = values.constraints.length;
-  const ideaTooShort = ideaLength > 0 && values.idea.trim().length < MIN_IDEA_LENGTH;
+  const ideaTooShort = ideaLength > 0 && trimmedIdeaLength < MIN_IDEA_LENGTH;
+  const ideaRatio =
+    trimmedIdeaLength < MIN_IDEA_LENGTH
+      ? trimmedIdeaLength / MIN_IDEA_LENGTH
+      : ideaLength / MAX_IDEA_LENGTH;
+  const ideaTone: "short" | "ok" | "over" =
+    ideaLength > MAX_IDEA_LENGTH ? "over" : ideaTooShort ? "short" : "ok";
+
+  const capacityNumber = Number(values.team_capacity_points);
+  const capacityForSlider = Number.isFinite(capacityNumber)
+    ? Math.min(MAX_TEAM_CAPACITY_POINTS, Math.max(MIN_TEAM_CAPACITY_POINTS, capacityNumber))
+    : MIN_TEAM_CAPACITY_POINTS;
 
   /** A field shows its error once the user has left it, or once they've tried
    *  to submit — not while they are still typing into it for the first time. */
@@ -142,39 +227,27 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
     blurred[name] || submitAttempted ? errors[name] : undefined;
 
   function update(name: FieldName, value: string) {
-    const next = { ...values, [name]: value };
-    setValues(next);
-    // Re-validate live only for fields already showing an error, so a message
-    // clears the moment it stops being true rather than lingering until blur.
-    if (errors[name]) {
-      const nextErrors = validateIntake(next);
-      setErrors(nextErrors);
-    }
+    setValues((current) => ({ ...current, [name]: value }));
   }
 
   function handleBlur(name: FieldName) {
     setBlurred((previous) => ({ ...previous, [name]: true }));
-    setErrors(validateIntake(values));
   }
 
   function applyPreset(preset: PresetOption) {
-    const next = presetToFormValues(preset);
-    setValues(next);
-    setErrors({});
+    setValues(presetToFormValues(preset));
     setBlurred({});
     setSubmitAttempted(false);
-    setAnnouncement(`${preset.label} preset applied. The form is ready to submit.`);
+    setAnnouncement(
+      t("form.presets.applied", { label: t(PRESET_LABEL_KEY[preset.id]) })
+    );
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitAttempted(true);
 
-    const nextErrors = validateIntake(values);
-    setErrors(nextErrors);
-
-    const messages = Object.values(nextErrors);
-    if (messages.length > 0) {
+    if (Object.values(errors).length > 0) {
       setAnnouncement("");
       // Bumps a token rather than calling focus() directly, so the effect
       // above waits for the banner to actually exist in the DOM first.
@@ -188,10 +261,9 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
 
   function handleReset() {
     setValues(emptyFormValues());
-    setErrors({});
     setBlurred({});
     setSubmitAttempted(false);
-    setAnnouncement("Form cleared.");
+    setAnnouncement(t("form.cleared"));
   }
 
   const errorEntries = submitAttempted
@@ -207,7 +279,7 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
       aria-labelledby={id("heading")}
     >
       <h2 id={id("heading")} className={styles.srOnly}>
-        Describe your product
+        {t("form.heading")}
       </h2>
 
       {/* Submit-time summary. Rendered only when there is something to say, so
@@ -222,14 +294,14 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
         >
           <p className={styles.errorBannerTitle}>
             {errorEntries.length === 1
-              ? "There is 1 problem with this form"
-              : `There are ${errorEntries.length} problems with this form`}
+              ? t("form.errors.one")
+              : t("form.errors.many", { count: errorEntries.length })}
           </p>
           <ul className={styles.errorBannerList}>
             {errorEntries.map(([name, message]) => (
               <li key={name}>
                 <a href={`#${id(name)}`}>
-                  {FIELD_LABELS[name]}: {message}
+                  {t(FIELD_LABEL_KEY[name])}: {message}
                 </a>
               </li>
             ))}
@@ -238,37 +310,42 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
       )}
 
       <fieldset className={styles.presetGroup} disabled={isLoading}>
-        <legend className={styles.presetLegend}>
-          Start from an example (optional)
-        </legend>
+        <legend className={styles.presetLegend}>{t("form.presets.legend")}</legend>
         <div className={styles.presetRow}>
-          {STARTER_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              className={styles.preset}
-              onClick={() => applyPreset(preset)}
-              title={preset.description}
-              aria-label={`Fill the form with the ${preset.label} example: ${preset.description}`}
-            >
-              {preset.label}
-            </button>
-          ))}
+          {STARTER_PRESETS.map((preset) => {
+            const label = t(PRESET_LABEL_KEY[preset.id]);
+            const description = t(PRESET_DESCRIPTION_KEY[preset.id]);
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                className={styles.preset}
+                onClick={() => applyPreset(preset)}
+                title={description}
+                aria-label={t("form.presets.apply", { label, description })}
+              >
+                <span className={styles.presetLabel}>{label}</span>
+                <span className={styles.presetDescription}>{description}</span>
+                <span className={styles.presetMeta}>
+                  {preset.team_capacity_points} · {preset.sprint_length_days}d
+                </span>
+              </button>
+            );
+          })}
         </div>
       </fieldset>
 
       {/* ---- idea ---- */}
       <div className={styles.field}>
         <label className={styles.label} htmlFor={id("idea")}>
-          {FIELD_LABELS.idea}
+          {t("form.idea.label")}
           <span className={styles.required} aria-hidden="true">
             {" *"}
           </span>
-          <span className={styles.srOnly}>(required)</span>
+          <span className={styles.srOnly}>{t("form.idea.required")}</span>
         </label>
         <p className={styles.hint} id={id("idea-hint")}>
-          Describe what you want to build and who it is for. At least{" "}
-          {MIN_IDEA_LENGTH} characters.
+          {t("form.idea.hint", { min: MIN_IDEA_LENGTH })}
         </p>
         <textarea
           id={id("idea")}
@@ -294,14 +371,19 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
           ) : (
             <span />
           )}
-          <span
-            className={`${styles.counter} ${ideaTooShort ? styles.counterWarn : ""}`}
-            id={id("idea-counter")}
-          >
-            {ideaLength}/{MAX_IDEA_LENGTH}
-            {ideaTooShort
-              ? ` — ${MIN_IDEA_LENGTH - values.idea.trim().length} more needed`
-              : ""}
+          <span className={styles.counterGroup}>
+            <ProgressRing ratio={ideaRatio} tone={ideaTone} />
+            <span
+              className={`${styles.counter} ${ideaTooShort ? styles.counterWarn : ""}`}
+              id={id("idea-counter")}
+            >
+              {ideaLength}/{MAX_IDEA_LENGTH}
+              {ideaTooShort
+                ? ` — ${t("form.idea.moreNeeded", {
+                    count: MIN_IDEA_LENGTH - trimmedIdeaLength,
+                  })}`
+                : ""}
+            </span>
           </span>
         </div>
       </div>
@@ -309,11 +391,11 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
       {/* ---- constraints ---- */}
       <div className={styles.field}>
         <label className={styles.label} htmlFor={id("constraints")}>
-          {FIELD_LABELS.constraints}{" "}
-          <span className={styles.hint}>(optional)</span>
+          {t("form.constraints.label")}{" "}
+          <span className={styles.hint}>{t("form.constraints.optional")}</span>
         </label>
         <p className={styles.hint} id={id("constraints-hint")}>
-          Team size, timeline, budget, or anything the plan must work around.
+          {t("form.constraints.hint")}
         </p>
         <textarea
           id={id("constraints")}
@@ -354,31 +436,52 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
       <div className={styles.numberRow}>
         <div className={styles.field}>
           <label className={styles.label} htmlFor={id("team_capacity_points")}>
-            {FIELD_LABELS.team_capacity_points}
+            {t("form.capacity.label")}
           </label>
           <p className={styles.hint} id={id("capacity-hint")}>
-            Story points your team completes per sprint ({MIN_TEAM_CAPACITY_POINTS}
-            –{MAX_TEAM_CAPACITY_POINTS}).
+            {t("form.capacity.hint", {
+              min: MIN_TEAM_CAPACITY_POINTS,
+              max: MAX_TEAM_CAPACITY_POINTS,
+            })}
           </p>
-          <input
-            id={id("team_capacity_points")}
-            name="team_capacity_points"
-            className={styles.control}
-            type="number"
-            inputMode="numeric"
-            min={MIN_TEAM_CAPACITY_POINTS}
-            max={MAX_TEAM_CAPACITY_POINTS}
-            step={1}
-            value={values.team_capacity_points}
-            onChange={(event) => update("team_capacity_points", event.target.value)}
-            onBlur={() => handleBlur("team_capacity_points")}
-            disabled={isLoading}
-            aria-invalid={showError("team_capacity_points") ? true : undefined}
-            aria-errormessage={
-              showError("team_capacity_points") ? id("capacity-error") : undefined
-            }
-            aria-describedby={id("capacity-hint")}
-          />
+          <div className={styles.capacityRow}>
+            <input
+              id={id("team_capacity_points")}
+              name="team_capacity_points"
+              className={`${styles.control} ${styles.capacityNumber}`}
+              type="number"
+              inputMode="numeric"
+              min={MIN_TEAM_CAPACITY_POINTS}
+              max={MAX_TEAM_CAPACITY_POINTS}
+              step={1}
+              value={values.team_capacity_points}
+              onChange={(event) => update("team_capacity_points", event.target.value)}
+              onBlur={() => handleBlur("team_capacity_points")}
+              disabled={isLoading}
+              aria-invalid={showError("team_capacity_points") ? true : undefined}
+              aria-errormessage={
+                showError("team_capacity_points") ? id("capacity-error") : undefined
+              }
+              aria-describedby={id("capacity-hint")}
+            />
+            {/* aria-hidden + tabIndex -1: this is a second view of the number
+                input above, not a separate setting. Screen-reader and keyboard
+                users operate the labelled number field; the slider is a
+                pointer convenience. */}
+            <input
+              type="range"
+              className={styles.capacitySlider}
+              min={MIN_TEAM_CAPACITY_POINTS}
+              max={MAX_TEAM_CAPACITY_POINTS}
+              step={1}
+              value={capacityForSlider}
+              onChange={(event) => update("team_capacity_points", event.target.value)}
+              disabled={isLoading}
+              aria-hidden="true"
+              tabIndex={-1}
+              data-testid="capacity-slider"
+            />
+          </div>
           {showError("team_capacity_points") && (
             <p className={styles.fieldError} id={id("capacity-error")}>
               <span aria-hidden="true">⚠</span>
@@ -389,10 +492,13 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
 
         <div className={styles.field}>
           <label className={styles.label} htmlFor={id("sprint_length_days")}>
-            {FIELD_LABELS.sprint_length_days}
+            {t("form.sprintLength.label")}
           </label>
           <p className={styles.hint} id={id("sprint-hint")}>
-            Days per sprint ({MIN_SPRINT_LENGTH_DAYS}–{MAX_SPRINT_LENGTH_DAYS}).
+            {t("form.sprintLength.hint", {
+              min: MIN_SPRINT_LENGTH_DAYS,
+              max: MAX_SPRINT_LENGTH_DAYS,
+            })}
           </p>
           <input
             id={id("sprint_length_days")}
@@ -429,7 +535,7 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
           disabled={isLoading}
           aria-busy={isLoading}
         >
-          {isLoading ? "Generating plan…" : "Generate plan"}
+          {isLoading ? t("form.submit.loading") : t("form.submit")}
         </button>
         <button
           type="button"
@@ -437,7 +543,7 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
           onClick={handleReset}
           disabled={isLoading}
         >
-          Clear
+          {t("form.clear")}
         </button>
       </div>
 

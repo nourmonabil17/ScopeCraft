@@ -9,6 +9,9 @@
 // clear the form, so a user can immediately regenerate from where they left
 // off or start over with a preset.
 
+"use client";
+
+import { useLanguage } from "@/context/LanguageContext";
 import styles from "./StateViews.module.css";
 
 export interface EmptyStateProps {
@@ -16,20 +19,19 @@ export interface EmptyStateProps {
 }
 
 export function EmptyState({ onStartOver }: EmptyStateProps) {
+  const { t } = useLanguage();
+
   return (
     <div className={styles.emptyCard} data-testid="empty-state">
       <span className={styles.icon} aria-hidden="true">
         🗒
       </span>
-      <p className={styles.heading}>Results cleared</p>
-      <p className={styles.body}>
-        Nothing generated yet. Describe a product idea above, or pick a starter preset,
-        and select Generate plan.
-      </p>
+      <p className={styles.heading}>{t("state.empty.heading")}</p>
+      <p className={styles.body}>{t("state.empty.body")}</p>
       {onStartOver && (
         <div className={styles.actions}>
           <button type="button" className={styles.startOverButton} onClick={onStartOver}>
-            Scroll to the form
+            {t("state.empty.action")}
           </button>
         </div>
       )}

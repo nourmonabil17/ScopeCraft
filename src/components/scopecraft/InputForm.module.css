@@ -2,11 +2,11 @@
  *
  * Intake wizard styling (owner: Joe).
  *
- * The spec called for Tailwind's `focus-visible:ring-2 focus-visible:ring-offset-2`.
- * This project has no Tailwind and no CSS at all — every component styles itself
- * with inline `style={{}}` — so rather than pull a build-time framework into a
- * shared repo mid-project, the same visual contract is implemented here directly:
- * a 2px ring with a 2px offset, drawn only on keyboard focus.
+ * This file previously redeclared its own local --sc-* palette because it
+ * predated the shared token set. That is now removed: with an explicit
+ * light/dark toggle, a second copy of the palette would keep answering to
+ * `prefers-color-scheme` and silently ignore the user's chosen theme. All
+ * tokens now come from :root / :root.dark in layout.tsx.
  *
  * Accessibility notes that are load-bearing, not decoration:
  *  - `:focus-visible` (not `:focus`) so a mouse click does not paint a ring, but
@@ -26,38 +26,8 @@
   gap: 1.5rem;
   max-width: 46rem;
   margin: 0 auto;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: inherit;
   color: var(--sc-text);
-}
-
-/* Light palette, with a dark variant driven by the OS setting. Slightly
-   blue-biased neutrals rather than pure grey, so the surface reads as chosen. */
-.form {
-  --sc-text: #1a1c22;
-  --sc-text-muted: #5a6070;
-  --sc-border: #c9cedb;
-  --sc-border-strong: #8b93a7;
-  --sc-surface: #ffffff;
-  --sc-surface-subtle: #f5f6fa;
-  --sc-accent: #2f4fd4;
-  --sc-accent-contrast: #ffffff;
-  --sc-danger: #a3231f;
-  --sc-danger-surface: #fdf2f2;
-}
-
-@media (prefers-color-scheme: dark) {
-  .form {
-    --sc-text: #e8eaf0;
-    --sc-text-muted: #a2a9bb;
-    --sc-border: #3d4351;
-    --sc-border-strong: #6b7385;
-    --sc-surface: #14161c;
-    --sc-surface-subtle: #1c1f27;
-    --sc-accent: #8ea6ff;
-    --sc-accent-contrast: #10131a;
-    --sc-danger: #ff9b95;
-    --sc-danger-surface: #2a1618;
-  }
 }
 
 .field {
@@ -91,6 +61,7 @@
   padding: 0.625rem 0.75rem;
   width: 100%;
   min-height: 2.75rem;
+  transition: border-color 140ms ease;
 }
 
 .control:hover:not(:disabled) {
@@ -100,7 +71,8 @@
 /* The focus ring. Equivalent of ring-2 + ring-offset-2. */
 .control:focus-visible,
 .button:focus-visible,
-.preset:focus-visible {
+.preset:focus-visible,
+.capacitySlider:focus-visible {
   outline: 2px solid var(--sc-accent);
   outline-offset: 2px;
 }
@@ -126,9 +98,16 @@
 .counterRow {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 1rem;
   font-size: 0.8125rem;
   color: var(--sc-text-muted);
+}
+
+.counterGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
 }
 
 .counter {
@@ -139,6 +118,41 @@
 .counterWarn {
   color: var(--sc-danger);
   font-weight: 600;
+}
+
+/* Progress ring — decorative twin of the numeric counter. */
+.ring {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: 0 0 auto;
+  /* Start the fill at 12 o'clock instead of 3 o'clock. In RTL the ring is
+     mirrored along with the rest of the row, which reads correctly. */
+  transform: rotate(-90deg);
+}
+
+.ringTrack {
+  fill: none;
+  stroke: var(--sc-border);
+  stroke-width: 3;
+}
+
+.ringFill {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 160ms ease;
+}
+
+.ringShort .ringFill {
+  stroke: var(--sc-warning);
+}
+
+.ringOk .ringFill {
+  stroke: var(--sc-success);
+}
+
+.ringOver .ringFill {
+  stroke: var(--sc-danger);
 }
 
 .fieldError {
@@ -180,7 +194,7 @@
 
 .presetGroup {
   border: 1px solid var(--sc-border);
-  border-radius: 0.5rem;
+  border-radius: 0.625rem;
   padding: 0.875rem 1rem 1rem;
   margin: 0;
 }
@@ -193,30 +207,61 @@
 }
 
 .presetRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.625rem;
 }
 
+/* Preset cards: a title, a description, and the capacity/length they set, so
+   the choice is legible before clicking rather than a bare noun. */
 .preset {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  text-align: start;
   font: inherit;
-  font-size: 0.875rem;
   background: var(--sc-surface-subtle);
   color: var(--sc-text);
   border: 1px solid var(--sc-border);
-  border-radius: 999px;
-  padding: 0.5rem 0.875rem;
+  border-radius: 0.625rem;
+  padding: 0.75rem 0.875rem;
   min-height: 2.75rem;
   cursor: pointer;
+  transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 
 .preset:hover:not(:disabled) {
   border-color: var(--sc-accent);
+  transform: translateY(-1px);
+  box-shadow: var(--sc-shadow);
 }
 
 .preset:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+.presetLabel {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.presetDescription {
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--sc-text-muted);
+}
+
+.presetMeta {
+  margin-block-start: 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--sc-accent);
+  background: var(--sc-accent-subtle);
+  border-radius: 999px;
+  padding: 0.0625rem 0.4375rem;
 }
 
 .numberRow {
@@ -225,14 +270,40 @@
   gap: 1rem;
 }
 
+.capacityRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.capacityNumber {
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.capacitySlider {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: var(--sc-accent);
+  cursor: pointer;
+}
+
+.capacitySlider:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 /* One column on narrow screens; the two number fields stop fighting for width. */
+@media (max-width: 34rem) {
+  .presetRow {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 30rem) {
   .numberRow {
     grid-template-columns: 1fr;
-  }
-
-  .preset {
-    flex: 1 1 100%;
   }
 }
 
@@ -253,6 +324,7 @@
   padding: 0.6875rem 1.25rem;
   min-height: 2.75rem;
   cursor: pointer;
+  transition: filter 140ms ease;
 }
 
 .button:hover:not(:disabled) {
@@ -288,7 +360,12 @@
 @media (prefers-reduced-motion: reduce) {
   .control,
   .button,
-  .preset {
+  .preset,
+  .ringFill {
     transition: none;
+  }
+
+  .preset:hover:not(:disabled) {
+    transform: none;
   }
 }

@@ -10,7 +10,15 @@
 // GitHub Issues: Nour, accessed 2026-07-26). Reusing them here rather than
 // picking new ones keeps the UI's claims traceable to the same record the
 // handbook audit checks against.
+//
+// Source *titles* stay in their original language — a citation renamed into
+// Arabic would no longer match the document a reader actually finds at that
+// URL. What each source grounds IS translated.
 
+"use client";
+
+import { useLanguage } from "@/context/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import styles from "./EvidencePanel.module.css";
 
 export interface EvidencePanelProps {
@@ -24,62 +32,68 @@ const SOURCES = [
     title: "The 2020 Scrum Guide",
     author: "Ken Schwaber & Jeff Sutherland",
     url: "https://scrumguides.org/scrum-guide.html",
-    grounds: "Sprint, backlog and increment vocabulary",
+    groundsKey: "evidence.source.scrum",
   },
   {
     title: "About issues",
     author: "GitHub",
     url: "https://docs.github.com/issues/tracking-your-work-with-issues/about-issues",
-    grounds: "Issue-based backlog tracking conventions",
+    groundsKey: "evidence.source.github",
   },
-] as const;
+] as const satisfies readonly {
+  title: string;
+  author: string;
+  url: string;
+  groundsKey: TranslationKey;
+}[];
 
 export function EvidencePanel({
   providerUsed,
   promptVersion,
   templateVersion = "v1",
 }: EvidencePanelProps) {
+  const { t } = useLanguage();
+
   return (
     <aside className={styles.panel} aria-labelledby="evidence-heading">
       <h3 id="evidence-heading" className={styles.title}>
-        Evidence &amp; provenance
+        {t("evidence.heading")}
       </h3>
 
       <dl className={styles.metaGrid}>
-        <dt>AI provider</dt>
+        <dt>{t("evidence.provider")}</dt>
         <dd>{providerUsed}</dd>
-        <dt>Prompt version</dt>
+        <dt>{t("evidence.promptVersion")}</dt>
         <dd>{promptVersion}</dd>
-        <dt>Template version</dt>
+        <dt>{t("evidence.templateVersion")}</dt>
         <dd>{templateVersion}</dd>
       </dl>
 
       <div className={styles.boundary}>
         <p className={styles.boundaryRow}>
-          <span className={`${styles.boundaryLabel} ${styles.labelModel}`}>Model</span>
-          <span>
-            Problem statement, target user, goals, requirements, user stories, acceptance
-            criteria, and risks — descriptive prose, validated against a strict schema but
-            not independently fact-checked.
+          <span className={`${styles.boundaryLabel} ${styles.labelModel}`}>
+            {t("evidence.label.model")}
           </span>
+          <span>{t("evidence.model.body")}</span>
         </p>
         <p className={styles.boundaryRow}>
           <span className={`${styles.boundaryLabel} ${styles.labelDeterministic}`}>
-            Deterministic
+            {t("evidence.label.deterministic")}
           </span>
           <span>
-            Priority score — <code className={styles.formula}>(value + risk) / effort</code> —
-            MoSCoW bucket, and sprint capacity packing are computed by pure functions on the
-            server and again on this page when you edit the board. The model&apos;s own
-            estimates for these four fields are discarded before you ever see them; nothing
-            here is asked of, or trusted from, the AI.
+            {/* The formula is rendered as code, and left in symbols — it reads
+                identically in both locales and is not prose to translate. */}
+            <code className={styles.formula} dir="ltr">
+              (value + risk) / effort
+            </code>{" "}
+            {t("evidence.deterministic.body")}
           </span>
         </p>
       </div>
 
       <div>
         <p className={styles.title} style={{ marginBottom: "0.375rem" }}>
-          Grounding sources
+          {t("evidence.sources")}
         </p>
         <ul className={styles.sources}>
           {SOURCES.map((source) => (
@@ -87,16 +101,13 @@ export function EvidencePanel({
               <a href={source.url} target="_blank" rel="noreferrer noopener">
                 {source.title}
               </a>{" "}
-              — {source.author}. {source.grounds}.
+              — {source.author}. {t(source.groundsKey)}.
             </li>
           ))}
         </ul>
       </div>
 
-      <p>
-        Scope, priority, and delivery timing remain Product Owner decisions. This tool
-        computes capacity math; it does not commit a team to a date.
-      </p>
+      <p>{t("evidence.footer")}</p>
     </aside>
   );
 }

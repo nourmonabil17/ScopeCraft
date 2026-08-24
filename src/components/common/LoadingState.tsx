@@ -21,14 +21,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/context/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import styles from "./StateViews.module.css";
 
-const STEPS = [
-  "Validating your request",
-  "Contacting the AI provider",
-  "Structuring your PRD",
-  "Calculating priority, MoSCoW, and sprint capacity",
-] as const;
+const STEP_KEYS: readonly TranslationKey[] = [
+  "state.loading.step1",
+  "state.loading.step2",
+  "state.loading.step3",
+  "state.loading.step4",
+];
 
 /** How long each step is shown before advancing to the next. Tuned so a fast
  *  response (a second or two) still shows at least the first step, and a slow
@@ -39,18 +41,19 @@ export interface LoadingStateProps {
   label?: string;
 }
 
-export function LoadingState({ label = "Generating your plan" }: LoadingStateProps) {
+export function LoadingState({ label }: LoadingStateProps) {
+  const { t } = useLanguage();
   const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
-    if (stepIndex >= STEPS.length - 1) return;
+    if (stepIndex >= STEP_KEYS.length - 1) return;
     const timer = setTimeout(() => setStepIndex((i) => i + 1), STEP_INTERVAL_MS);
     return () => clearTimeout(timer);
   }, [stepIndex]);
 
   return (
     <div className={styles.loadingCard} data-testid="loading-state">
-      <p className={styles.heading}>{label}…</p>
+      <p className={styles.heading}>{label ?? t("state.loading.label")}…</p>
 
       <div className={styles.skeletonStack} aria-hidden="true">
         <div className={styles.skeletonRow} style={{ width: "90%" }} />
@@ -61,9 +64,9 @@ export function LoadingState({ label = "Generating your plan" }: LoadingStatePro
       {/* Visual step list — not a live region. A live region wrapping this
           would re-announce the entire, ever-growing list on every step. */}
       <ol className={styles.stepList} aria-hidden="true">
-        {STEPS.map((step, i) => (
+        {STEP_KEYS.map((key, i) => (
           <li
-            key={step}
+            key={key}
             className={
               i < stepIndex
                 ? styles.stepDone
@@ -73,7 +76,7 @@ export function LoadingState({ label = "Generating your plan" }: LoadingStatePro
             }
           >
             {i < stepIndex ? "✓ " : i === stepIndex ? "… " : ""}
-            {step}
+            {t(key)}
           </li>
         ))}
       </ol>
@@ -81,7 +84,7 @@ export function LoadingState({ label = "Generating your plan" }: LoadingStatePro
       {/* The actual announcement: one short line per step, so a screen-reader
           user hears each transition once instead of the cumulative list. */}
       <p className={styles.srOnly} role="status" aria-live="polite">
-        {STEPS[stepIndex]}
+        {t(STEP_KEYS[stepIndex])}
       </p>
     </div>
   );

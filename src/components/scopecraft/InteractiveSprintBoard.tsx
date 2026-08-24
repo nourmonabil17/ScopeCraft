@@ -1,6 +1,6 @@
 // src/components/scopecraft/InteractiveSprintBoard.tsx
 //
-// Interactive sprint backlog (owner: Joe) — Module 2.
+// Interactive sprint backlog (owner: Joe) — Module 2, internationalized.
 //
 // Human-in-the-loop editing over the server's sprint_plan: a Product Owner can
 // move a story between "committed" and "deferred", or adjust its points, and
@@ -32,6 +32,8 @@ import {
   type BoardStory,
   type CapacitySummary,
 } from "@/lib/scopecraft/client-recalc";
+import { useLanguage } from "@/context/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import styles from "./InteractiveSprintBoard.module.css";
 
 /** What the board reports upward on every change, so a parent (export
@@ -51,11 +53,11 @@ export interface InteractiveSprintBoardProps {
   onBoardChange?: (snapshot: BoardSnapshot) => void;
 }
 
-const MOSCOW_LABEL: Record<MoscowBucket, string> = {
-  must: "Must",
-  should: "Should",
-  could: "Could",
-  wont: "Won't",
+const MOSCOW_LABEL_KEY: Record<MoscowBucket, TranslationKey> = {
+  must: "moscow.must",
+  should: "moscow.should",
+  could: "moscow.could",
+  wont: "moscow.wont",
 };
 
 const MOSCOW_BADGE_CLASS: Record<MoscowBucket, string> = {
@@ -90,6 +92,7 @@ export function InteractiveSprintBoard({
   sprintPlan,
   onBoardChange,
 }: InteractiveSprintBoardProps) {
+  const { t } = useLanguage();
   const [board, setBoard] = useState<BoardStory[]>(() =>
     deriveInitialStories(stories, sprintPlan)
   );
@@ -145,15 +148,20 @@ export function InteractiveSprintBoard({
   useEffect(() => {
     if (previousState.current !== capacity.state) {
       previousState.current = capacity.state;
-      setAnnouncement(
+      const key: TranslationKey =
         capacity.state === "over"
-          ? `Over capacity: ${capacity.committedPoints} of ${capacity.capacityPoints} points committed.`
+          ? "board.announce.over"
           : capacity.state === "warning"
-            ? `Nearing capacity: ${capacity.committedPoints} of ${capacity.capacityPoints} points committed.`
-            : `Within capacity: ${capacity.committedPoints} of ${capacity.capacityPoints} points committed.`
+            ? "board.announce.warning"
+            : "board.announce.ok";
+      setAnnouncement(
+        t(key, {
+          committed: capacity.committedPoints,
+          capacity: capacity.capacityPoints,
+        })
       );
     }
-  }, [capacity.state, capacity.committedPoints, capacity.capacityPoints]);
+  }, [capacity.state, capacity.committedPoints, capacity.capacityPoints, t]);
 
   // A toggle moves a story's <li> from one column's <ul> to the other's — two
   // different parent elements, not a reorder React can reconcile as "the same
@@ -208,6 +216,8 @@ export function InteractiveSprintBoard({
   const included = board.filter((s) => s.column === "included");
   const deferred = board.filter((s) => s.column === "deferred");
 
+  const percent = Math.round(capacity.utilization * 100);
+
   const meterFillClass =
     capacity.state === "over"
       ? styles.meterFillOver
@@ -227,6 +237,7 @@ export function InteractiveSprintBoard({
       const dep = board.find((s) => s.storyId === depId);
       return dep && dep.column !== story.column && story.column === "included";
     });
+    const bucket = moscowFor(story.storyId);
 
     return (
       <li key={story.storyId} className={styles.card} data-testid={`board-card-${story.storyId}`}>
@@ -234,32 +245,35 @@ export function InteractiveSprintBoard({
           <div>
             <p className={styles.cardTitle}>{story.storyId}</p>
             <p className={styles.cardBody}>
-              As a {story.asA}, I want {story.iWant}.
+              {t("board.card.statement", { asA: story.asA, iWant: story.iWant })}
             </p>
           </div>
           <span
-            className={`${styles.badge} ${MOSCOW_BADGE_CLASS[moscowFor(story.storyId)]}`}
+            className={`${styles.badge} ${MOSCOW_BADGE_CLASS[bucket]}`}
             data-testid={`board-badge-${story.storyId}`}
+            data-moscow={bucket}
           >
-            {MOSCOW_LABEL[moscowFor(story.storyId)]}
+            {t(MOSCOW_LABEL_KEY[bucket])}
           </span>
         </div>
 
         <div className={styles.cardMeta}>
-          <span className={styles.statTag}>Score {scoreFor(story.storyId).toFixed(2)}</span>
-          <span className={styles.statTag}>Value {story.value}/5</span>
-          <span className={styles.statTag}>Risk {story.risk}/5</span>
+          <span className={styles.statTag}>
+            {t("board.card.score", { score: scoreFor(story.storyId).toFixed(2) })}
+          </span>
+          <span className={styles.statTag}>{t("prd.story.value", { value: story.value })}</span>
+          <span className={styles.statTag}>{t("prd.story.risk", { risk: story.risk })}</span>
         </div>
 
         {blockedDependency && (
           <p className={styles.dependencyNote}>
-            ⚠ Depends on {blockedDependency}, which is in the deferred backlog.
+            ⚠ {t("board.dependency.warning", { id: blockedDependency })}
           </p>
         )}
 
         <div className={styles.cardActions}>
           <label className={styles.pointsField} htmlFor={`points-${story.storyId}`}>
-            Points
+            {t("board.card.points")}
             <input
               id={`points-${story.storyId}`}
               className={styles.pointsInput}
@@ -269,7 +283,7 @@ export function InteractiveSprintBoard({
               max={13}
               value={story.points}
               onChange={(event) => handlePointsChange(story.storyId, event.target.value)}
-              aria-label={`Story points for ${story.storyId}`}
+              aria-label={t("board.card.pointsLabel", { id: story.storyId })}
             />
           </label>
           <button
@@ -279,11 +293,11 @@ export function InteractiveSprintBoard({
             onClick={() => handleToggle(story.storyId)}
             aria-label={
               story.column === "included"
-                ? `Move ${story.storyId} to the deferred backlog`
-                : `Move ${story.storyId} to sprint 1`
+                ? t("board.action.deferLabel", { id: story.storyId })
+                : t("board.action.commitLabel", { id: story.storyId })
             }
           >
-            {story.column === "included" ? "Defer" : "Commit to sprint"}
+            {story.column === "included" ? t("board.action.defer") : t("board.action.commit")}
           </button>
         </div>
       </li>
@@ -292,26 +306,33 @@ export function InteractiveSprintBoard({
 
   return (
     <div className={styles.board}>
-      <div className={styles.meter} role="group" aria-label="Sprint capacity">
+      <div className={styles.meter} role="group" aria-label={t("board.capacity.group")}>
         <div className={styles.meterHeader}>
-          <span>Sprint 1 capacity</span>
-          <span className={styles.meterNumbers} data-testid="capacity-meter-numbers">
-            {capacity.committedPoints} / {capacity.capacityPoints} points
+          <span>{t("board.capacity.title")}</span>
+          <span className={styles.meterNumbersGroup}>
+            <span className={styles.meterNumbers} data-testid="capacity-meter-numbers">
+              {capacity.committedPoints} / {capacity.capacityPoints} points
+            </span>
+            <span className={styles.meterPercent} data-testid="capacity-meter-percent">
+              {percent}%
+            </span>
           </span>
         </div>
         <div className={styles.meterTrack} aria-hidden="true">
           <div
             className={`${styles.meterFill} ${meterFillClass}`}
-            style={{ width: `${Math.min(100, Math.round(capacity.utilization * 100))}%` }}
+            style={{ width: `${Math.min(100, percent)}%` }}
           />
         </div>
         <p className={`${styles.meterCaption} ${meterCaptionClass}`}>
           {capacity.state === "over" &&
-            `${capacity.committedPoints - capacity.capacityPoints} points over capacity. Move a story to the deferred backlog.`}
+            t("board.capacity.over", {
+              count: capacity.committedPoints - capacity.capacityPoints,
+            })}
           {capacity.state === "warning" &&
-            `${capacity.remainingPoints} points of headroom left.`}
+            t("board.capacity.warning", { count: capacity.remainingPoints })}
           {capacity.state === "ok" &&
-            `${capacity.remainingPoints} points of headroom remaining.`}
+            t("board.capacity.ok", { count: capacity.remainingPoints })}
         </p>
         <div className={styles.srOnly} role="status" aria-live="polite">
           {announcement}
@@ -321,11 +342,11 @@ export function InteractiveSprintBoard({
       <div className={styles.columns}>
         <section className={styles.column} aria-labelledby="board-included-heading">
           <h4 id="board-included-heading" className={styles.columnHeader}>
-            Committed to sprint 1
+            {t("board.column.committed")}
             <span className={styles.columnCount}>{included.length}</span>
           </h4>
           {included.length === 0 ? (
-            <p className={styles.emptyColumn}>No stories committed yet.</p>
+            <p className={styles.emptyColumn}>{t("board.column.empty.committed")}</p>
           ) : (
             <ul className={styles.cardList}>{included.map(renderCard)}</ul>
           )}
@@ -333,11 +354,11 @@ export function InteractiveSprintBoard({
 
         <section className={styles.column} aria-labelledby="board-deferred-heading">
           <h4 id="board-deferred-heading" className={styles.columnHeader}>
-            Deferred backlog
+            {t("board.column.deferred")}
             <span className={styles.columnCount}>{deferred.length}</span>
           </h4>
           {deferred.length === 0 ? (
-            <p className={styles.emptyColumn}>Nothing deferred.</p>
+            <p className={styles.emptyColumn}>{t("board.column.empty.deferred")}</p>
           ) : (
             <ul className={styles.cardList}>{deferred.map(renderCard)}</ul>
           )}

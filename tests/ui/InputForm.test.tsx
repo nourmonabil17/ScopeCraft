@@ -7,8 +7,9 @@
 // them and a broken label association cannot pass them. If `getByLabelText`
 // stops finding a field, that IS the bug: a screen-reader user just lost it too.
 
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithProviders } from "./render-helpers";
 import { InputForm, validateIntake } from "@/components/scopecraft/InputForm";
 import { STARTER_PRESETS } from "@/components/scopecraft/presets";
 import {
@@ -23,7 +24,7 @@ import {
 function setup(props: Partial<React.ComponentProps<typeof InputForm>> = {}) {
   const onSubmit = jest.fn();
   const user = userEvent.setup();
-  render(<InputForm onSubmit={onSubmit} {...props} />);
+  renderWithProviders(<InputForm onSubmit={onSubmit} {...props} />);
   return { onSubmit, user };
 }
 
@@ -186,7 +187,13 @@ describe("Test 3 · preset buttons populate every field", () => {
     const { user } = setup();
     await user.click(screen.getByRole("button", { name: /student capstone/i }));
 
-    const status = screen.getByRole("status");
+    // The app renders two polite live regions: this form's own announcer and
+    // the global toast viewport. Selecting by role alone now matches both, so
+    // the form's is identified by the message it owns.
+    const status = screen
+      .getAllByRole("status")
+      .find((node) => /preset applied/i.test(node.textContent ?? ""));
+    expect(status).toBeDefined();
     expect(status).toHaveAttribute("aria-live", "polite");
     expect(status).toHaveTextContent(/student capstone preset applied/i);
   });

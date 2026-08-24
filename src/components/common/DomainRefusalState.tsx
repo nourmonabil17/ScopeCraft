@@ -7,7 +7,15 @@
 // legal, financial advice, or general chat). Styled distinctly from
 // ErrorState/ValidationErrorState (neutral, not red) so a user reads it as
 // "wrong tool for this" rather than "something broke".
+//
+// `message` comes from the server and is therefore always in the API's
+// language (English). It is shown verbatim rather than translated: inventing a
+// localized paraphrase of a server refusal would misrepresent what the backend
+// actually said. The surrounding guidance IS localized.
 
+"use client";
+
+import { useLanguage } from "@/context/LanguageContext";
 import styles from "./StateViews.module.css";
 
 export interface DomainRefusalStateProps {
@@ -16,21 +24,20 @@ export interface DomainRefusalStateProps {
 }
 
 export function DomainRefusalState({ message, onEditIdea }: DomainRefusalStateProps) {
+  const { t } = useLanguage();
+
   return (
     <div className={styles.neutralCard} role="status" data-testid="domain-refusal-state">
       <span className={styles.icon} aria-hidden="true">
         🧭
       </span>
-      <p className={styles.heading}>Outside ScopeCraft&apos;s scope</p>
+      <p className={styles.heading}>{t("state.refusal.heading")}</p>
       <p className={styles.body}>{message}</p>
-      <p className={styles.body}>
-        Try describing a software product, tool, or app instead — what it does and who
-        it&apos;s for.
-      </p>
+      <p className={styles.body}>{t("state.refusal.body")}</p>
       {onEditIdea && (
         <div className={styles.actions}>
           <button type="button" className={styles.startOverButton} onClick={onEditIdea}>
-            Edit my idea
+            {t("state.refusal.action")}
           </button>
         </div>
       )}

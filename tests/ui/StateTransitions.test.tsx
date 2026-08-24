@@ -7,8 +7,9 @@
 // `global.fetch` is mocked per scenario to return the exact response shape
 // the backend contract promises for that state.
 
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { renderWithProviders } from "./render-helpers";
 import ScopeCraftPage from "@/app/scopecraft/page";
 import type { ScopeCraftResponse } from "@/lib/scopecraft/schema";
 
@@ -100,13 +101,26 @@ async function submitValidIdea(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: /generate plan/i }));
 }
 
+/**
+ * The result view is tabbed: PRD Overview is active on arrival, so the sprint
+ * board and the export/evidence controls sit in `hidden` panels until their
+ * tab is selected. Tests that drive those controls open the tab first, the
+ * same way a user would.
+ */
+async function openTab(
+  user: ReturnType<typeof userEvent.setup>,
+  tab: "overview" | "backlog" | "evidence"
+) {
+  await user.click(screen.getByTestId(`result-tab-${tab}`));
+}
+
 // ---------------------------------------------------------------------------
 // State 1 — Idle
 // ---------------------------------------------------------------------------
 
 describe("State 1 · idle", () => {
   it("shows the discovery wizard with presets and no result state", () => {
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
 
     expect(screen.getByRole("heading", { name: /scopecraft/i })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: /start from an example/i })).toBeInTheDocument();
@@ -141,7 +155,7 @@ describe("State 2 · loading", () => {
     );
 
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
 
     const loading = screen.getByTestId("loading-state");
@@ -169,7 +183,7 @@ describe("State 2 · loading", () => {
     // advancement — confirmed by hand here. `findByText` polls with real
     // waits, which is what actually verifies the step advanced.
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
 
     const status = within(screen.getByTestId("loading-state")).getByRole("status");
@@ -200,23 +214,55 @@ describe("State 3 · success", () => {
     );
 
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
 
     const result = await screen.findByTestId("result-view");
+
+    // Tab 1 — PRD overview, active on arrival.
     expect(within(result).getByText(FIXTURE.problem)).toBeInTheDocument();
+    expect(within(result).getByTestId("story-card-US-1")).toBeInTheDocument();
+
+    // Tab 2 — the interactive backlog.
+    await openTab(user, "backlog");
     expect(within(result).getByTestId("board-badge-US-1")).toHaveTextContent(/must/i);
     expect(within(result).getByTestId("board-badge-US-2")).toHaveTextContent(/won.?t/i);
 
+    // Tab 3 — traceability, exports, and provenance.
+    await openTab(user, "evidence");
     expect(screen.getByRole("button", { name: /copy prd as markdown/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /download backlog json/i })).toBeInTheDocument();
-
     expect(screen.getByText(/nvidia/i)).toBeInTheDocument();
     expect(screen.getByText("v5")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /the 2020 scrum guide/i })).toHaveAttribute(
       "href",
       "https://scrumguides.org/scrum-guide.html"
     );
+  });
+
+  it("exposes the three panels as a keyboard-operable tablist", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValue(jsonResponse(FIXTURE));
+
+    const user = userEvent.setup();
+    renderWithProviders(<ScopeCraftPage />);
+    await submitValidIdea(user);
+    await screen.findByTestId("result-view");
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs).toHaveLength(3);
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+
+    // Arrow keys move between tabs (WAI-ARIA APG), not just clicks.
+    tabs[0].focus();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByTestId("result-tab-backlog")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("result-panel-overview")).toHaveAttribute("hidden");
+
+    await user.keyboard("{End}");
+    expect(screen.getByTestId("result-tab-evidence")).toHaveAttribute("aria-selected", "true");
+
+    await user.keyboard("{Home}");
+    expect(screen.getByTestId("result-tab-overview")).toHaveAttribute("aria-selected", "true");
   });
 
   it("copies a structured Markdown PRD to the clipboard, not raw prose", async () => {
@@ -229,9 +275,10 @@ describe("State 3 · success", () => {
     // click). Defining it after setup()/render() makes this mock the one
     // that actually wins.
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
     await screen.findByTestId("result-view");
+    await openTab(user, "evidence");
 
     const writeText = jest.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -252,7 +299,11 @@ describe("State 3 · success", () => {
     expect(markdown).toContain("## Risks");
     expect(markdown).toContain("## Sprint plan");
 
-    await screen.findByText(/copied to clipboard/i);
+    // Confirmed in two places by design: the inline status line beside the
+    // buttons, and the global toast. Both carry identical text.
+    const copyConfirmations = await screen.findAllByText(/copied to clipboard/i);
+    expect(copyConfirmations.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByTestId("toast")).toHaveTextContent(/copied to clipboard/i);
   });
 
   it("downloads backlog JSON reflecting the current board state", async () => {
@@ -278,15 +329,19 @@ describe("State 3 · success", () => {
     jest.spyOn(global, "fetch").mockResolvedValue(jsonResponse(FIXTURE));
 
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
     await screen.findByTestId("result-view");
 
-    // FIXTURE seeds both stories as committed. Defer US-2 before exporting,
-    // so the download is asserted to reflect the edited board, not just the
-    // server's first plan.
+    // FIXTURE seeds both stories as committed. Defer US-2 on the backlog tab
+    // before exporting, so the download is asserted to reflect the edited
+    // board, not just the server's first plan. The two controls now live on
+    // different tabs, which is also what proves the board's state survives a
+    // tab switch rather than being unmounted.
+    await openTab(user, "backlog");
     await user.click(screen.getByRole("button", { name: /move us-2 to the deferred backlog/i }));
 
+    await openTab(user, "evidence");
     await user.click(screen.getByRole("button", { name: /download backlog json/i }));
 
     expect(createObjectURL).toHaveBeenCalledTimes(1);
@@ -306,7 +361,9 @@ describe("State 3 · success", () => {
     expect(backlog.stories.find((s: { id: string }) => s.id === "US-1").column).toBe("included");
     expect(backlog.stories).toHaveLength(2);
 
-    await screen.findByText(/backlog json downloaded/i);
+    const downloadConfirmations = await screen.findAllByText(/exported successfully/i);
+    expect(downloadConfirmations.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByTestId("toast")).toHaveTextContent(/exported successfully/i);
     // The object URL is released at some point after use — exactly when is an
     // implementation detail (a deferred setTimeout(0) in ExportActions), not
     // a behavior worth pinning to a timing assertion.
@@ -325,7 +382,7 @@ describe("State 4 · empty", () => {
     jest.spyOn(global, "fetch").mockResolvedValue(jsonResponse(FIXTURE));
 
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
     await screen.findByTestId("result-view");
 
@@ -362,7 +419,7 @@ describe("State 5 · validation error", () => {
     );
 
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
 
     const alert = await screen.findByTestId("validation-error-state");
@@ -392,7 +449,7 @@ describe("State 6 · domain refusal", () => {
     );
 
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
 
     const refusal = await screen.findByTestId("domain-refusal-state");
@@ -421,7 +478,7 @@ describe("State 7 · provider error and retry", () => {
       .mockResolvedValueOnce(jsonResponse(FIXTURE, { headers: { "X-Provider-Used": "groq" } }));
 
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
 
     const error = await screen.findByTestId("error-state");
@@ -448,7 +505,7 @@ describe("State 7 · provider error and retry", () => {
     );
 
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
 
     const error = await screen.findByTestId("error-state");
@@ -470,7 +527,7 @@ describe("State 7 · provider error and retry", () => {
     );
 
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
 
     const error = await screen.findByTestId("error-state");
@@ -482,7 +539,7 @@ describe("State 7 · provider error and retry", () => {
     jest.spyOn(global, "fetch").mockRejectedValue(new TypeError("Failed to fetch"));
 
     const user = userEvent.setup();
-    render(<ScopeCraftPage />);
+    renderWithProviders(<ScopeCraftPage />);
     await submitValidIdea(user);
 
     const error = await screen.findByTestId("error-state");

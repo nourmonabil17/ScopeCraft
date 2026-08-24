@@ -8,12 +8,20 @@
 // Product Owner actually decided on the interactive board, not just the
 // server's first proposal — but Copy/Download themselves stay dumb: this
 // component only turns formatted strings into a clipboard write or a file.
+//
+// Feedback goes through the global toast system. The inline `role="status"`
+// line is kept as well, and deliberately: the toast is fixed-position and can
+// sit outside the reading order a keyboard user is currently in, so the inline
+// line remains the reliable in-context confirmation. Both carry the same text,
+// so nothing is announced twice with different wording.
 
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import type { ScopeCraftResponse } from "@/lib/scopecraft/schema";
 import { toBacklogJson, toMarkdown, type BoardOverride } from "@/lib/scopecraft/export-format";
+import { useLanguage } from "@/context/LanguageContext";
+import { useToast } from "@/context/ToastContext";
 import type { BoardSnapshot } from "./InteractiveSprintBoard";
 import styles from "./ExportActions.module.css";
 
@@ -81,6 +89,8 @@ function downloadJson(filename: string, payload: unknown): void {
 }
 
 export function ExportActions({ data, board }: ExportActionsProps) {
+  const { t } = useLanguage();
+  const { showToast } = useToast();
   const [status, setStatus] = useState<{ kind: StatusKind; message: string }>({
     kind: "idle",
     message: "",
@@ -93,6 +103,7 @@ export function ExportActions({ data, board }: ExportActionsProps) {
 
   function announce(kind: StatusKind, message: string) {
     setStatus({ kind, message });
+    showToast(message, kind === "error" ? "error" : "success");
     clearTimeout(clearTimer.current);
     clearTimer.current = setTimeout(() => setStatus({ kind: "idle", message: "" }), 4000);
   }
@@ -100,10 +111,7 @@ export function ExportActions({ data, board }: ExportActionsProps) {
   async function handleCopyMarkdown() {
     const markdown = toMarkdown(data, boardOverrideFrom(board));
     const ok = await copyText(markdown);
-    announce(
-      ok ? "ok" : "error",
-      ok ? "PRD copied to clipboard as Markdown." : "Couldn't copy automatically. Select and copy the text manually."
-    );
+    announce(ok ? "ok" : "error", ok ? t("export.copied") : t("export.copyFailed"));
   }
 
   function handleDownloadJson() {
@@ -113,9 +121,9 @@ export function ExportActions({ data, board }: ExportActionsProps) {
         board ? { ...boardOverrideFrom(board)!, liveScores: board.liveScores } : undefined
       );
       downloadJson("scopecraft-backlog.json", backlog);
-      announce("ok", "Backlog JSON downloaded.");
+      announce("ok", t("export.downloaded"));
     } catch {
-      announce("error", "Couldn't prepare the download. Please try again.");
+      announce("error", t("export.downloadFailed"));
     }
   }
 
@@ -124,11 +132,11 @@ export function ExportActions({ data, board }: ExportActionsProps) {
       <div className={styles.row}>
         <button type="button" className={styles.button} onClick={handleCopyMarkdown}>
           <span aria-hidden="true">📋</span>
-          Copy PRD as Markdown
+          {t("export.copyMarkdown")}
         </button>
         <button type="button" className={styles.button} onClick={handleDownloadJson}>
           <span aria-hidden="true">⬇</span>
-          Download Backlog JSON
+          {t("export.downloadJson")}
         </button>
       </div>
       <p

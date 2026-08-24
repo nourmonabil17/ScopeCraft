@@ -1,0 +1,97 @@
+// tests/ui/render-helpers.tsx
+//
+// Every UI component now reads from LanguageProvider (translations) and most
+// read ThemeProvider / ToastProvider too. Rendering one bare would throw, so
+// tests go through `renderWithProviders` — which also mirrors how the real app
+// mounts them, rather than testing components in an arrangement production
+// never uses.
+//
+// `localStorage` is cleared between tests by `resetPreferences` (called from
+// setup.ts), so a theme or locale chosen in one test cannot leak into the next.
+
+import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
+import { LanguageProvider, LOCALE_STORAGE_KEY } from "@/context/LanguageContext";
+import { ThemeProvider, THEME_STORAGE_KEY } from "@/context/ThemeContext";
+import { ToastProvider } from "@/context/ToastContext";
+import { ToastViewport } from "@/components/common/Toast";
+import type { Locale } from "@/lib/i18n/translations";
+
+export interface ProviderRenderOptions extends Omit<RenderOptions, "wrapper"> {
+  /** Seeds the stored locale before mounting, so a component can be rendered
+   *  directly in Arabic without a click. */
+  locale?: Locale;
+  /** Seeds the stored theme preference the same way. */
+  theme?: "light" | "dark" | "system";
+}
+
+function AllProviders({ children }: { children: React.ReactNode }) {
+  return (
+    <LanguageProvider>
+      <ThemeProvider>
+        <ToastProvider>
+          {children}
+          <ToastViewport />
+        </ToastProvider>
+      </ThemeProvider>
+    </LanguageProvider>
+  );
+}
+
+export function renderWithProviders(
+  ui: React.ReactElement,
+  { locale, theme, ...options }: ProviderRenderOptions = {}
+): RenderResult {
+  // Written before mount: both providers read localStorage in their lazy
+  // useState initializer, so setting it afterwards would be too late.
+  if (locale) window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+  if (theme) window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+
+  return render(ui, { wrapper: AllProviders, ...options });
+}
+
+/** Clears persisted preferences and any <html> attributes the providers set. */
+export function resetPreferences(): void {
+  window.localStorage.clear();
+  document.documentElement.classList.remove("dark");
+  document.documentElement.removeAttribute("style");
+  document.documentElement.lang = "en";
+  document.documentElement.dir = "ltr";
+}
+
+/**
+ * jsdom does not implement `matchMedia` at all. ThemeProvider subscribes to
+ * it through useSyncExternalStore, so without a stub every themed render
+ * throws. Returns a setter so a test can simulate the OS being in dark mode.
+ */
+export function installMatchMedia(initialDark = false): (dark: boolean) => void {
+  let matches = initialDark;
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    configurable: true,
+    value: (query: string) => ({
+      media: query,
+      get matches() {
+        return query.includes("dark") ? matches : false;
+      },
+      addEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) => {
+        listeners.add(listener);
+      },
+      removeEventListener: (_: string, listener: (event: MediaQueryListEvent) => void) => {
+        listeners.delete(listener);
+      },
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    }),
+  });
+
+  return (dark: boolean) => {
+    matches = dark;
+    for (const listener of listeners) {
+      listener({ matches: dark } as MediaQueryListEvent);
+    }
+  };
+}

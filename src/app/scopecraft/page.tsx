@@ -8,6 +8,10 @@
 // makes the error branching explicit: the server's `code` field (not just its
 // HTTP status) decides which of the three error-shaped states — validation,
 // domain refusal, or provider/timeout — a 4xx/5xx response becomes.
+//
+// Export actions and the evidence panel now live inside ResultView's tabs
+// rather than being stacked below it, so this component's only remaining job
+// is state orchestration.
 
 "use client";
 
@@ -15,13 +19,13 @@ import { useRef, useState } from "react";
 import { InputForm, type IntakeSubmitPayload } from "@/components/scopecraft/InputForm";
 import { ResultView } from "@/components/scopecraft/ResultView";
 import type { BoardSnapshot } from "@/components/scopecraft/InteractiveSprintBoard";
-import { EvidencePanel } from "@/components/scopecraft/EvidencePanel";
-import { ExportActions } from "@/components/scopecraft/ExportActions";
+import { Header } from "@/components/common/Header";
 import { LoadingState } from "@/components/common/LoadingState";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { ValidationErrorState } from "@/components/common/ValidationErrorState";
 import { DomainRefusalState } from "@/components/common/DomainRefusalState";
+import { useLanguage } from "@/context/LanguageContext";
 import type { ScopeCraftResponse, ValidationIssue } from "@/lib/scopecraft/schema";
 import styles from "./page.module.css";
 
@@ -61,6 +65,7 @@ interface ApiErrorBody {
 }
 
 export default function ScopeCraftPage() {
+  const { t } = useLanguage();
   const [state, setState] = useState<UiState>({ status: "idle" });
   const [lastRequest, setLastRequest] = useState<IntakeSubmitPayload | null>(null);
   const [board, setBoard] = useState<BoardSnapshot | undefined>(undefined);
@@ -82,7 +87,7 @@ export default function ScopeCraftPage() {
 
       if (!res.ok) {
         const err: ApiErrorBody = await res.json().catch(() => ({}));
-        const message = err.message ?? "Something went wrong.";
+        const message = err.message ?? t("state.error.generic");
 
         if (err.code === "VALIDATION_ERROR") {
           setState({ status: "validation_error", message, issues: err.issues ?? [] });
@@ -118,7 +123,7 @@ export default function ScopeCraftPage() {
     } catch {
       setState({
         status: "provider_error",
-        message: "Network error. Please check your connection and try again.",
+        message: t("state.error.network"),
       });
     }
   }
@@ -128,66 +133,74 @@ export default function ScopeCraftPage() {
     setState({ status: "empty" });
   }
 
+  // The header's reset is only meaningful once there is something on screen to
+  // clear; on first load it would be a no-op control.
+  const canReset = state.status !== "idle" && state.status !== "loading";
+
   return (
-    <main className={styles.main}>
-      <div>
-        <h1 className={styles.title}>ScopeCraft</h1>
-        <p className={styles.subtitle}>
-          Turn a product idea into a structured PRD, user stories, risks, and a
-          capacity-bounded sprint plan.
-        </p>
-      </div>
+    <>
+      <Header
+        onReset={
+          canReset
+            ? () => {
+                handleClear();
+                scrollToForm();
+              }
+            : undefined
+        }
+      />
 
-      <InputForm onSubmit={submit} isLoading={state.status === "loading"} />
+      <main className={styles.main}>
+        <div>
+          <h1 className={styles.title}>{t("app.name")}</h1>
+          <p className={styles.subtitle}>{t("app.tagline")}</p>
+        </div>
 
-      {state.status === "loading" && <LoadingState />}
+        <InputForm onSubmit={submit} isLoading={state.status === "loading"} />
 
-      {state.status === "empty" && <EmptyState onStartOver={scrollToForm} />}
+        {state.status === "loading" && <LoadingState />}
 
-      {state.status === "validation_error" && (
-        <ValidationErrorState
-          message={state.message}
-          issues={state.issues}
-          onDismiss={scrollToForm}
-        />
-      )}
+        {state.status === "empty" && <EmptyState onStartOver={scrollToForm} />}
 
-      {state.status === "domain_refusal" && (
-        <DomainRefusalState message={state.message} onEditIdea={scrollToForm} />
-      )}
-
-      {state.status === "provider_error" && (
-        <ErrorState
-          message={state.message}
-          questions={state.questions}
-          onRetry={lastRequest ? () => submit(lastRequest) : undefined}
-        />
-      )}
-
-      {state.status === "success" && (
-        <>
-          <div className={styles.resultsToolbar}>
-            <button type="button" className={styles.clearButton} onClick={handleClear}>
-              Clear results
-            </button>
-          </div>
-
-          <ResultView
-            key={state.resultId}
-            data={state.data}
-            onBoardChange={setBoard}
+        {state.status === "validation_error" && (
+          <ValidationErrorState
+            message={state.message}
+            issues={state.issues}
+            onDismiss={scrollToForm}
           />
+        )}
 
-          <hr className={styles.divider} />
+        {state.status === "domain_refusal" && (
+          <DomainRefusalState message={state.message} onEditIdea={scrollToForm} />
+        )}
 
-          <ExportActions data={state.data} board={board} />
-
-          <EvidencePanel
-            providerUsed={state.providerUsed}
-            promptVersion={state.promptVersion}
+        {state.status === "provider_error" && (
+          <ErrorState
+            message={state.message}
+            questions={state.questions}
+            onRetry={lastRequest ? () => submit(lastRequest) : undefined}
           />
-        </>
-      )}
-    </main>
+        )}
+
+        {state.status === "success" && (
+          <>
+            <div className={styles.resultsToolbar}>
+              <button type="button" className={styles.clearButton} onClick={handleClear}>
+                {t("result.clear")}
+              </button>
+            </div>
+
+            <ResultView
+              key={state.resultId}
+              data={state.data}
+              onBoardChange={setBoard}
+              providerUsed={state.providerUsed}
+              promptVersion={state.promptVersion}
+              board={board}
+            />
+          </>
+        )}
+      </main>
+    </>
   );
 }
