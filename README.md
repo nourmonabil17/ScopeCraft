@@ -143,6 +143,38 @@ pull request to `main` and `dev`.
 Stated honestly, because the release gate asks for bounded limitations rather than a clean
 sales pitch.
 
+**Unauthenticated endpoint & rate-limiting boundary.** `POST /api/scopecraft` is a **public
+demo endpoint**. There is no authentication, no session, and no per-caller rate limiting, so
+anyone who knows the URL can spend the project's provider quota. This is a deliberate MVP
+scope decision, not an oversight — the app has no user accounts to authenticate against — but
+it is the single boundary that must close before any broader production use.
+
+What bounds the exposure today:
+
+| Control | Where | Effect |
+|---|---|---|
+| 16 KB streamed body cap | `route.ts`, before `JSON.parse` | An oversized body is rejected without ever being parsed or held in memory |
+| Strict Zod validation | `RequestSchema`, before any provider import | A malformed request costs **zero** provider tokens |
+| Local clarification heuristic | `getClarification`, pre-provider | Unintelligible input is refused without a model call |
+| Per-request provider timeout | `AI_TIMEOUT_MS`, default 15 s | A single request cannot hold a connection open indefinitely |
+| Server-only credentials | Route handler + `NEXT_PUBLIC_` audit | A caller can spend quota but can never read a key |
+
+What is **not** bounded: the number of *valid* requests one caller may make. A well-formed
+request always reaches a provider.
+
+**Production upgrade path**, in the order it should be done:
+
+1. **Edge middleware token-bucket rate limiting** — per-IP and per-session, in Next middleware
+   backed by a durable store (Upstash Redis or equivalent), so the limit survives serverless
+   cold starts rather than living in per-instance memory.
+2. **Session authentication (JWT)** — move the endpoint behind a signed session so quota is
+   attributable to a user rather than an IP, and abuse can be revoked per account.
+3. **Per-account quota accounting** — daily generation budgets, since provider spend is the
+   real resource being protected.
+
+Until (1) exists, treat the deployed URL as a demo whose cost ceiling is the provider account's
+own limits.
+
 **Domain boundary.** ScopeCraft plans *software product* work. Out-of-domain requests
 (medical, legal, financial advice) are refused with `422 OUT_OF_DOMAIN` rather than
 answered. The caveat is that the refusal depends on the model emitting the refusal

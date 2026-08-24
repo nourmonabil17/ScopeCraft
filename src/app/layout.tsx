@@ -180,7 +180,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: LANGUAGE_INIT_SCRIPT }} />
       </head>
-      <body>
+      {/* Matches <html> above. Neither pre-paint script touches <body> today,
+          so this is defence in depth rather than a fix for a live mismatch: it
+          means a future script that does adjust the body (a font class, a
+          density preference) cannot reintroduce a hydration warning here. */}
+      <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>
