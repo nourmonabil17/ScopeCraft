@@ -135,8 +135,11 @@ client can exhaustively switch on it.
 > `413` now carry distinct codes, and a schema violation is distinguishable from an
 > unreachable chain. The 400/413/502 **HTTP statuses and messages are unchanged**, and the
 > browser client reads `message` rather than `code`, so no UI change is required — but any
-> code branching on `INVALID_INPUT` must be updated. `docs/session2-lead-checklist.md` and
-> `docs/youssef-ai-backend-checklist.md` still quote the old name and are stale.
+> code branching on `INVALID_INPUT` must be updated. **Both stale references were
+> corrected on 2026-08-24:** `docs/youssef-ai-backend-checklist.md` was rewritten
+> against the current code, and `docs/session2-lead-checklist.md` — a Session 2
+> historical record — now carries a superseded banner pointing here instead of being
+> rewritten, so the decision trail stays intact.
 
 **Validation failures (`422 VALIDATION_ERROR`)** carry a field-level `issues` array:
 

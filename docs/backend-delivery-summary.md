@@ -254,9 +254,13 @@ Stated plainly, because a green test suite is not the same as a working product.
    smaller later story into leftover capacity. Deliberate — predictable and explainable
    beats marginally tighter.
 
-5. **Two team checklists quote a retired error code.** `docs/session2-lead-checklist.md`
-   and `docs/youssef-ai-backend-checklist.md` still say `400 INVALID_INPUT`. Not my
-   files — flagged for Nour.
+5. **Two team checklists quoted a retired error code — RESOLVED 2026-08-24.**
+   `docs/youssef-ai-backend-checklist.md` (mine) was rewritten against the current
+   code: it had also drifted on provider order, timeout, prompt version and test
+   count, not just the error code. `docs/session2-lead-checklist.md` is Nour's and is
+   a Session 2 historical record, so rather than rewrite someone else's session
+   history it now carries a superseded banner with a diff table pointing at
+   `docs/api-contracts.md`. Original text left intact underneath.
 
 ---
 

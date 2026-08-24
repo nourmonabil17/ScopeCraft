@@ -1,5 +1,27 @@
 # Session 2 — Integration Lead Checklist (Nour's role)
 
+> ## ⚠️ The contract in §1 is SUPERSEDED — do not build against it
+>
+> This is a **Session 2 historical record**, kept as-is so the decision trail stays
+> intact. The API contract it froze has since changed in three ways, and anyone
+> coding against §1 today would get it wrong:
+>
+> | Session 2 froze | Current contract |
+> |---|---|
+> | `idea` min **5** chars | min **20** chars |
+> | one client error `400 INVALID_INPUT` | `400 INVALID_JSON` (syntax), `413 PAYLOAD_TOO_LARGE` (size), `422 VALIDATION_ERROR` (semantics, with `issues[]`) |
+> | `X-Provider-Used: gemini\|groq` | `X-Provider-Used: nvidia\|groq\|gemini` |
+>
+> Four further codes were added after Session 2: `CLARIFICATION_REQUIRED` (422),
+> `OUT_OF_DOMAIN` (422), `SCHEMA_VIOLATION` (502), `PLANNING_ERROR` (502).
+>
+> **Canonical contract: [`docs/api-contracts.md`](./api-contracts.md).** If that file
+> and this one disagree, that file is right.
+>
+> _Superseded note added 2026-08-24 by Yousef (AI & Backend) — the change originated
+> in the backend Module 5 error-taxonomy split. Flagged to Nour as the file's owner;
+> the original text below is unmodified._
+
 ## 1. Freeze the API Contract
 Everyone builds against this from now on — changing it requires team agreement:
 

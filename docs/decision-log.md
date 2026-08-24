@@ -108,10 +108,22 @@ unverified material as verified.
    is source of truth if this entry and the code ever disagree.
 6. **Zod and Next.js production-checklist rows were carried forward, not re-fetched.**
    They are marked `Partially verified` for that reason.
-7. **Two team checklists quote a retired error code.**
-   `docs/session2-lead-checklist.md` and `docs/youssef-ai-backend-checklist.md` still
-   describe `400 INVALID_INPUT`, which Module 5 replaced with `INVALID_JSON` (400) and
-   `PAYLOAD_TOO_LARGE` (413). Neither file is mine to edit; flagged for Nour.
+7. **Two team checklists quoted a retired error code — RESOLVED 2026-08-24.**
+   Both described `400 INVALID_INPUT`, which Module 5 replaced with `INVALID_JSON`
+   (400) and `PAYLOAD_TOO_LARGE` (413).
+
+   `docs/youssef-ai-backend-checklist.md` is mine and was rewritten against the
+   current code. Re-checking it line by line showed the error code was the *smallest*
+   of its inaccuracies — it also still claimed Gemini was the primary provider, a
+   10-second timeout, prompt version 2, and "all 44 automated tests pass" (now 242).
+   Corrections are called out inline rather than silently overwritten, because the
+   drift itself is worth showing at the defense.
+
+   `docs/session2-lead-checklist.md` is Nour's and is a *Session 2 historical record*,
+   not a living contract. Rewriting another member's session history to match today's
+   code would destroy the decision trail the handbook asks for, so it instead carries
+   a superseded banner with a diff table pointing at `docs/api-contracts.md`, with the
+   original text left intact beneath it. Nour still owns whether to keep it that way.
 8. **Tool return shapes — RESOLVED in final integration.** `plan_sprint` now returns
    `{ capacity_points, committed_points, included, deferred }` as the handbook specified,
    and the array-returning packer is named `scheduleSprints` for what it does. The
