@@ -6,16 +6,28 @@ Required by the Team 10 Submission Checklist. Each member maintains their own se
 
 ## Yousef Mohmed Hasabo — AI & Backend Engineer
 
-**Reporting period:** Modules 1–5 of backend production hardening plus final integration, to 2026-08-23.
+**Reporting period:** Modules 1–5 of backend production hardening, final integration, live
+provider verification, and the evidence-capture pass — to **2026-08-24**.
+
+> **Revised 2026-08-24.** Statements in this section that live verification had never
+> happened were true when written and are no longer. They are corrected in place below
+> rather than deleted, and the correction is called out, because the drift itself is the
+> point of a disclosure document.
 
 ### Tools used
 
 | Tool | Role in this work |
 |---|---|
-| Claude Code (CLI agent) | Paired implementation of the provider layer, Zod schemas and documentation; repository audit against the handbook rubric |
-| Google Gemini | Product-planning inference at runtime (fallback tier 2) |
-| NVIDIA NIM — DeepSeek V4 Flash | Product-planning inference at runtime (primary tier) |
-| Groq — Llama 3.3 70B Versatile | Product-planning inference at runtime (fallback tier 1) |
+| Claude Code (CLI agent) | Paired implementation of the provider layer, Zod schemas and documentation; repository audit against the handbook rubric; the frontend pass in PR #3; the two evidence-capture harnesses |
+| NVIDIA NIM — `meta/llama-3.1-8b-instruct` | Product-planning inference at runtime (primary tier) |
+| Groq — `openai/gpt-oss-120b` | Product-planning inference at runtime (fallback tier 1) |
+| Google Gemini — `gemini-3.5-flash-lite` | Product-planning inference at runtime (fallback tier 2) |
+
+> **Corrected 2026-08-24.** This table previously named `deepseek-v4-flash-0731`,
+> `llama-3.3-70b-versatile` and an unversioned "Google Gemini". All three were dead in
+> production — the first hung to timeout, the other two returned `404`. `npm run smoke`
+> caught it on its first-ever live run. The IDs above are the ones verified with a real
+> `200 OK`; `src/lib/ai/models.ts` is the source of truth if this table drifts again.
 
 The last three are **runtime dependencies of the product**, not authoring tools. They are
 listed because the handbook asks which AI systems the module depends on.
@@ -27,7 +39,9 @@ listed because the handbook asks which AI systems the module depends on.
 `src/lib/scopecraft/tools.ts` · `src/lib/scopecraft/taxonomy.ts` ·
 `src/lib/ai/models.ts` · `scripts/smoke-test.ts` ·
 `tests/api/scopecraft.test.ts` · `.env.example` · `docs/decision-log.md` ·
-`docs/api-contracts.md` · `docs/backend-delivery-summary.md` · `AI_USAGE.md`
+`docs/api-contracts.md` · `docs/backend-delivery-summary.md` · `AI_USAGE.md` ·
+`scripts/capture-evidence.sh` · `scripts/capture-ui-evidence.mjs` ·
+`docs/evidence/**` · `docs/defense-prep-backend.md`
 
 ### Changes I made outside my ownership, and why
 
@@ -137,13 +151,18 @@ rather than edited.
 
 ### Verification evidence
 
-All commands run on 2026-08-23 against the working tree.
+Re-run on **2026-08-24** against the working tree. The earlier 2026-08-23 figures are
+superseded; the counts moved because Module 5, the frontend pass and the accessibility
+fixes each added tests.
 
 | Check | Command | Result |
 |---|---|---|
 | Lint | `npm run lint` | exit 0 — eslint `--max-warnings=0`, no output |
 | Types | `npx tsc --noEmit` | exit 0 — no diagnostics |
-| Tests | `npm test` | **130/130 passing**, 3 suites (106 API · 14 tools · 10 evaluation) |
+| Tests | `npm test` | **245/245 passing**, 8 suites — 131 node (API · tools · evaluation) + 114 UI. Was 130/130 on 2026-08-23 |
+| Live providers | `npm run smoke` | all three reachable and answering |
+| API evidence | `npm run capture:evidence` | 11/11 cases matched `docs/api-contracts.md` |
+| UI + a11y evidence | `npm run capture:ui` | 16 screenshots; 36 contrast pairs, 0 below WCAG AA |
 | Build | `npm run build` | exit 0 — 4 routes, `/api/scopecraft` dynamic |
 | Client secret scan | `grep -rqE "AIza\|gsk_\|nvapi-" .next/static \|\| echo "CLEAN"` | `CLEAN` |
 | `NEXT_PUBLIC_` audit | `grep -rn "NEXT_PUBLIC_" src/` | no matches |
@@ -173,13 +192,15 @@ permanent suite, so the evidence re-runs on every commit instead of existing onc
 
 ### What I could not verify, and what remains
 
-- **No live provider call has ever been made from this repository.** Every test mocks
-  `fetch`. A retired model ID would pass all 130 tests and fail only in production. See
-  open item 5 in `docs/decision-log.md` for the two `curl` commands that close this.
-  Module 5 narrowed but did not close this: the failover tests now mock `global.fetch`
-  rather than the provider objects, so the real URL construction, header assembly, status
-  handling, JSON extraction and schema gate execute — but the endpoint on the other side
-  is still a stub.
+- ~~**No live provider call has ever been made from this repository.**~~
+  **CLOSED 2026-08-24 — and it was right to worry.** Every test still mocks `fetch`, but the
+  network boundary is now exercised for real by `npm run smoke` and by
+  `npm run capture:evidence`, which drives a production build against live providers. The
+  first live run immediately proved the point this bullet was making: **all three default
+  model IDs were dead** while all tests passed. `docs/evidence/` now holds captured
+  one-hop and two-hop failovers, an exhausted chain, an unconfigured deployment and a
+  timeout — real failures, forced with invalid credentials and a 1 ms deadline rather than
+  mocked.
 - **No adversarial test asserts the model's actual behaviour** under injection. Module 5
   added five attack inputs and asserts, for each, that the fence holds, that exactly one
   closing delimiter survives, that the rules precede the user text, and that no credential
@@ -188,25 +209,155 @@ permanent suite, so the evidence re-runs on every commit instead of existing onc
   the boundary. None of them proves a live model refuses; that still needs adversarial
   runs against a real provider and is blocked on the same open item as above.
 
-- **Test-suite size is not test-suite coverage.** 130 passing tests is evidence of
-  regression safety, not of correctness in production. The single largest untested surface
-  remains the network boundary. `scripts/smoke-test.ts` now exists to close it, but
-  **it has not been run with real credentials** — I have no keys. Running it is a
-  handover item, not a completed one.
+- **Test-suite size is not test-suite coverage.** 245 passing tests is evidence of
+  regression safety, not of correctness in production. The clause that followed here —
+  *"`scripts/smoke-test.ts` has not been run with real credentials — I have no keys"* — was
+  true on 2026-08-23 and is **no longer**: it has been run repeatedly against real keys held
+  only in a gitignored `.env.local`.
+
+- **A defect the evidence pass found, which nothing else had.** `502 PLANNING_ERROR` is
+  intermittent: **4 of 9** live generations of the same idea failed because the model
+  referenced a story it never emitted. The deterministic planner is doing its job — an
+  invalid plan is never rendered — but from a user's seat it reads as a broken product, and
+  no mocked test would ever have surfaced it. Recorded in
+  `docs/evidence/ui/ui-evidence.md`; not yet fixed.
 - **The refusal path depends on the model emitting the envelope.** If a model ignores rule 4
   and answers a medical question in valid PRD shape, schema validation passes and the
   answer is returned. A server-side domain classifier would close this; it is not built.
+
+### Work outside the backend module (2026-08-23 → 2026-08-24)
+
+Declared here because it crosses into another member's row and should be reviewed, not
+discovered in a merge.
+
+| Work | Files | Why I did it rather than the owner |
+|---|---|---|
+| **Frontend pass — PR #3** (merged 2026-08-23): dark/light/system theming, full EN/AR bilingual + RTL, tabbed PRD result, toast system, header, capacity slider, progress ring | `src/components/**`, `src/context/**`, `src/lib/i18n/translations.ts`, `tests/ui/**` | The UI row's owner had no merged contribution and the main journey was not demoable. Raised as a PR and reviewed rather than pushed to `dev` |
+| **Seven accessibility fixes**: skip link, sticky-header scroll clearance, 10px horizontal overflow below 768px, `autocomplete`, `theme-color`, `translate="no"`, `touch-action` | `src/app/layout.tsx`, `src/components/common/Header.tsx`, `src/components/scopecraft/InputForm.{tsx,module.css}`, `src/lib/i18n/translations.ts` | Found by auditing against the Web Interface Guidelines while producing the required evidence. Each is covered by a regression test |
+| **Two evidence harnesses** | `scripts/capture-evidence.sh`, `scripts/capture-ui-evidence.mjs` | Both acceptance rows required captured evidence that did not exist |
+
+**Joe owns the UI row and should review PR #3 and the accessibility changes.** The
+accessibility work changes his components; I did not alter their behaviour, only their
+markup contract, and `tests/ui/` went 111 → 114 to pin it.
+
+### Delegated vs. verified, for the 2026-08-24 work specifically
+
+**Delegated to AI assistance:** first drafts of both capture scripts; the CDP driver
+boilerplate; first drafts of `docs/evidence/**` and `docs/defense-prep-backend.md`; the
+mechanical parts of the accessibility fixes.
+
+**Done or verified manually — these are the ones I would defend:**
+
+- **Choosing to force real failures rather than mock them.** A mocked failover proves the
+  mock. The credentials in scenarios 2–4 are genuinely invalid and the 1 ms deadline is
+  genuinely a deadline, so the captured logs are the application's own output.
+- **Not trusting the first draft of my own evidence.** My initial UI document asserted
+  "no horizontal scrolling appears at any width". When I made the script measure it instead,
+  tablet and mobile were both exactly 10px over — a real bug, found only because the claim
+  was converted from prose into a check that can fail.
+- **Catching a wrong WCAG citation.** I first scored target size against 44×44px; that is
+  SC 2.5.5, Level **AAA**. The AA criterion is 2.5.8 at 24×24. Measured and re-stated.
+- **Rejecting an over-broad fix.** The overflow could have been fixed with a global
+  `box-sizing` reset; that close to submission I scoped it to the one rule that was wrong.
+- **Verifying, not assuming, an inherited figure.** `docs/api-contracts.md` claims "twelve
+  rejection shapes"; the table in the test file holds ten. I checked before repeating it —
+  ten table cases plus a malformed body and an oversized one really is twelve.
+
+---
+
+## How to complete your section
+
+Three sections below are unfinished. The Submission Checklist marks `AI_USAGE.md` **Required**
+and owned by *every member*, so the row cannot pass until all four are filled in.
+
+**Each section must be written by the person named in it.** This is a personal disclosure of
+what *you* used and what *you* verified; nobody can write it on your behalf, and a section
+written by someone else would make the document worse than an empty one. The scaffolds below
+are pre-filled only with facts that are checkable from git — they are a starting point, not a
+draft of your answer.
+
+Copy the five headings from the template and answer them honestly. Roughly 15 minutes each.
+The handbook asks for: **tools used · tasks delegated · files changed · verification ·
+remaining questions.** A short, accurate section scores better than a long, vague one — and
+"I could not verify X" is a *positive* signal to the rubric, not an admission of failure.
+
+### What git can and cannot tell you
+
+Every baseline file — the source register, the evaluation cases, the taxonomy, the UI
+components — entered the repository in a **single scaffold commit, `9c67f42`, authored by
+Nour**. Git therefore cannot attribute authorship *inside* that commit. If you wrote
+something that landed there, say so in your own section; the history will not say it for you.
 
 ---
 
 ## Nour Eldeen Mohamed Nabil — Integration Lead
 
-_To be completed by Nour._
+> **To be completed by Nour.** Pre-filled facts from git, 2026-08-24 — verify before signing.
+>
+> - **Commits authored:** 2 — `9c67f42` (initial scaffold: architecture, schema, provider
+>   fallback, UI, tests) and `1a51b53` (merge of PR #1).
+> - **Reviewed and merged:** PR #1 (backend safety, deterministic planning, evaluations, CI).
+> - **Documents attributed to this role:** `docs/architecture.md`,
+>   `docs/api-contracts.md` (co-owned), `docs/release-checklist.md`,
+>   `docs/contribution-matrix.md`, `docs/session1–4-lead-checklist.md`.
+
+**Tools used** — _which AI tools, and for what._
+
+**Tasks delegated to AI assistance** — _what you asked a tool to draft or generate._
+
+**Tasks done and verified manually** — _what you checked yourself, and how._
+
+**Files I own and changed** — _and anything you changed outside your ownership._
+
+**What I could not verify, and what remains** — _open items are expected; name them._
+
+> Known open items already tracked elsewhere, for your convenience: PR #2 is still open;
+> no git tag exists; 17 production smoke-test boxes in `docs/release-checklist.md` are
+> unchecked; and Vercel still deploys from a personal fork rather than the team repo.
+
+---
 
 ## Joe (Youssef Alaaeldin) — Product UI & Workflow Engineer
 
-_To be completed by Joe._
+> **To be completed by Joe.** Pre-filled facts from git, 2026-08-24 — verify before signing.
+>
+> - **Commits authored:** 1 — `4bdd6df` ("complete role-specific updates for ScopeCraft"),
+>   which sits on **PR #2 and is still open**, so it is not yet on `dev` or `main`.
+> - **UI code currently on `main`** was contributed through PR #3, authored by Yousef, and
+>   through the accessibility pass of 2026-08-24. Both are declared in Yousef's section
+>   above and are yours to review.
+> - **Evidence for your acceptance row now exists**: `docs/evidence/ui/` holds 16
+>   screenshots covering all seven workflow states, three viewport widths, both themes and
+>   Arabic RTL, plus a measured WCAG 2.2 AA checklist. Regenerate with `npm run capture:ui`.
+
+**Tools used** · **Tasks delegated** · **Tasks done and verified manually** ·
+**Files I own and changed** · **What I could not verify, and what remains**
+
+> The most valuable thing you can add here is what you designed or decided that the code
+> alone does not show — the seven-state model, the choice to render structured output rather
+> than parse prose, and why the evidence panel is separated from model prose. Those are
+> defensible design decisions and they are currently undocumented by their owner.
+
+---
 
 ## Yasmin Mohamed Islam — Knowledge, Tools & Quality Engineer
 
-_To be completed by Yasmin._
+> **To be completed by Yasmin.** Pre-filled facts from git, 2026-08-24 — verify before signing.
+>
+> - **Commits authored:** none under this name. Your artifacts — `docs/source-register.md`,
+>   `knowledge/scopecraft/**`, `src/lib/scopecraft/taxonomy.ts`,
+>   `tests/evaluation/scopecraft-cases.json` (10 cases) — all entered in Nour's scaffold
+>   commit `9c67f42`, so git cannot show your authorship. **State it here in your own
+>   words; nothing else in the repository will.**
+> - **Changes made to your files by others** are itemised in Yousef's section above and
+>   need your sign-off — in particular the **1–10 → 1–5 estimation scale change**, which
+>   rewrote your fixtures and is open item 9 in `docs/decision-log.md`.
+
+**Tools used** · **Tasks delegated** · **Tasks done and verified manually** ·
+**Files I own and changed** · **What I could not verify, and what remains**
+
+> Two open items are specifically yours and are worth naming here rather than leaving to be
+> found: the evaluation set covers normal, not-found, malformed and injection cases but has
+> no explicit **ambiguous** or **tool-failure** category, and live adversarial coverage is
+> **one case against one provider** (decision-log item 2). Documented coverage gaps score;
+> undocumented ones are a red flag.
