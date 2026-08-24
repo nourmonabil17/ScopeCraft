@@ -167,7 +167,10 @@ and carries no PRD fields.
 ### Exact error payloads
 
 Every one of these is asserted verbatim by a test, so the strings below are the strings the
-client receives.
+client receives. Most are additionally captured from a **live production build** in
+[`docs/evidence/curl-evidence.md`](evidence/curl-evidence.md) and
+[`docs/evidence/provider-fallback-log.md`](evidence/provider-fallback-log.md); re-capture
+with `npm run capture:evidence`, which fails if any response drifts from this table.
 
 ```jsonc
 // 400 — body is not valid JSON

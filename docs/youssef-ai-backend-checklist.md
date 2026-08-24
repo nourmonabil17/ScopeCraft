@@ -2,7 +2,7 @@
 
 **Name:** Yousef Mohmed Hasabo
 **Role:** AI & Backend Engineer
-**Last verified:** 2026-08-24 against commit `4fea03b`
+**Last verified:** 2026-08-24 against commit `8846f52`
 
 > Every line below was re-checked against the code on the date above, not carried
 > forward from a previous session. Where an earlier version of this file claimed
@@ -87,6 +87,33 @@ the repository mocked the network, so nothing proved the product actually worked
       auto-load `.env` files. Now uses `--env-file-if-exists`.
 
 Full narrative: `docs/decision-log.md` items 2 and 5.
+
+## Captured evidence (2026-08-24)
+
+My acceptance row requires two artifacts that no test can substitute for: *"Postman/curl
+evidence"* and a *"provider fallback/error log"*. Both now exist as committed files under
+[`docs/evidence/`](evidence/README.md), captured from a production build against live
+providers by `scripts/capture-evidence.sh` (`npm run capture:evidence`).
+
+- [x] **curl evidence** — [`docs/evidence/curl-evidence.md`](evidence/curl-evidence.md),
+      raw transcript at [`raw/curl-transcript.txt`](evidence/raw/curl-transcript.txt).
+      Eleven cases: the happy path plus every 4xx rejection (`400`, `413`, `422`
+      validation, `422` clarification, `405`).
+- [x] **Provider fallback/error log** —
+      [`docs/evidence/provider-fallback-log.md`](evidence/provider-fallback-log.md), raw
+      server output at [`raw/provider-fallback.log`](evidence/raw/provider-fallback.log).
+      One-hop failover to Groq and two-hop failover to Gemini, both serving a real `200`;
+      plus an exhausted chain (`502`), an unconfigured deployment (`502`) and a timeout
+      (`504`).
+- [x] Failures are **forced for real** — invalid credentials and a 1 ms deadline — not
+      mocked. A mocked failover proves the mock, not the chain.
+- [x] Three live `sprint_plan` results, one per provider. The Groq failover run returned
+      8 stories worth 39 points against a capacity of 30; the planner committed 28 and
+      deferred 3. This closes decision-log item 10.
+- [x] All eleven cases matched `docs/api-contracts.md` on the first run, so the script
+      doubles as a contract regression check and exits non-zero on drift.
+- [x] Every captured file is scanned for `nvapi-` / `gsk_` / `AIza` patterns before the
+      run is allowed to succeed. Reported `CLEAN`.
 
 ## Prompt security
 
@@ -188,7 +215,8 @@ Full narrative: `docs/decision-log.md` items 2 and 5.
 - [ ] A server-side domain classifier. The refusal currently depends on the model
       emitting the envelope; a model that ignores rule 4 and answers in valid PRD
       shape would pass validation.
-- [ ] Backend defense preparation for Session 5.
+- [ ] Backend defense preparation for Session 5 — see
+      [`docs/defense-prep-backend.md`](defense-prep-backend.md).
 
 ## Final result
 

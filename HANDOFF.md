@@ -1,6 +1,6 @@
 # ScopeCraft — Session Handoff
 
-**Written:** 2026-08-24 · **Repo state at:** `d856fb4` (team `dev`)
+**Written:** 2026-08-24 · **Repo state at:** `8846f52` (team `dev`)
 **Purpose:** pick this project up in a fresh chat without re-deriving context.
 
 ---
@@ -132,16 +132,22 @@ absent from tracked files. **Do not commit it.** `npm run smoke` reads it via
 - [ ] Decide: repoint Vercel at the team repo (§1.1)
 - [x] Architecture, branch rules, contracts, release checklist, contribution matrix
 
-### Yousef Mohmed Hasabo — AI & Backend Engineer *(closest to done)*
+### Yousef Mohmed Hasabo — AI & Backend Engineer *(complete)*
 - [x] Schema, validation, 4xx safety, 3-tier fallback, deterministic tools, tests,
       safe logging — all done and **live-verified**
 - [x] AI_USAGE section — **only member who filled it in**
 - [x] Stale error-code docs corrected (`d856fb4`)
-- [ ] **Missing evidence artifact:** acceptance criteria require *"Postman/curl
-      evidence"* and a *"provider fallback/error log"*. Neither exists as a file.
-      ← **this is his only hard gap; everything else is polish**
-- [ ] Close remaining decision-log items (see §7)
-- [ ] Backend defense prep
+- [x] **Evidence artifacts — closed.** `docs/evidence/` now holds the required
+      *"Postman/curl evidence"* and *"provider fallback/error log"*, captured from a
+      production build against live providers by `scripts/capture-evidence.sh`
+      (`npm run capture:evidence`). Eleven cases including a real one-hop failover to
+      Groq and a two-hop failover to Gemini. This was his last hard gap.
+- [x] Decision-log items closed where genuinely resolved — now **6 of 10 closed**
+      (see §7). The four that remain need a human, not code.
+- [x] Backend defense prep — `docs/defense-prep-backend.md`
+
+> **Nothing on Yousef's acceptance row is now unevidenced.** His self-check can be
+> moved to *Ready for Review* with `docs/evidence/` as the Evidence Link.
 
 ### Joe / Youssef Alaaeldin — Product UI & Workflow Engineer
 - [x] 7 UI states, structured rendering, evidence panel, a11y, responsive — all built
@@ -184,13 +190,23 @@ whether to keep it that way.
 
 ---
 
-## 7. Decision log — 10 numbered items, 3 resolved
+## 7. Decision log — 10 numbered items, 6 resolved
 
-Resolved: **5** (model IDs, live-verified), **7** (stale checklists), **8** (tool shapes).
-Partially closed: **2** (injection — one live case, not full coverage).
-Still open: **1** (MoSCoW/RICE URLs), **3** (uncitable Google source), **4** (OWASP page
-needs a human visit — returns 403 to automated fetch), **6** (carried-forward rows),
-**9** (Yasmin's unsigned scale change), **10** (`sprint_plan` live evidence).
+`docs/decision-log.md` now opens its Open Items section with a status table; read that
+rather than re-deriving this.
+
+Resolved: **3** (uncitable Google source — standing rule, no action), **5** (model IDs),
+**6** (Zod / Next.js sources re-fetched 2026-08-24), **7** (stale checklists),
+**8** (tool shapes), **10** (`sprint_plan` — three live captures now exist; the
+estimate-quality caveat stands by design and is not closable).
+Partially closed: **2** (injection — one live case, not full coverage; Yasmin's to close).
+Still open: **1** (MoSCoW/RICE URLs), **4** (OWASP page needs a human visit — returns 403
+to automated fetch), **9** (Yasmin's unsigned scale change).
+
+**All three genuinely-open items need a human decision or a human visit, not a code
+change.** Item 6's closure also corrected a small inaccuracy: the Next.js Route Handlers
+reference does not actually say "server-side only" in those words, so the production
+checklist's `NEXT_PUBLIC_` line is now the registered source for that claim.
 
 ---
 
@@ -204,6 +220,7 @@ npm run lint             # --max-warnings=0
 npx tsc --noEmit
 npm run build
 npm run smoke            # live provider check — needs .env.local
+npm run capture:evidence # re-capture docs/evidence/ (needs a build first; real calls)
 npm run dev              # localhost:3000/scopecraft
 
 # secret scan (gate 5, run after build)
