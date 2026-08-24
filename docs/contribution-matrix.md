@@ -17,7 +17,7 @@ actual `dev`/`main` branch (`4c6ff18`) before being written down.
 | System architecture & module ownership | `docs/architecture.md` | Present; module boundaries match the actual `src/` layout |
 | CI/CD pipeline | `.github/workflows/ci.yml` | `actions/checkout@v5`, `actions/setup-node@v5`, Node 22; runs test/typecheck/lint/build on every push and PR to `main`/`dev` |
 | Repository branching rules | `docs/architecture.md` §5 | `main` protected/deployable, `dev` integration branch, PR-before-merge policy documented |
-| Vercel deployment configuration | `vercel.json` | Security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`) applied to all routes |
+| Deployment security headers | `next.config.js` | `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, plus `poweredByHeader: false`. Applied to all routes. Moved here from `vercel.json` on 2026-08-24 so they also cover `next start` and self-hosted deployments, and can be verified before a deploy |
 | Release documentation | `docs/release-checklist.md` | Rewritten 2026-08-24 to match current test count, provider list, and timeout; pre-flight, environment, deployment, and rollback sections |
 | Contribution matrix | `docs/contribution-matrix.md` | This document |
 

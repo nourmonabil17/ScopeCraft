@@ -205,13 +205,22 @@ capture_success() {
     echo ""
   } >> "${TRANSCRIPT}"
 
-  curl -sS -D "${TMP}/head.txt" -o "${TMP}/body.json" \
-    -X POST "${URL}" \
-    -H 'Content-Type: application/json' \
-    --data-binary "@${body_file}" || true
-
-  local got provider
-  got="$(head -1 "${TMP}/head.txt" | awk '{print $2}')"
+  # The generation is genuinely intermittent: the model sometimes returns
+  # estimates the deterministic planner rejects (502 PLANNING_ERROR — usually a
+  # dependency on a story it never emitted). A user would retry, so this does
+  # too, and reports how many attempts it took rather than hiding the flakiness.
+  local got provider attempt=1
+  while [[ "${attempt}" -le 4 ]]; do
+    curl -sS -D "${TMP}/head.txt" -o "${TMP}/body.json" \
+      -X POST "${URL}" \
+      -H 'Content-Type: application/json' \
+      --data-binary "@${body_file}" || true
+    got="$(head -1 "${TMP}/head.txt" | awk '{print $2}')"
+    [[ "${got}" == "200" ]] && break
+    printf '    · attempt %d returned HTTP %s — retrying\n' "${attempt}" "${got:-none}"
+    attempt=$((attempt + 1))
+  done
+  GENERATION_ATTEMPTS="${attempt}"
   provider="$(grep -i '^x-provider-used:' "${TMP}/head.txt" | tr -d '\r' | awk '{print $2}' || true)"
 
   cat "${TMP}/head.txt" >> "${TRANSCRIPT}"
@@ -403,13 +412,15 @@ fi
 
 echo ""
 echo "Checking captured files are committable..."
+IGNORED_COUNT=0
 for f in "${OUT}"/*; do
   if git -C "${REPO_ROOT}" check-ignore -q "${f}"; then
     echo "  ✗ IGNORED — $(basename "${f}") is excluded by .gitignore and will not commit." >&2
+    IGNORED_COUNT=$((IGNORED_COUNT + 1))
     FAILURES=$((FAILURES + 1))
   fi
 done
-if [[ "${FAILURES}" -eq 0 ]]; then
+if [[ "${IGNORED_COUNT}" -eq 0 ]]; then
   echo "  ✓ All captured files are tracked by git."
 fi
 

@@ -253,8 +253,14 @@ user's prompt.
 
 ### Response headers
 
-A `200` carries exactly `content-type`, `x-provider-used` and `x-prompt-version` —
-asserted by test, so a future header cannot quietly start echoing internals.
+The route handler sets exactly `content-type`, `x-provider-used` and `x-prompt-version` on a
+`200` — asserted by test, so the handler cannot quietly start echoing internals.
+
+On the wire the framework adds the security headers configured in `next.config.js`
+(`Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,
+`Permissions-Policy`) to every response, and `X-Powered-By` is disabled. The test asserts the
+handler's own header set rather than the full HTTP response, which is why adding a security
+header does not break it — and why a *handler* leak still would.
 
 ---
 

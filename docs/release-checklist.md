@@ -40,9 +40,11 @@ Project → Settings → Environment Variables), **never** in code or a committe
 - [ ] `AI_TIMEOUT_MS=15000` set explicitly
 - [ ] No env variable containing a secret is prefixed `NEXT_PUBLIC_` (that prefix inlines
       the value into the client bundle and permanently leaks it to every visitor)
-- [ ] `vercel.json` security headers (`X-Frame-Options`, `X-Content-Type-Options`,
-      `Referrer-Policy`) confirmed present in the deployed response headers, not just the
-      repo file
+- [ ] `next.config.js` security headers (`Content-Security-Policy`, `X-Frame-Options`,
+      `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`) confirmed present in
+      the deployed response headers, not just the repo file:
+      `curl -sSI <url> | grep -iE "content-security|x-frame|x-content-type|referrer|permissions"`
+- [ ] `X-Powered-By` absent from the deployed response (`poweredByHeader: false`)
 
 ## Deployment
 

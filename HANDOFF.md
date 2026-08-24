@@ -105,7 +105,8 @@ absent from tracked files. **Do not commit it.** `npm run smoke` reads it via
 3. **Fixed `npm run smoke`** silently reporting `SKIPPED` with valid keys (`tsx` doesn't
    auto-load `.env`).
 4. **Patched high-severity `nanoid`** advisory.
-5. **Added** `docs/contribution-matrix.md`, `vercel.json` (security headers), rewrote
+5. **Added** `docs/contribution-matrix.md`, security headers (originally `vercel.json`,
+   moved into `next.config.js` on 2026-08-24 and extended with CSP), rewrote
    `docs/release-checklist.md`, updated `README.md`.
 6. **Major frontend upgrade** — dark/light/system theming, full EN/AR bilingual + RTL,
    tabbed PRD view, toast system, header, capacity slider, progress ring. 201 → 242 tests.

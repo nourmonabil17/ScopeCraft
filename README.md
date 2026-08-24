@@ -198,7 +198,7 @@ src/lib/ai/models.ts                                    Endpoints + model IDs, s
 scripts/smoke-test.ts                                   Live provider connectivity check (Yousef)
 knowledge/scopecraft/                                   Approved corpus (Yasmin)
 tests/                                                  API, tools, evaluation, and UI suites
-vercel.json                                             Deployment security headers (Nour)
+next.config.js                                          Security headers + CSP (Youssef)
 docs/architecture.md                                    System architecture (Nour)
 docs/contribution-matrix.md                             Verified per-member deliverables (Nour)
 docs/api-contracts.md                                   API + tool contracts (Yousef)
