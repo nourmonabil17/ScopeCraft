@@ -913,39 +913,60 @@ A graded row in its own right, not a subsection of the frontend.
 
 ### 10.1 Measured
 
-- [ ] **10.1.1** `npm run capture:ui` green, including all six LTR/RTL overflow checks.
-- [ ] **10.1.2** Every contrast pair at or above AA in both themes.
-- [ ] **10.1.3** Zero controls without an accessible name.
-- [ ] **10.1.4** Zero skipped heading levels; landmarks present; exactly one `h1`.
-- [ ] **10.1.5** Update the measured-results table in
-      [`accessibility-checklist.md`](evidence/ui/accessibility-checklist.md) with the new
-      counts after every UI change in this plan.
+- [x] **10.1.1** `npm run capture:ui` green. **17 screenshots, all six LTR/RTL overflow checks
+      clean.** Ran twice — before and after the i18n fix below. The header now reports **1**
+      generation attempt where it used to report up to four, which is independent confirmation
+      of the `PLANNING_ERROR` fix from a script that knows nothing about it.
+- [x] **10.1.2** Every contrast pair at or above AA in both themes. **19 pairs per theme, 0
+      below AA.** Lowest is 4.87:1 on the 11px "Live" badge, against a 4.5 threshold.
+- [x] **10.1.3** Zero controls without an accessible name. **0 of 15**, both themes. The count
+      rose from 14 to 15 with the history link.
+- [x] **10.1.4** Zero skipped heading levels; landmarks present; exactly one `h1`. **Measured
+      in both themes:** heading levels 1 and 2 with 0 skips, `banner` and `main` both present,
+      `<h1>` count exactly 1.
+- [x] **10.1.5** Update the measured-results table in
+      [`accessibility-checklist.md`](evidence/ui/accessibility-checklist.md). **Four stale
+      numbers corrected:** controls 14 → 15, keyboard-reachable 14 → 15, tab order "13 of 13"
+      → 15 of 15, and the skip-link clearance 59px → 73px.
 
 ### 10.2 Internationalisation
 
-- [ ] **10.2.1** Every new string exists in `en` **and** `ar`. The type system enforces it —
-      do not work around it with a fallback.
-- [ ] **10.2.2** Read both locales on screen. A key that exists is not a translation that
-      reads correctly.
-- [ ] **10.2.3** Confirm Arabic register stays Modern Standard, matching the existing copy.
-- [ ] **10.2.4** Confirm product names keep `translate="no"` — machine translation renders
-      "ScopeCraft" as "craft of scope" in Arabic.
-- [ ] **10.2.5** Confirm numbers, dates and capacity readouts render correctly in RTL.
+- [x] **10.2.1** Every new string exists in `en` **and** `ar`. **175 keys each, exact parity**,
+      nothing missing in either direction.
+- [x] **10.2.2** Read both locales on screen. **Done by reading the rendered Arabic page, not
+      the dictionary** — which is how the `d` bug below was found, since it was a literal in
+      JSX rather than a key and no type check could see it.
+- [x] **10.2.3** Confirm Arabic register stays Modern Standard. **Holds.** The tagline,
+      form labels and hints all read as MSA product/agile vocabulary, matching the existing
+      copy rather than drifting colloquial.
+- [x] **10.2.4** Confirm product names keep `translate="no"`. **Present on the header brand,
+      and confirmed on screen:** "ScopeCraft" renders untranslated in both the header and the
+      `h1` on the Arabic page.
+- [x] **10.2.5** Confirm numbers, dates and capacity readouts render correctly in RTL. **One
+      real bug found and fixed.** The preset badges rendered `14d` — an English day unit
+      hardcoded as a JSX literal, so it had no `ar` entry and the type system could not catch
+      it. Moved into the dictionary as `form.presets.meta`; the Arabic badges now read
+      `30 · 14 يوم`, verified in the re-captured screenshot. Digits are Western in both
+      locales, consistently, and the capacity slider mirrors correctly.
 
 ### 10.3 The RTL rules
 
-- [ ] **10.3.1** Grep all new CSS for physical offsets: `left:`, `right:`, `margin-left`,
-      `padding-right`, and asymmetric `border-radius` shorthand.
-- [ ] **10.3.2** Confirm every viewport is measured in **both** directions. A direction-blind
-      check on a bilingual app is not a passing check; it is an untested direction. This is
-      how a `left: -9999px` skip link made every Arabic page scroll ~10000px sideways.
-- [ ] **10.3.3** Confirm decorative marks (the GitHub logo, the SC badge) do not mirror.
+- [x] **10.3.1** Grep all new CSS for physical offsets. **Zero across every CSS module** —
+      no `left:`/`right:`, no `margin-left`/`padding-right`, no four-value `border-radius`
+      shorthand.
+- [x] **10.3.2** Confirm every viewport is measured in **both** directions. **Six checks:**
+      1280 / 768 / 390px, each in `en/ltr` and `ar/rtl`. No horizontal overflow in any of
+      them.
+- [x] **10.3.3** Confirm decorative marks do not mirror. **Nothing mirrors anywhere:** no
+      `scaleX`, no `rotateY`, no `[dir="rtl"]` transform override in any CSS module. The SC
+      badge is upright in the Arabic screenshot.
 
 ### 10.4 Not verified — do not claim these
 
-- [ ] **10.4.1** Keep the honest "not verified" section current: no real screen-reader run,
-      no automated axe/Lighthouse scan, contrast measured on rendered text only (not icon
-      glyphs, focus rings or borders).
+- [x] **10.4.1** Keep the honest "not verified" section current. **Still accurate, still five
+      items**, and none of this pass's work touched them: no screen-reader run, no
+      axe/Lighthouse scan, contrast on rendered text only, no 200%/400% zoom test, no
+      colour-blind simulation. Nothing was quietly promoted to "verified".
 
 ---
 ---

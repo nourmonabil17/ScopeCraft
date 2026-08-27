@@ -327,7 +327,10 @@ export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
                 <span className={styles.presetLabel}>{label}</span>
                 <span className={styles.presetDescription}>{description}</span>
                 <span className={styles.presetMeta}>
-                  {preset.team_capacity_points} · {preset.sprint_length_days}d
+                  {t("form.presets.meta", {
+                    points: String(preset.team_capacity_points),
+                    days: String(preset.sprint_length_days),
+                  })}
                 </span>
               </button>
             );

@@ -54,6 +54,10 @@ const en = {
   "form.heading": "Describe your product",
   "form.presets.legend": "Start from an example (optional)",
   "form.presets.apply": "Fill the form with the {label} example: {description}",
+  // The whole badge, not just its unit: Arabic wants the day marker written out
+  // rather than an English "d", and a bare literal in JSX cannot be type-checked
+  // for a missing translation the way a key can.
+  "form.presets.meta": "{points} · {days}d",
   "form.presets.applied": "{label} preset applied. The form is ready to submit.",
   "preset.capstone.label": "Student capstone",
   "preset.capstone.description":
@@ -285,6 +289,7 @@ const ar: Record<TranslationKey, string> = {
   "form.heading": "صف منتجك",
   "form.presets.legend": "ابدأ من مثال (اختياري)",
   "form.presets.apply": "املأ النموذج بمثال {label}: {description}",
+  "form.presets.meta": "{points} · {days} يوم",
   "form.presets.applied": "تم تطبيق نموذج {label}. النموذج جاهز للإرسال.",
   "preset.capstone.label": "مشروع تخرج طلابي",
   "preset.capstone.description":

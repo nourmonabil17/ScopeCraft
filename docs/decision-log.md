@@ -743,3 +743,36 @@ nonce or hash policy and saying so is more useful than closing the row.
     branch, so local development no longer uses the Docker container that
     `local-development.md` describes. The dev branch is the right one to point at and the
     document explicitly permits it, but the change happened silently and is worth knowing.
+
+29. **Module 10 accessibility and i18n: fourteen of fourteen, and reading the screen found
+    what the type system could not — 2026-08-28.** The capture ran green twice, before and
+    after a fix that the first run made visible.
+
+    **The bug the compiler could not see.** `translations.ts` is built so that an English
+    key with no Arabic one is a compile error, and that held: 175 keys each, exact parity.
+    But the preset badges rendered `14d` on the Arabic page, because the day unit was a
+    **literal in JSX** — `{preset.sprint_length_days}d` — not a key. No type check can
+    reach that. It was found by 10.2.2, which asks for the rendered page to be read rather
+    than the dictionary, and it is the reason that item is worded that way. Moved into the
+    dictionary as `form.presets.meta` so the whole badge, separator included, differs per
+    locale; the Arabic badges now read `30 · 14 يوم`.
+
+    **The capture confirmed the planner fix from the outside.** The audit header records how
+    many generation attempts the success screenshots needed. It now says **1**. Before entry
+    25 it said up to four. That is a script with no knowledge of the dependency filter
+    reporting the same improvement independently.
+
+    **Measured, both themes:** 19 contrast pairs each, 0 below AA, lowest 4.87:1 on the 11px
+    "Live" badge. 0 of 15 controls without an accessible name. 0 skipped heading levels,
+    `banner` and `main` present, exactly one `h1`. Six overflow checks — three viewports ×
+    two directions — all clean. Zero physical CSS offsets across every module, and nothing
+    that mirrors: no `scaleX`, no `rotateY`, no `[dir="rtl"]` transform anywhere.
+
+    **Four stale numbers in `accessibility-checklist.md` corrected**, all drifted upward
+    when authentication added controls: 14 → 15 controls, 14 → 15 keyboard-reachable,
+    "13 of 13" → 15 of 15 in the tab order, and the skip-link clearance 59px → 73px. This is
+    the drift 10.1.5 exists to catch, and it had already happened.
+
+    **Nothing was promoted to verified.** The "not verified" section still lists the same
+    five gaps: no screen-reader run, no axe/Lighthouse scan, contrast on rendered text only,
+    no zoom test, no colour-blind simulation. The screen-reader gap remains the biggest one.
