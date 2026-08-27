@@ -63,6 +63,20 @@ COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 # No `public/` COPY: the directory does not exist in this project, and COPY of a
 # missing path fails the build. Add it here if one is ever created.
 
+# npm, npx and yarn ship with the base image, and their own vendored dependency
+# trees are most of what an image scan reports against this project. On
+# 2026-08-28 `docker scout` found 16 critical/high CVEs; 9 of them were inside
+# /usr/local/lib/node_modules/npm (brace-expansion, ip-address, picomatch,
+# sigstore, tar), none in the six runtime dependencies — `npm audit` reported
+# zero for those, and both numbers were correct about different trees.
+#
+# The standalone server starts with `node server.js`. Nothing at runtime shells
+# out to a package manager, so these are attack surface and scanner noise with
+# no upside. Removed here rather than in the builder stage, which still needs
+# npm to run the build.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+           /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
+
 USER node
 
 EXPOSE 3000

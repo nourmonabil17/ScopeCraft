@@ -805,30 +805,59 @@ hardest.
 
 ## Module 8 — Security
 
-- [ ] **8.1.1** Bundle secret scan after a fresh build.
-- [ ] **8.1.2** Grep the whole tree for `NEXT_PUBLIC_`. Expect zero.
-- [ ] **8.1.3** Git history secret scan across all branches.
-- [ ] **8.1.4** Confirm every database query is parameterised. The `postgres` tagged
-      template does this by construction — confirm nothing was built by string concatenation
-      as a "quick fix".
-- [ ] **8.1.5** Confirm every user-scoped query takes `user_id` from the session, never from
-      client input. Check each `sql\`` call individually.
-- [ ] **8.1.6** Re-verify all six security headers on the **live** deployment.
-- [ ] **8.1.7** Confirm `X-Powered-By` is still absent.
+- [x] **8.1.1** Bundle secret scan after a fresh build. **Clean.** Scanned the actual
+      values of all 7 secrets in `.env.local` — not just their prefixes — against both
+      `.next/static` and `.next/server`. No match in either.
+- [x] **8.1.2** Grep the whole tree for `NEXT_PUBLIC_`. **Zero.** The only two hits are
+      comments in `.env.example` forbidding it.
+- [x] **8.1.3** Git history secret scan across all branches. **Clean across 49 commits.**
+      Searched every reachable revision for provider key prefixes, credentialed Postgres
+      URLs, GitHub tokens and PEM private keys. Every hit was the local Docker placeholder
+      `scopecraft:scopecraft@localhost`. No Neon host or credential has ever been tracked.
+- [x] **8.1.4** Confirm every database query is parameterised. **All 12 call sites** across
+      `src/` and `scripts/` are tagged templates. No string concatenation, no `sql.unsafe`.
+- [x] **8.1.5** Confirm every user-scoped query takes `user_id` from the session. **All four**
+      (history list, history detail, board `PATCH`, quota) filter on a `userId` read from
+      `auth()`. The `PATCH` and detail queries scope by session id *and* row id, so another
+      account's plan is a 404 rather than a leak.
+- [x] **8.1.6** Re-verify all six security headers on the **live** deployment. **All six
+      present**, on both a page and `/api/scopecraft`. **Finding: only five are ours.**
+      `Strict-Transport-Security` is added by Vercel, not by `next.config.js`, so the
+      container image serves five headers and loses HSTS silently. Recorded in
+      [`security-review.md`](security-review.md).
+- [x] **8.1.7** Confirm `X-Powered-By` is still absent. **Absent** on the live response.
 - [ ] **8.1.8** Confirm the session cookie is `httpOnly`, `sameSite=lax`, and `secure` in
-      production — read the actual `Set-Cookie` header on the live site, not the config.
-- [ ] **8.1.9** Confirm CSRF protection is active on the auth routes (Auth.js provides it —
-      verify the token is required, do not assume).
-- [ ] **8.1.10** Confirm error responses leak nothing on **every** path, including the two
-      new codes.
-- [ ] **8.1.11** Docker: non-root user, no `.env` in any layer, no secret in an `ARG`, base
-      image free of known criticals (`docker scout` or `trivy`).
-- [ ] **8.1.12** `npm audit` — record and triage anything it finds rather than ignoring it.
-- [ ] **8.1.13** Confirm dependency count is still six and every one is justified.
-- [ ] **8.1.14** Re-read [`security-review.md`](security-review.md) and correct anything the
-      database and Docker changes made stale.
-- [ ] **8.1.15** Confirm the CSP `script-src 'unsafe-inline'` weakness is still recorded as
-      a deliberate, bounded decision (log item 11) rather than quietly forgotten.
+      production. **Cannot be checked: there is no authentication in production.** `/login`
+      returns **404** and `/scopecraft` returns a cached prerender, so the deployed build
+      predates the auth work entirely. Blocked behind the deployment, not behind analysis.
+- [ ] **8.1.9** Confirm CSRF protection is active on the auth routes. **Not verified, and
+      deliberately not assumed.** Unreachable in production (no auth deployed) and
+      unreachable locally — `.env.local` has no `AUTH_SECRET` or `AUTH_GITHUB_*`, so the
+      auth routes cannot be exercised on this machine either.
+- [x] **8.1.10** Confirm error responses leak nothing on **every** path. **All 21 `fail()`
+      sites** across both routes reviewed. Every message is a static string; the only
+      interpolations are the quota limit and count, both integers. Zod issues are mapped to
+      `{path, message}` with no `received` value. Server logs carry `error.name` only, never
+      the error object.
+- [ ] **8.1.11** Docker. **Partly done — three of four pass, the fourth fails.**
+      Non-root **verified** (`uid=1000(node)`), no `.env*` anywhere in the image
+      **verified**, no secret in the layer history **verified**. But `docker scout` found
+      **16 critical/high CVEs**: 9 inside npm's own vendored tree and 7 in the base image's
+      `openssl`, none in this project's dependencies. The runner stage now removes `npm`,
+      `npx` and `yarn`, **but that change is unverified** — the daemon cannot reach Docker
+      Hub to rebuild. Stays open until the rebuild runs.
+- [x] **8.1.12** `npm audit`. **Zero vulnerabilities**, with and without dev dependencies.
+      This supersedes the two ESLint-chain advisories in `security-review.md`, which have
+      since been resolved upstream.
+- [x] **8.1.13** Confirm dependency count is still six. **Six:** next, next-auth, postgres,
+      react, react-dom, zod. An uncommitted seventh (`@neondatabase/neon-js`) had appeared
+      from outside the session with nothing importing it; removed.
+- [x] **8.1.14** Re-read [`security-review.md`](security-review.md) and correct what went
+      stale. **Done:** the dev-dependency advisories are marked resolved, and two new
+      sections cover the container image scan and the five-versus-six header finding.
+- [x] **8.1.15** Confirm the CSP `script-src 'unsafe-inline'` weakness is still recorded.
+      **Recorded in three places** — the sourcing table, the open-risks table (row 11), and
+      decision-log item 11 — each stating the cost and why it was accepted.
 
 ---
 

@@ -662,3 +662,46 @@ nonce or hash policy and saying so is more useful than closing the row.
     under it. **This needs confirming against the hosting plan's ceiling** — it is the one
     part of this entry not verified by running it. If the plan caps lower than 60 s, lower
     `AI_TOTAL_BUDGET_MS` to match rather than raising `maxDuration`.
+
+27. **Module 8 security audit: eleven checks pass, two are blocked, and one fails —
+    2026-08-28.** Every item was run rather than reasoned about. Three results were not
+    what the plan expected.
+
+    **The live site is not what the docs describe.** Known issue #2 said production
+    "bounces to `/login`" because `AUTH_*` is unset in Vercel. It does not. `/login`
+    returns **404**, and `/scopecraft` returns **200** from a cached prerender roughly nine
+    hours old. The deployed build predates the authentication work entirely — consistent
+    with `dev` sitting 18 commits ahead of both remotes. So the endpoint really is
+    anonymous and unmetered in production today (issue #6), and there is no sign-in page to
+    bounce to. `AUTH_SECRET` and `AUTH_GITHUB_*` are also absent from local `.env.local`,
+    which is why 8.1.8 and 8.1.9 could not be checked in either place.
+
+    **Two scanners disagreed, and both were right.** `npm audit` reports **zero**
+    vulnerabilities; `docker scout` reports **16** (1 critical, 15 high) against the same
+    project. Neither number is wrong — they cover different trees. Located precisely inside
+    the image: 9 in npm's own vendored dependencies at
+    `/usr/local/lib/node_modules/npm` (`brace-expansion`, `ip-address`, `picomatch`,
+    `sigstore`, and a critical in `tar`), and 7 in the base image's `openssl` 3.5.7-r0.
+    **None in this project's six runtime dependencies.**
+
+    The runner stage now deletes `npm`, `npx` and `yarn` — the standalone server starts
+    with `node server.js` and nothing at runtime shells out to a package manager, so those
+    trees are attack surface with no upside. **The change is unverified.** `node:22-alpine`
+    is not cached on this machine and the daemon cannot reach Docker Hub, so the rebuild
+    fails at manifest resolution. 8.1.11 stays open, and the existing image still carries
+    all 16.
+
+    **Five headers are ours, not six.** Production serves six security headers, and every
+    document counts six. Only five come from `next.config.js` — `Strict-Transport-Security`
+    is added by Vercel. `grep` finds no HSTS anywhere in the source. An image deployed off
+    Vercel therefore loses HSTS silently, which matters because the Dockerfile exists
+    precisely to offer a deploy path that does not depend on Vercel.
+
+    **What passed, by running it.** Bundle secret scan against the real secret *values*
+    rather than their prefixes, across `.next/static` and `.next/server` — clean. Zero
+    `NEXT_PUBLIC_`. Git history clean across all 49 commits on every branch; every hit was
+    the `scopecraft:scopecraft@localhost` placeholder. All 12 SQL call sites are tagged
+    templates. All four user-scoped queries take `user_id` from `auth()`, never from input.
+    All 21 `fail()` sites carry static messages, with the quota limit and count the only
+    interpolations. `npm audit` zero. Six dependencies. Container non-root, no `.env` in any
+    layer, no secret in the layer history.

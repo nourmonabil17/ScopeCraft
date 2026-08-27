@@ -19,6 +19,11 @@ Date: 2026-08-24
 
 ## Development dependencies
 
+> **Resolved as of 2026-08-28.** `npm audit` across all dependencies now reports
+> **zero** vulnerabilities, so the two advisories described below no longer
+> apply. The paragraph is kept because the reasoning — why a forced `audit fix`
+> was refused rather than applied — is the part worth carrying forward.
+
 The full audit (`npm audit`, all deps) reports two further high-severity
 advisories confined to development-only ESLint tooling chains:
 `brace-expansion` (via `@typescript-eslint/typescript-estree`) and `js-yaml`
@@ -55,3 +60,58 @@ and `GEMINI_MODEL` without a code change. Provider model IDs should be
 reviewed before each release because hosted model availability changes
 independently of this repository — run `npm run smoke` rather than trusting
 either this document or `models.ts` from memory.
+
+
+---
+
+## Container image (added 2026-08-28)
+
+`npm audit` and an image scan disagree, and both are right about different
+trees. Against `scopecraft:local`, built from the `Dockerfile` at
+`d00282c`:
+
+| Scanner | Scope | Result |
+|---|---|---|
+| `npm audit --omit=dev` | the six runtime dependencies | **0 vulnerabilities** |
+| `npm audit` | runtime + dev dependencies | **0 vulnerabilities** |
+| `docker scout cves` | everything in the image | **16 (1 critical, 15 high)** |
+
+None of the 16 are in this project's dependencies. Located inside the image:
+
+- **9 in npm's own vendored tree** at `/usr/local/lib/node_modules/npm` —
+  `brace-expansion`, `ip-address`, `picomatch`, `sigstore` and `tar`, plus a
+  critical in `tar`. These ship with the `node:22-alpine` base image.
+- **7 in `openssl` 3.5.7-r0**, an Alpine `apk` package from the same base image.
+
+**Change made, and not yet verified.** The runner stage now deletes `npm`, `npx`
+and `yarn`: the standalone server starts with `node server.js` and nothing at
+runtime shells out to a package manager, so their dependency trees are attack
+surface with no upside. **The rebuild could not be run** — `node:22-alpine` is
+not cached on this machine and the Docker daemon cannot reach Docker Hub
+(`context deadline exceeded` resolving the manifest; the same proxy/DNS failure
+recorded against `npm ci` in the container). So the CVE count after the change
+is unmeasured, and the existing `scopecraft:local` image still carries all 16.
+
+Re-run once the daemon has network:
+
+```bash
+docker build --network=host -t scopecraft:local .
+docker scout cves scopecraft:local --only-severity critical,high
+```
+
+The `openssl` findings will not be fixed by that change. They need a base image
+that has picked up the patched Alpine package, which the same rebuild would pull.
+
+## Security headers: five are ours, the sixth is the platform's
+
+Verified against production on 2026-08-28, six headers are present:
+`Content-Security-Policy`, `Strict-Transport-Security`, `X-Content-Type-Options`,
+`X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`. `X-Powered-By` is
+absent.
+
+Only **five** of those come from `next.config.js`. `Strict-Transport-Security`
+is added by Vercel, not by this application — `grep` finds no HSTS anywhere in
+the source. That matters for the container path: **an image deployed anywhere
+other than Vercel serves five headers, not six**, and loses HSTS silently. Any
+document that says "all six headers are configured" is describing the Vercel
+deployment, not the application.
