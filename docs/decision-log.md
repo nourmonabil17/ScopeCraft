@@ -419,3 +419,32 @@ nonce or hash policy and saying so is more useful than closing the row.
     Generalisable, and the reason the storage schema is shaped the way it is: storing only
     `points` and `column` is not enough on its own. Everything derived from them has to be
     *recomputed on load*, or the stored two and the displayed rest drift apart.
+
+20. **Production Postgres is Neon; Docker stays local-only — 2026-08-27.**
+    Decided by the owner. The split is the point: Docker gives a real database with no signup
+    for development and integration tests, Neon gives a managed one for production. Neither
+    replaces the other, because **Vercel does not run the compose stack** and a local
+    container is not reachable from a deployed function.
+
+    Four Neon properties are worth writing down, because each is cheap to handle now and
+    expensive to debug later.
+
+    **The pooled endpoint, not the direct one.** The host carries `-pooler`. Serverless
+    multiplies connections by instance count; the direct endpoint's ceiling is low enough
+    that a handful of warm functions exhausts it. `max: 1` in `db.ts` reduces the pressure
+    but does not remove the need for the pooler.
+
+    **Autosuspend.** The free tier suspends the compute after about five minutes idle, so the
+    first query after an idle period pays a wake-up of roughly half a second. Harmless, and
+    worth naming before someone reports a cold demo as a performance bug.
+
+    **`sslmode=require`.** Neon requires TLS. It is already in the string Neon hands you; the
+    failure mode is someone stripping it while editing the URL by hand.
+
+    **One branch per environment.** A Neon branch is a copy-on-write fork, which makes a
+    separate Preview database nearly free — and stops a preview deployment writing rows into
+    the database the demo runs against.
+
+    **Backups are deliberately accepted as-is.** The free tier keeps a short restore window
+    and no scheduled backups. For a graded project that is fine; it is recorded here so it is
+    an accepted risk rather than an unexamined gap.

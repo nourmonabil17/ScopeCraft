@@ -79,6 +79,12 @@ Connect to it from the app by putting this in `.env.local`:
 DATABASE_URL=postgres://scopecraft:scopecraft@localhost:5432/scopecraft
 ```
 
+**Production is a different database.** It runs on [Neon](https://console.neon.tech), and
+this container never touches it. Vercel cannot reach a container on your machine, and the
+compose stack is not part of the deploy path — see [`project-plan.md`](project-plan.md)
+§14. If you point `.env.local` at Neon to reproduce something, use the **pooled** connection
+string and remember you are writing to real rows.
+
 The credentials are readable defaults on purpose. The database is published on localhost
 only; there is nothing here worth protecting, and a developer who cannot guess the
 password cannot open a shell.

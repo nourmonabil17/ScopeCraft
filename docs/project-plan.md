@@ -37,7 +37,7 @@ in this table, the plan does not cover it and the table is wrong — fix the tab
 | All documentation (38 documents) | `README.md`, `docs/`, root files | [11](#module-11--documentation) |
 | Repository, branches, PRs, CI | `.github/`, git remotes | [12](#module-12--repository-ci--process) |
 | Rubric coverage, defense, demo | handbook CSVs | [13](#module-13--submission--defense) |
-| Deployment & release | Vercel, fork `main` | [14](#module-14--release) |
+| Deployment & release | Vercel, fork `main` | [14](#module-14--deployment--release) |
 
 ---
 
@@ -71,7 +71,7 @@ in this table, the plan does not cover it and the table is wrong — fix the tab
 | [11](#module-11--documentation) | Documentation — all 38 documents | 6–8 h | 13, 14 |
 | [12](#module-12--repository-ci--process) | Repository, CI & process | 2–3 h | 14 |
 | [13](#module-13--submission--defense) | Submission & defense | 3–4 h | — |
-| [14](#module-14--release) | Release | 1 h | — |
+| [14](#module-14--deployment--release) | Deployment & release | 2 h | — |
 
 **Total: roughly five working days.** Module 11 is the largest single block and the one
 most likely to be underestimated — thirteen documents do not write themselves.
@@ -368,22 +368,44 @@ belong in a committed project file.
       directory runs **once**, only on an empty data directory — is documented in
       `docs/local-development.md` and is why `npm run db:reset` exists.
 
-### 2.3 Production database
+### 2.3 Production database — Neon
 
-- [ ] **2.3.1** Provision a hosted Postgres — **Neon** recommended (free tier,
-      serverless-friendly pooling, ~2 minutes). Docker covers local; production still needs
-      a managed instance because Vercel is the deploy target.
-- [ ] **2.3.2** Choose the region closest to the Vercel deployment region. Every request in
-      Module 3 pays this latency twice.
-- [ ] **2.3.3** Use the **pooled** connection string, not the direct one.
-- [ ] **2.3.4** Set `DATABASE_URL` in Vercel and `.env.local`. **`.env.example` is done** —
-      it carries the local compose default plus a note to use the provider's *pooled*
-      string in production and why. The Vercel and `.env.local` halves need you.
-- [ ] **2.3.5** Apply the schema to the production database.
+**Decided 2026-08-27: Neon.** Docker covers local development; production still needs a
+managed instance because Vercel is the deploy target and does not run the compose stack.
+Free tier, serverless-friendly pooling, and about two minutes to a connection string.
+
+Four Neon-specific things that are easy to get wrong and expensive to debug later:
+
+| | Why it matters here |
+|---|---|
+| **Pooled vs direct host** | The pooled endpoint carries `-pooler` in the hostname. Serverless multiplies connections by instance count, and the direct endpoint's ceiling is low enough that a handful of warm functions exhausts it. `max: 1` in `db.ts` reduces the pressure; it does not remove the need for the pooler |
+| **Autosuspend** | The free tier suspends the compute after ~5 minutes idle. The first query after that pays a wake-up of roughly half a second. Real, harmless, and worth knowing before someone reports it as a bug — a demo opened cold will feel slower than one opened warm |
+| **Region** | Every request in Module 3 pays the round trip twice (quota check, then insert). Match the Vercel deployment region |
+| **`sslmode=require`** | Neon requires TLS. It is already in the string Neon gives you; do not strip it while editing the URL by hand |
+
+- [ ] **2.3.1** Create a Neon project at <https://console.neon.tech>. One database, default
+      branch `main`.
+- [ ] **2.3.2** Choose the region closest to the Vercel deployment region.
+- [ ] **2.3.3** Copy the **pooled** connection string — the host with `-pooler` in it. Keep
+      `sslmode=require`.
+- [ ] **2.3.4** Set `DATABASE_URL` in Vercel (Production **and** Preview) and in `.env.local`
+      if you want local development against Neon rather than Docker. **`.env.example` is
+      done** — it carries the local compose default plus the pooled-string note.
+- [ ] **2.3.5** Apply the schema: `psql "$DATABASE_URL" -f db/schema.sql`. Then confirm with
+      `DATABASE_URL=… npm run db:check`, which reports the server version and both tables.
 - [ ] **2.3.6** Confirm `DATABASE_URL` never gains a `NEXT_PUBLIC_` prefix and never appears
-      in the client bundle.
-- [ ] **2.3.7** **Decision:** backups. A free tier may have none. For a graded project this
-      is probably acceptable — record that it is a deliberate acceptance, not an oversight.
+      in the client bundle. Run the secret scan after the next build.
+- [ ] **2.3.7** **Decision:** backups. Neon's free tier keeps a short restore window and no
+      scheduled backups. For a graded project that is almost certainly fine — record it as a
+      deliberate acceptance rather than leaving it as an unexamined gap.
+- [ ] **2.3.8** **Decision:** does Preview get its own database? Neon branches make this
+      nearly free — a branch is a copy-on-write fork of `main`. Recommendation: **yes**, one
+      branch for Preview, so a preview deployment cannot write rows into the database the
+      demo runs against. Cheap insurance against exactly the kind of accident that happens
+      the night before a defense.
+- [ ] **2.3.9** Verify the wake-up cost once, with a stopwatch: leave it idle past the
+      suspend window, then run `npm run db:check` and record the number. A measured half
+      second is a fact; "it sometimes feels slow" is a rumour.
 
 ### 2.4 The connection module
 
@@ -1098,23 +1120,135 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
 
 ---
 
-## Module 14 — Release
+## Module 14 — Deployment & release
 
-- [ ] **14.1.1** All four gates green: `typecheck`, `lint`, `test`, `build`.
-- [ ] **14.1.2** Both evidence captures green.
-- [ ] **14.1.3** `docker compose up --build` works from a cold start.
-- [ ] **14.1.4** Bundle secret scan clean.
-- [ ] **14.1.5** CI green on `dev`.
-- [ ] **14.1.6** `git status` clean apart from the known-untracked handbook folder. Never
+The one module where a mistake is visible to everyone. It is last because everything else
+has to be true first, and it is detailed because the deploy path for this project is not the
+obvious one.
+
+### 14.1 The deploy path, and the trap in it
+
+```
+origin  = nourmonabil17/ScopeCraft   team repo — reviews, PRs, history
+fork    = mr-h12/ScopeCraft          what Vercel actually builds, branch main
+```
+
+**Vercel deploys from the FORK, branch `main`.** Pushing to `origin` alone updates the team
+repository and changes nothing about the live site. Both pushes, every time:
+
+```bash
+git push origin dev && git push fork dev:main
+```
+
+**Docker is not on this path.** Vercel does not build from the `Dockerfile`; it runs
+`next build` against `next.config.js`, the same file the image uses. Shipping the image
+ships nothing to production. Anything changed for the container — `output: "standalone"`
+above all — has to be verified against the Vercel build, not assumed compatible.
+
+- [ ] **14.1.1** Confirm both remotes are configured and point where this says.
+- [ ] **14.1.2** Confirm the Vercel project is connected to the **fork**, branch `main`.
+- [ ] **14.1.3** Note that the Vercel MCP tools authenticate as an account that cannot see
+      this project. Use the dashboard or `curl` against the live URL; do not retry that path.
+
+### 14.2 Environment — everything that must exist before the first deploy
+
+Eleven variables across three concerns. A missing one fails differently in each case, and
+two of them fail *silently*, which is worse.
+
+- [ ] **14.2.1** `AUTH_SECRET` — `npx auth secret`. Missing: every request is unauthenticated
+      and the site bounces to `/login`. **This is the current state of production.**
+- [ ] **14.2.2** `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` — from a GitHub OAuth app whose
+      callback is exactly `https://scope-craft-nine.vercel.app/api/auth/callback/github`.
+- [ ] **14.2.3** `AUTH_URL=https://scope-craft-nine.vercel.app` — pins the callback origin so
+      a forged `Host` header cannot redirect the OAuth flow.
+- [ ] **14.2.4** `DATABASE_URL` — Neon's **pooled** string (2.3.3).
+- [ ] **14.2.5** At least one provider key. **A missing provider key is *skipped*, not
+      failed** — that is why known finding #5 was diagnosable at all, and why three
+      production generations were served by Groq and Gemini and never NVIDIA.
+- [ ] **14.2.6** `DAILY_PLAN_LIMIT` — optional, defaults to 20.
+- [ ] **14.2.7** Set every one of them for **Production and Preview**. A Preview deployment
+      with no `AUTH_SECRET` is a broken PR review nobody can use.
+- [ ] **14.2.8** Confirm not one of them has a `NEXT_PUBLIC_` prefix. That prefix inlines the
+      value into the client bundle permanently — a rotation does not undo a leak that has
+      already been served.
+
+### 14.3 Deploying the database
+
+The database is deployed **before** the application, not with it. An app that starts against
+a schema-less database fails on the first generation; a schema with no app is inert.
+
+- [ ] **14.3.1** Apply `db/schema.sql` to the Neon database.
+- [ ] **14.3.2** Verify with `DATABASE_URL=… npm run db:check` — server version, both tables.
+- [ ] **14.3.3** Confirm the check constraints exist in production too, not only in Docker.
+      They are the reason failed attempts still count against the quota.
+- [ ] **14.3.4** Order matters for the first deploy: schema → environment variables → push.
+      Getting it backwards means the first visitor hits a `503 STORAGE_UNAVAILABLE`.
+
+### 14.4 Pre-flight — everything green before pushing
+
+- [ ] **14.4.1** `npm run typecheck`
+- [ ] **14.4.2** `npm run lint`
+- [ ] **14.4.3** `npm test`
+- [ ] **14.4.4** `npm run build`
+- [ ] **14.4.5** Both evidence captures green.
+- [ ] **14.4.6** `docker compose up --build` from a cold start.
+- [ ] **14.4.7** Bundle secret scan clean — grep the built client bundle for every key
+      pattern **and** for `postgres://`.
+- [ ] **14.4.8** CI green on `dev`.
+- [ ] **14.4.9** `git status` clean apart from the known-untracked handbook folder. Never
       `git add -A` without looking first.
-- [ ] **14.1.7** No `Co-Authored-By` trailer on any new commit.
-- [ ] **14.1.8** `git push origin dev`
-- [ ] **14.1.9** `git push fork dev:main` — **this is the one that deploys.**
-- [ ] **14.1.10** Verify live: sign in, generate a plan, sign out. Check response headers and
-      `Set-Cookie` flags.
-- [ ] **14.1.11** Confirm a plan row landed in the production database.
-- [ ] **14.1.12** Resolve 12.1.1 — bring `main` up to date or change the documentation.
-- [ ] **14.1.13** Tag the release and write the `CHANGELOG.md` entry.
+- [ ] **14.4.10** No `Co-Authored-By` trailer on any new commit:
+      `git log origin/dev..dev --format=%B | grep -i co-authored` returns nothing.
+
+### 14.5 The push
+
+- [ ] **14.5.1** `git push origin dev`
+- [ ] **14.5.2** `git push fork dev:main` — **this is the one that deploys.**
+- [ ] **14.5.3** Watch the Vercel build. A build that succeeds locally can still fail there:
+      the environment differs, and `next build` evaluates route modules — which is exactly
+      how an eager `DATABASE_URL` read broke the build in Module 3.
+
+### 14.6 Post-deploy verification — against the live site, not localhost
+
+- [ ] **14.6.1** Sign in with GitHub. Confirm the header shows your name.
+- [ ] **14.6.2** Generate a plan. Confirm `X-Provider-Used`, `X-Prompt-Version` and
+      `X-Plan-Id` all arrive.
+- [ ] **14.6.3** Edit the sprint board, reload the plan from history, confirm the edit
+      survived **and** that the score recomputed rather than replayed.
+- [ ] **14.6.4** Confirm a row landed in the Neon database, attributed to the right user.
+- [ ] **14.6.5** `curl` the endpoint with no cookie — expect `401`, not a plan.
+- [ ] **14.6.6** Check the `Set-Cookie` header: `HttpOnly`, `SameSite=Lax`, and `Secure` in
+      production. Read the header, not the config.
+- [ ] **14.6.7** Re-verify all six security headers on the live response.
+- [ ] **14.6.8** Confirm `X-Powered-By` is absent.
+- [ ] **14.6.9** Sign out. Confirm it returns to `/login` and the session is gone.
+- [ ] **14.6.10** Check the browser console on the live site. Record what is there — the
+      pre-existing React #418 is expected until 4.5.2 is decided; anything else is new.
+
+### 14.7 Rollback
+
+Decide this before it is needed, not during.
+
+- [ ] **14.7.1** **Application:** Vercel keeps every previous deployment. Promoting the last
+      good one is instant and is the first move for any bad deploy — faster than a revert
+      commit and a rebuild.
+- [ ] **14.7.2** **Database:** there is no rollback. `db/schema.sql` is additive and
+      idempotent, which is the whole reason a migration engine was not adopted; a change that
+      drops or rewrites a column would need a real plan and does not exist yet.
+- [ ] **14.7.3** Confirm the app tolerates a **newer schema than the code expects** —
+      additive columns are ignored — so the database can be migrated before the app deploys.
+- [ ] **14.7.4** Write down who can roll back and how. A runbook nobody has read is not a
+      runbook (11.4.6).
+
+### 14.8 Release record
+
+- [ ] **14.8.1** Resolve 12.1.1 — bring `main` up to date, or change the documentation that
+      calls it the release branch.
+- [ ] **14.8.2** Tag the release.
+- [ ] **14.8.3** Write the `CHANGELOG.md` entry (11.4.12).
+- [ ] **14.8.4** Update `HANDOFF.md` with the new branch heads.
+- [ ] **14.8.5** Record the deployed commit SHA somewhere a person will find it, so "what is
+      live" is answerable without guessing.
 
 ---
 
@@ -1124,7 +1258,8 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
 |---|---|---|---|
 | `output: "standalone"` breaks the Vercel build | Medium | A broken production deploy from a change made for Docker | Verify the Vercel build immediately after 1.2.1, before anything else in Module 1 |
 | Thirteen missing documents is more writing than it looks | **High** | The last two days become prose, not code | Write 11.4.1–11.4.5 and treat the rest as optional. Decide that early, not on the last day |
-| Free-tier Postgres connection ceiling under serverless | Medium | Intermittent 500s that look like application bugs | `max: 1`, pooled connection string, verify under load in 9.1.2 |
+| Neon's **direct** connection string used instead of the pooled one | Medium | Intermittent `503 STORAGE_UNAVAILABLE` under load, looking like an application bug rather than an exhausted connection ceiling | The host must contain `-pooler` (2.3.3); `max: 1` in `db.ts` reduces pressure but does not replace it |
+| Deploying the app before the schema exists | Medium | The first visitor gets `503 STORAGE_UNAVAILABLE`, on the deploy most likely to be watched | Fixed order in 14.3.4: schema, then environment variables, then push |
 | Docker becomes a second build definition that drifts | Medium | The image works and Vercel does not, or the reverse | One shared config; build the image in CI on PRs (12.2.5) |
 | GitHub returns no email for some user | Low | Sign-in fails at the upsert with a `not null` violation | Decide the behaviour in 3.1.5 *before* it happens in a demo |
 | Evidence capture repair (6.4) is fiddlier than it looks | Medium | Half a day; the shell script cannot call `encode` directly | One shared minting helper both scripts import |
