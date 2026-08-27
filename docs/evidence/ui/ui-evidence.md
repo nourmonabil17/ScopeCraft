@@ -130,6 +130,15 @@ them.
 
 ## Known gap found during this capture
 
+> **Superseded 2026-08-27 — fixed.** The cause was narrower than this section
+> guessed. It was not "a story the model never emitted": every rejected edge was
+> **prose** — `"User authentication"`, `"Profile data"` — because the model was
+> answering "what does this depend on" in English rather than naming story ids.
+> Prompt v6 states the ID-reference requirement, and `service.ts` drops
+> unresolvable edges before planning rather than failing the request. See
+> [`prompt-versions.md`](../../prompt-versions.md) and `decision-log.md` entry 25.
+> The measurements below are left exactly as captured.
+
 **`PLANNING_ERROR` is intermittent, and it is a real defect, not a capture artefact.**
 Across the capture session, **4 of 9** generations of the same study-group idea returned
 `502 PLANNING_ERROR` instead of a plan. The deterministic planner is correctly rejecting the

@@ -139,7 +139,7 @@ URL on the same one.
 ```bash
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint --max-warnings=0
-npm test              # 251 tests, 9 suites
+npm test              # 266 tests, 9 suites
 npm run build
 ```
 

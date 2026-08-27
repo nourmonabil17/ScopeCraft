@@ -36,7 +36,7 @@ import { toMoscow } from "./taxonomy";
 export { PlanningError };
 
 /** Bumped whenever the prompt contract changes; surfaced as X-Prompt-Version. */
-export const PROMPT_VERSION = "v5";
+export const PROMPT_VERSION = "v6";
 
 /** The model produced something that is neither a valid plan nor a valid refusal. */
 export class SchemaViolationError extends Error {
@@ -98,6 +98,10 @@ you read later in this message:
    "moscow". Those are calculated deterministically by the application and any
    values you supply are discarded. Provide per-story "value", "risk" and
    "points" estimates only.
+7. "dependencies" holds ID CROSS-REFERENCES, not descriptions. Every entry must be
+   the exact "id" of another user story in this same response. Never write a
+   feature name, component name or phrase such as "User authentication" there. A
+   story that depends on nothing returns [].
 
 REQUIRED JSON SHAPE:
 {
@@ -112,7 +116,7 @@ REQUIRED JSON SHAPE:
     "i_want": string,
     "so_that": string,
     "acceptance_criteria": string[],
-    "dependencies": string[],
+    "dependencies": string[],   // ids of other stories above; [] if none
     "points": integer 1-13,
     "value": integer 1-5,
     "risk": integer 1-5
@@ -189,17 +193,51 @@ export async function runScopeCraft(
 
   const result = reply;
 
+  // Drop dependency edges that do not name a story in this response.
+  //
+  // Measured on 2026-08-27 over 12 live generations of the same idea: one run
+  // failed, and every rejected edge was prose — "User authentication", "Profile
+  // data", "Matching algorithm" — rather than a story id. The model had answered
+  // "what does this depend on" in English. An edge pointing at something that is
+  // not a story is not a constraint the planner can honour, so failing the whole
+  // request over it threw away an otherwise complete, valid backlog. Prompt rule
+  // 7 now states the ID-reference requirement, but a prompt is a mitigation and
+  // not a guarantee, which is why the edges are also filtered here.
+  //
+  // Only UNRESOLVABLE edges are dropped. A cycle, a duplicate id or a story
+  // larger than one sprint still fails the request: those are claims about
+  // stories that do exist, so discarding them would discard real information.
+  //
+  // The cleaned stories — not the raw ones — go into the response, so the
+  // dependencies a user sees are exactly the ones the planner honoured.
+  const storyIds = new Set(result.user_stories.map((story) => story.id));
+  let droppedEdges = 0;
+  const userStories = result.user_stories.map((story) => {
+    const dependencies = story.dependencies.filter((id) => storyIds.has(id));
+    droppedEdges += story.dependencies.length - dependencies.length;
+    return { ...story, dependencies };
+  });
+
+  if (droppedEdges > 0) {
+    // Counts only. The edge text is model output derived from user input, and
+    // this line goes to a server log that is not scoped to one request.
+    console.warn(
+      `scopecraft.dependencies_dropped count=${droppedEdges} ` +
+        `stories=${result.user_stories.length}`
+    );
+  }
+
   // Story points are the effort unit the planner works in.
-  const scoringInputs: ScoringInput[] = result.user_stories.map((story) => ({
+  const scoringInputs: ScoringInput[] = userStories.map((story) => ({
     storyId: story.id,
     value: story.value,
     risk: story.risk,
     effort: story.points,
-    dependencies: story.dependencies ?? [],
+    dependencies: story.dependencies,
   }));
 
   // scheduleSprints throws PlanningError on unusable estimates (a story larger than
-  // one sprint, a missing dependency, a dependency cycle). It propagates to the route.
+  // one sprint, a dependency cycle, duplicate ids). It propagates to the route.
   //
   // The backlog is scheduled once and summarized, rather than calling planSprint
   // separately, so the greedy packer runs a single time per request.
@@ -228,7 +266,7 @@ export async function runScopeCraft(
     goals: result.goals,
     non_goals: result.non_goals,
     requirements: result.requirements,
-    user_stories: result.user_stories,
+    user_stories: userStories,
     acceptance_criteria: result.acceptance_criteria,
     risks: result.risks,
     priority,

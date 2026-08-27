@@ -23,9 +23,17 @@ node_modules
 
 # Local editor/tooling config, generated per machine. Not team configuration.
 .claude/
+.agents/
+skills-lock.json
 
 # Local operating rules for AI-assisted work. Not team documentation and
 # deliberately not shared: it records local paths, account names and working
 # constraints that belong to this machine, not to the project.
 CLAUDE.md
 .neon
+
+# The handbook exports, dropped here by whoever downloaded them. Source material
+# for the report, not part of the application — and the literal `[` in the folder
+# name breaks Jest's rootDir globs, which fails as "no tests found" rather than as
+# a path error. Committing it would hand that trap to everyone who clones.
+/Team10_ScopeCraft_HANDBOOK-*/

@@ -565,3 +565,57 @@ nonce or hash policy and saying so is more useful than closing the row.
     **18.6**. Nothing has broken and the schema uses nothing version-sensitive, but testing
     against a different major version than production is a gap on principle. Moving the
     container to `postgres:18-alpine` is blocked behind this machine's Docker DNS failure.
+
+25. **`PLANNING_ERROR` was prose in `dependencies`, and it is fixed on both sides —
+    2026-08-28.** Known finding #4 had stood since the UI capture: 4 of 9 live generations
+    of the same idea returned `502 PLANNING_ERROR`. The capture note guessed the cause was
+    "a story that depends on a story the model never emitted". That was close enough to
+    sound right and wrong in the way that matters.
+
+    **What the measurement showed.** Twelve live generations of the capture's study-group
+    idea, diagnosing the raw model output rather than the HTTP status: one run failed, and
+    all eight of its rejected edges looked like this —
+
+    ```
+    DANGLING_DEP US01 -> User authentication
+    DANGLING_DEP US02 -> Profile data
+    DANGLING_DEP US02 -> Matching algorithm
+    ```
+
+    Not a forgotten story. **Prose.** The model had answered "what does this story depend
+    on" in English instead of naming ids, for every edge in the response. The story ids it
+    emitted (`US01`…`US05`) were all present and internally consistent; only the
+    cross-references were the wrong kind of thing.
+
+    That distinction changed the fix. A repair pass that tried to *resolve* dangling
+    references — matching `"User authentication"` back to a story by title — would have
+    been guesswork dressed up as recovery. An edge that names something which is not a
+    story is not a constraint at all, so it is dropped.
+
+    **Fixed in two places, deliberately.** Prompt **v6** adds rule 7: `dependencies` holds
+    ID cross-references, never descriptions. And `service.ts` filters unresolvable edges
+    before planning. The second is not redundant with the first — the same reasoning the
+    injection posture already uses in that file: a prompt instruction is a mitigation, not
+    a guarantee, and model output is untrusted input whatever the prompt says.
+
+    **What still fails, on purpose.** Only unresolvable edges are dropped. A dependency
+    cycle, a duplicate story id, or a story larger than one sprint still returns
+    `PLANNING_ERROR`. Those are claims about stories that *do* exist, so discarding them
+    would discard real information and hand back a plan that quietly contradicts what the
+    model said. `scheduleSprints` also keeps its own strict check, because it is a
+    documented tool contract with programmatic callers, not only the service path.
+
+    The cleaned stories — not the raw ones — go into the response, so the dependencies a
+    user reads are exactly the ones the planner honoured.
+
+    **Verified live: 10 of 10 clean**, served across all three providers (nvidia, groq,
+    gemini). The raw-output probe on those same runs found **zero** prose edges, against
+    8 in the pre-fix failure. Ten runs is not proof the prompt eliminated the behaviour —
+    the base rate was roughly 1 in 12, so a clean 10 is consistent with a rate that merely
+    dropped. The filter is what makes it non-fatal either way, which is why both changes
+    shipped rather than the prompt alone.
+
+    **A second gap fell out of this.** `docs/prompt-versions.md` documented v1 and v2 while
+    the code shipped v5 — the version constant jumps straight to v5 in commit `05ee549`
+    with no notes for v3 or v4. Recorded as a gap rather than back-filled from guesswork;
+    what the v5 prompt contained is described from the code, not from invented history.

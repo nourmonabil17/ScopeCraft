@@ -424,14 +424,18 @@ describe("POST /api/scopecraft", () => {
     expect(groqSpy).not.toHaveBeenCalled();
   });
 
-  it("returns a distinct planning error for invalid generated dependencies", async () => {
+  // Was a dangling-dependency fixture until 2026-08-28. Those are dropped rather
+  // than fatal now (see "plans normally when the model puts prose in
+  // dependencies"), so this repoints at a cycle — still fatal, and still the
+  // thing this test exists to prove: the code is distinct from SCHEMA_VIOLATION.
+  it("returns a distinct planning error for a dependency cycle", async () => {
     jest.spyOn(console, "error").mockImplementation();
     jest.spyOn(geminiProvider, "generate").mockResolvedValue({
       ...fakeResponse,
-      user_stories: [{
-        ...fakeResponse.user_stories[0],
-        dependencies: ["US-404"],
-      }],
+      user_stories: [
+        { ...fakeResponse.user_stories[0], id: "US-1", dependencies: ["US-2"] },
+        { ...fakeResponse.user_stories[0], id: "US-2", dependencies: ["US-1"] },
+      ],
     });
 
     const response = await POST(
@@ -1285,10 +1289,6 @@ describe("Module 5 · planning failures return no partial data", () => {
       { ...fakeResponse, user_stories: [story("US-1", 13, 5, 5)] },
     ],
     [
-      "a dependency that does not exist",
-      { ...fakeResponse, user_stories: [story("US-1", 3, 5, 5, ["US-404"])] },
-    ],
-    [
       "a dependency cycle",
       {
         ...fakeResponse,
@@ -1300,6 +1300,35 @@ describe("Module 5 · planning failures return no partial data", () => {
       { ...fakeResponse, user_stories: [story("US-1", 3, 5, 5), story("US-1", 2, 4, 4)] },
     ],
   ];
+
+  // The failure this codebase actually hit in production: 1 live generation in 12
+  // put prose in `dependencies` instead of story ids, and a complete, valid
+  // backlog was thrown away with a 502. An edge naming something that is not a
+  // story is not a constraint, so it is dropped rather than fatal.
+  it("plans normally when the model puts prose in dependencies", async () => {
+    jest.spyOn(console, "warn").mockImplementation();
+    jest.spyOn(nvidiaProvider, "generate").mockResolvedValue({
+      ...fakeResponse,
+      user_stories: [
+        story("US-1", 3, 5, 5),
+        story("US-2", 2, 4, 4, ["US-1", "User authentication"]),
+      ],
+    } as Awaited<ReturnType<typeof nvidiaProvider.generate>>);
+
+    const response = await POST(makeRequest(JSON.stringify({
+      idea: "A backlog planning copilot for student teams",
+      team_capacity_points: 10,
+    })));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    // The resolvable edge survives; the prose one is gone from the response, so
+    // what the user reads matches what the planner honoured.
+    expect(body.user_stories[1].dependencies).toEqual(["US-1"]);
+    // And the surviving edge is still enforced: US-1 is planned before US-2.
+    const order = body.sprint.map((item: { story_id: string }) => item.story_id);
+    expect(order.indexOf("US-1")).toBeLessThan(order.indexOf("US-2"));
+  });
 
   it.each(planningFailures)("returns 502 PLANNING_ERROR for %s", async (_label, reply) => {
     jest.spyOn(console, "error").mockImplementation();

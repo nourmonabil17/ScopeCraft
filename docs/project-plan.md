@@ -790,9 +790,15 @@ hardest.
       refusal envelope. A model that ignores the rule and returns a medical answer in valid
       PRD shape passes schema validation and is returned. A server-side domain classifier
       would close that and is not built.
-- [ ] **7.5.6** Attack the `PLANNING_ERROR` intermittency (known finding #4, 4 of 9 live
-      runs). Likely cause: dangling dependencies in the model's story graph. Likely fix:
-      drop unresolvable dependency edges before planning rather than failing the request.
+- [x] **7.5.6** Attack the `PLANNING_ERROR` intermittency (known finding #4, 4 of 9 live
+      runs). **Done 2026-08-28.** The guessed cause was close but wrong in a way that
+      mattered: the dangling edges were not references to stories the model forgot to
+      emit, they were **prose** — `"User authentication"`, `"Profile data"` — the model
+      answering "what does this depend on" in English. Measured 1 failure in 12 live
+      generations, with all 8 rejected edges prose. Fixed on both sides: prompt v6 states
+      that `dependencies` holds ID cross-references, and `service.ts` drops unresolvable
+      edges before planning. **Verified 10/10 clean across all three providers**, with
+      zero prose edges in the raw-output probe.
 
 ---
 
@@ -935,7 +941,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 27 | Environment | **Deployment guide** | `docs/deployment.md` | The fork-deploy trap lives only in `HANDOFF.md` and `CLAUDE.md`, neither team-facing |
 | 28 | Environment | **Environment variables reference** | `docs/environment-variables.md` | Eleven variables across three concerns; the README table is outgrowing itself |
 | 29 | Frontend | **Frontend architecture** | `docs/frontend-architecture.md` | **The biggest gap.** No component map, no state model, nothing on the seven-state union or the pre-paint theme/locale scripts. Backend has three documents; frontend has zero |
-| 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 251 tests with no document saying what is covered, what is not, and how manual QA runs |
+| 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 266 tests with no document saying what is covered, what is not, and how manual QA runs |
 | 31 | QA | **Manual QA evidence** | `docs/evidence/qa/` | 6.5 produces findings with nowhere to live |
 | 32 | Operations | **Runbook / troubleshooting** | `docs/runbook.md` | What to do when providers fail, the database is down, or sign-in breaks. Every known finding is a runbook entry |
 | 33 | Submission | **Known limitations** | `docs/known-limitations.md` | The rubric asks for *signed-off* known limitations. Currently scattered across README, architecture and the decision log |
