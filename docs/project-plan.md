@@ -863,20 +863,47 @@ hardest.
 
 ## Module 9 — Performance & reliability
 
-- [ ] **9.1.1** Confirm the database adds exactly the round trips expected — one for the
-      rate limit, one for the insert. Not one per request for the user lookup; `token.uid`
-      in the JWT is what prevents that.
-- [ ] **9.1.2** Confirm connection pooling behaves under repeated requests.
-- [ ] **9.1.3** Note which routes are now dynamic rather than prerendered, and why. Reading
-      cookies makes a route dynamic — the cost of requiring a session, not a regression.
-- [ ] **9.1.4** Confirm the client bundle did not grow meaningfully.
-- [ ] **9.1.5** Record Docker image size and cold-start time.
-- [ ] **9.1.6** Measure end-to-end generation latency on the live site, three times, and
-      record the range. "It feels fast" is not a number.
-- [ ] **9.1.7** Confirm the app degrades rather than crashes on: database down, one provider
-      down, all providers down, session expired mid-request.
-- [ ] **9.1.8** Confirm no unbounded query, unbounded loop, or unbounded retry was
-      introduced anywhere in this plan.
+- [x] **9.1.1** Confirm the database adds exactly the round trips expected. **Measured, not
+      reasoned about:** `log_statement='all'` on the local container, then four authenticated
+      generations. Three requests produced **exactly six queries** — one quota `count`, one
+      `insert into plans`, per request. **Zero `insert into users`**, so `token.uid` is doing
+      its job. The driver's array-type introspection against `pg_catalog.pg_type` runs once
+      on the first connection and never again.
+- [x] **9.1.2** Confirm connection pooling behaves under repeated requests. **One backend
+      connection** held across four requests (`pg_stat_activity`), matching `max: 1` in
+      `src/lib/db.ts`. No per-request connect/disconnect churn.
+- [x] **9.1.3** Note which routes are now dynamic rather than prerendered. **Two static, seven
+      dynamic.** Only `/` and `/_not-found` prerender. `/scopecraft`, `/login`,
+      `/scopecraft/history`, `/scopecraft/history/[id]` and the three API routes are dynamic
+      because they read the session cookie. That is the price of requiring a session, and it
+      is visible live: production still serves `/scopecraft` as a cached prerender because it
+      is running the pre-auth build.
+- [x] **9.1.4** Confirm the client bundle did not grow meaningfully. **+6 KB, about 2%.**
+      Production still runs the pre-auth build, so it served as the baseline: the same page's
+      JS is **266 KB gzipped live (8 chunks)** against **272 KB on the current build (10
+      chunks)** — for auth, plan history and board persistence together.
+- [x] **9.1.5** Record Docker image size and cold-start time. **270 MB**, first `200` from a
+      cold `docker run` in **0.47 s**. Measured against the pre-hardening image; the npm/yarn
+      removal in 8.1.11 should shrink it, but that rebuild is still blocked.
+- [ ] **9.1.6** Measure end-to-end generation latency **on the live site**. **Not done, and
+      not faked from local numbers.** The deployed build predates the auth work (8.1.8), so
+      any figure would describe an artifact the next push replaces. Local numbers on current
+      code, for later comparison: four generations at **10.8 s, 11.3 s, 13.5 s, 13.6 s**
+      against a local database. Redo this against production once it is current.
+- [x] **9.1.7** Confirm the app degrades rather than crashes. **All four exercised for real.**
+      *Database down* (container stopped): `503 STORAGE_UNAVAILABLE` in **8 ms**, failing
+      closed before any provider call, and `/scopecraft/history` still answered `200` with an
+      error state rather than crashing. *One provider down*: observed repeatedly — NVIDIA
+      times out or returns unusable output and Groq or Gemini serves the request. *All
+      providers down* (three invalid credentials): `502 PROVIDER_ERROR` in **1.8 s**, with
+      provider names in the server log and absent from the response body. *Session missing or
+      tampered*: `401 UNAUTHORIZED` for both, identically.
+- [x] **9.1.8** Confirm nothing unbounded was introduced. **Checked each class.** Queries:
+      history is `limit 50`, quota is a `count` over a 24-hour window, the other two address a
+      single row by primary key. Loops: the only `while (true)` is the body reader, bounded by
+      `MAX_REQUEST_BODY_BYTES` with a `reader.cancel()`; the sprint packer removes one story
+      or throws each pass. Retries: exactly one, on schema violation. The provider loop is
+      bounded by three tiers **and**, since `d00282c`, by `AI_TOTAL_BUDGET_MS`.
 
 ---
 

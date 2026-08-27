@@ -705,3 +705,41 @@ nonce or hash policy and saying so is more useful than closing the row.
     All 21 `fail()` sites carry static messages, with the quota limit and count the only
     interpolations. `npm audit` zero. Six dependencies. Container non-root, no `.env` in any
     layer, no secret in the layer history.
+
+28. **Module 9 performance audit: seven of eight measured, and the numbers were better than
+    expected — 2026-08-28.** Nothing here is an estimate. `log_statement='all'` on the local
+    container, real authenticated requests, real container restarts.
+
+    **The database costs exactly what it should.** Three authenticated generations produced
+    **six queries** — one quota `count` and one `insert into plans` each, and nothing else.
+    No `insert into users`: the `token.uid` early return in the `jwt` callback prevents a
+    per-request user lookup, which was the specific risk 9.1.1 existed to check. The
+    driver's `pg_catalog.pg_type` introspection appears once, on the first connection, then
+    never again. **One backend connection** served all four requests, matching `max: 1`.
+
+    **The bundle barely moved: +6 KB, about 2%.** Production still running the pre-auth
+    build turned an annoyance into a free baseline — the same page's JavaScript is 266 KB
+    gzipped live against 272 KB on current code. Authentication, plan history and board
+    persistence together cost six kilobytes and two extra chunks.
+
+    **Failure modes were exercised, not argued.** With the database container stopped, a
+    generation returns `503 STORAGE_UNAVAILABLE` in **8 ms** — before any provider call, so
+    an outage cannot be used to spend provider quota, which is the property entry 19 chose
+    fail-closed for. The history page still answered `200` with an error state rather than
+    crashing. With all three credentials invalid: `502 PROVIDER_ERROR` in 1.8 s, provider
+    names present in the server log and absent from the response body. A missing session
+    and a tampered cookie both return `401`, identically — a tampered token is not
+    distinguishable from no token, which is the right answer.
+
+    **The one item not done, and not faked.** 9.1.6 asks for live generation latency. The
+    deployed build predates the auth work, so any number would describe an artifact the
+    next push replaces. Local figures on current code are recorded for later comparison
+    (10.8-13.6 s) but they are not the live measurement and are not presented as one.
+
+    **Two things found on the way, neither a defect.** `.env.local` had no `AUTH_SECRET` at
+    all — the auth routes were unexercisable on this machine, which is why 8.1.9 could not
+    be checked. A local-only secret was generated to unblock the measurements; Vercel still
+    needs its own. And `neon env pull` had repointed `DATABASE_URL` at the Neon **dev**
+    branch, so local development no longer uses the Docker container that
+    `local-development.md` describes. The dev branch is the right one to point at and the
+    document explicitly permits it, but the change happened silently and is worth knowing.

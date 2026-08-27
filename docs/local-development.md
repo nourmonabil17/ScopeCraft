@@ -79,6 +79,13 @@ Connect to it from the app by putting this in `.env.local`:
 DATABASE_URL=postgres://scopecraft:scopecraft@localhost:5432/scopecraft
 ```
 
+> **Note added 2026-08-28.** If you have run `neon env pull` (or `neon link` /
+> `neon checkout`, which call it), `.env.local` will have been repointed at a Neon
+> branch and the container below is no longer what your app talks to. Check with
+> `grep DATABASE_URL .env.local` before assuming a local change is hitting local
+> rows. `NEON_BRANCH` tells you which branch you landed on — it should never say
+> `production`.
+
 **Production is a different database.** It runs on [Neon](https://console.neon.tech), and
 this container never touches it. Vercel cannot reach a container on your machine, and the
 compose stack is not part of the deploy path — see [`project-plan.md`](project-plan.md)
