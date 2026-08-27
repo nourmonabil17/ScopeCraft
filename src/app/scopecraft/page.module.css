@@ -23,6 +23,20 @@
 .resultsToolbar {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  /* Wraps rather than squeezing the button at narrow widths. */
+  flex-wrap: wrap;
+}
+
+/* Reserves its line whether or not there is a message, so the toolbar does not
+   jump vertically the moment a save starts. */
+.saveState {
+  margin: 0;
+  margin-inline-end: auto;
+  min-height: 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--sc-text-muted);
 }
 
 .clearButton {

@@ -348,3 +348,41 @@ nonce or hash policy and saying so is more useful than closing the row.
 
     Generalisable, and worth saying at the defense: **build-time module evaluation has no
     runtime environment.** Anything that requires one must be lazy.
+
+18. **Plan history and board persistence ship; only human edits are stored — 2026-08-27.**
+    Both Module 4 decisions answered yes. What is interesting is not that they shipped but
+    what gets written.
+
+    **`plans.board` stores `points` and `column`, and nothing else.** Those are the only two
+    things the board lets a person change (`setPoints`, `toggleColumn`). Score, MoSCoW bucket
+    and capacity are *derived* from them and recomputed on load. Storing derived values would
+    have been easier — the board already hands up a full snapshot — and it would have made a
+    saved board a second source of truth for arithmetic the code owns, in a codebase whose
+    central rule is that it never does that. It also means a change to the scoring formula
+    applies to saved boards instead of leaving them frozen at an old answer.
+
+    **The board endpoint cannot write `response`.** One column in the update statement, and a
+    test that fails if the fragment ever mentions the other. `response` is what the AI
+    produced; `board` is what the human decided; keeping those distinguishable is the
+    product's central claim, so it is asserted rather than trusted.
+
+    **`BoardSchema` is `.strict()` rather than Zod's default strip.** Stripping was already
+    safe — a derived field like `moscow` could never reach the database either way — but it
+    was *silently* safe: the caller is told the save succeeded while part of what they sent is
+    discarded. Rejecting names the field and turns a client bug into an error instead of a
+    mystery. Found by a test that expected 422 and got 404.
+
+    **404, not 403, for another user's plan.** A row that exists but belongs to someone else
+    and a row that does not exist give the same answer, so the endpoint cannot be used to
+    discover which ids are real. The malformed-id path returns 404 too, for the same reason.
+
+    **The plan id travels as `X-Plan-Id`, a header.** The response body is a validated Zod
+    contract the model's output must satisfy; a database id is not part of a plan. It goes
+    the way `X-Provider-Used` and `X-Prompt-Version` already do. Absent when persistence
+    failed, which the client reads as "editing works, saving does not" rather than discovering
+    it on the first edit.
+
+    **History selects neither `response` nor `board`.** The list renders a date and a badge;
+    fetching a full PRD per row to do that would move megabytes to render kilobytes. Capped at
+    50 rather than paginated — the daily quota is 20, so a "load more" control would be
+    scaffolding for a scale this app does not have.

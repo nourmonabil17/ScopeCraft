@@ -21,6 +21,9 @@ node_modules
 .claude-flow/
 **/.claude-flow/
 
+# Local editor/tooling config, generated per machine. Not team configuration.
+.claude/
+
 # Local operating rules for AI-assisted work. Not team documentation and
 # deliberately not shared: it records local paths, account names and working
 # constraints that belong to this machine, not to the project.

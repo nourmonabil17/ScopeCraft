@@ -27,6 +27,37 @@
   background: var(--sc-surface-subtle);
 }
 
+/* A link, not a button, because it navigates — but it sits in a row of buttons
+   and has to match their box exactly or the header looks misaligned. Shares
+   .iconButton's metrics rather than re-deriving them: min-height 2.25rem is
+   also what keeps it past the WCAG 2.2 SC 2.5.8 24px target minimum. */
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--sc-text);
+  text-decoration: none;
+  background: var(--sc-surface-raised);
+  border: 1px solid var(--sc-border);
+  border-radius: 0.5rem;
+  padding: 0.4375rem 0.6875rem;
+  min-height: 2.25rem;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.linkButton:hover {
+  border-color: var(--sc-border-strong);
+  background: var(--sc-surface-subtle);
+  text-decoration: underline;
+}
+
+.linkButton:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 2px;
+}
+
 .iconButton:focus-visible,
 .segment:focus-visible {
   outline: 2px solid var(--sc-accent);

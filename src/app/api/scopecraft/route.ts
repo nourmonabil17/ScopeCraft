@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
     const { data, providerUsed, promptVersion } = await runScopeCraft(parsed.data);
 
     // ---- 6. Record the success. ----
-    await recordPlan(userId, parsed.data, {
+    const planId = await recordPlan(userId, parsed.data, {
       status: "ok",
       response: data,
       providerUsed,
@@ -175,6 +175,12 @@ export async function POST(req: NextRequest) {
       headers: {
         "X-Provider-Used": providerUsed,
         "X-Prompt-Version": promptVersion,
+        // A header rather than a body field: the body is a validated Zod
+        // contract that the model's output has to satisfy, and an id is not
+        // part of the plan. It travels the same way the other two provenance
+        // values already do. Empty when persistence failed, which the client
+        // reads as "editing works, saving does not".
+        ...(planId ? { "X-Plan-Id": planId } : {}),
       },
     });
   } catch (error) {
@@ -204,22 +210,23 @@ interface PlanOutcome {
 }
 
 /**
- * Persists one generation attempt.
+ * Persists one generation attempt. Returns the new row's id, or null if the
+ * write failed.
  *
  * Never throws. A failed bookkeeping write must not destroy a plan the user
  * already waited for and already paid provider tokens for — the request
  * succeeded, and the only thing lost is a row. The failure is logged so it is
  * visible rather than silent, but the caller's result is returned regardless.
  * The cost of that choice is honest: a persistence outage under-counts the
- * quota for as long as it lasts.
+ * quota for as long as it lasts, and the board cannot be saved for that plan.
  */
 async function recordPlan(
   userId: string,
   request: ScopeCraftRequest,
   outcome: PlanOutcome
-): Promise<void> {
+): Promise<string | null> {
   try {
-    await sql`
+    const [row] = await sql<{ id: string }[]>`
       insert into plans (user_id, idea, constraints, capacity_points, sprint_days,
                          status, error_code, response, provider_used, prompt_version)
       values (${userId},
@@ -231,7 +238,9 @@ async function recordPlan(
               ${outcome.errorCode ?? null},
               ${outcome.response ? sql.json(outcome.response as never) : null},
               ${outcome.providerUsed ?? null},
-              ${outcome.promptVersion ?? null})`;
+              ${outcome.promptVersion ?? null})
+      returning id`;
+    return row?.id ?? null;
   } catch (error) {
     // Deliberately not `logFailure`: this is not a request failure, and
     // conflating the two would make the quota look like it was rejecting
@@ -240,6 +249,7 @@ async function recordPlan(
       `scopecraft.persist_failed status=${outcome.status} ` +
         `reason=${error instanceof Error ? error.name : "unknown"}`
     );
+    return null;
   }
 }
 

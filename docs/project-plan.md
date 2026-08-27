@@ -485,21 +485,20 @@ boundary is not closed.
 
 ### 3.5 Read and write APIs for the frontend
 
-**Blocked on 4.3.1 and 4.4.1** — both are Module 4 decisions about whether the frontend grows
-a history view and a persisted board. Nothing here can be built until those are answered, and
-building it speculatively would be an API surface with no caller.
+~~Blocked on 4.3.1 and 4.4.1.~~ **Both answered yes on 2026-08-27**, so 3.5 was built with
+Module 4.
 
-- [ ] **3.5.1** **Decision:** does plan history ship? (See 4.3.) If not, skip 3.5.
-- [ ] **3.5.2** If yes: prefer a server component reading the database directly over a new
+- [x] **3.5.1** **Decision — ANSWERED: yes, plan history ships.**
+- [x] **3.5.2** If yes: prefer a server component reading the database directly over a new
       JSON endpoint. A route that exists only for your own frontend is an API surface you
       have to secure for no benefit.
-- [ ] **3.5.3** Scope every query by `user_id` from the **session**, never from a URL
+- [x] **3.5.3** Scope every query by `user_id` from the **session**, never from a URL
       parameter or body. This is the one place an IDOR could enter this codebase.
-- [ ] **3.5.4** Paginate or cap. `select *` over an unbounded table of JSONB rows is a time
+- [x] **3.5.4** Paginate or cap. `select *` over an unbounded table of JSONB rows is a time
       bomb.
-- [ ] **3.5.5** A `PATCH` for the board (4.4) that writes `board` and **never** `response`.
+- [x] **3.5.5** A `PATCH` for the board (4.4) that writes `board` and **never** `response`.
       The model's output stays immutable.
-- [ ] **3.5.6** Validate the board payload with Zod before it touches the database. A JSONB
+- [x] **3.5.6** Validate the board payload with Zod before it touches the database. A JSONB
       column accepts anything; that is not a reason to store anything.
 
 ### 3.6 Server-side logging
@@ -516,59 +515,61 @@ building it speculatively would be an API surface with no caller.
 
 ### 4.1 The two new error states
 
-- [ ] **4.1.1** Map `401` in `src/app/scopecraft/page.tsx` to a redirect to `/login`, not an
+- [x] **4.1.1** Map `401` in `src/app/scopecraft/page.tsx` to a redirect to `/login`, not an
       error card. An expired session is not something the user can act on from where they
       are.
-- [ ] **4.1.2** Map `429` onto the existing `provider_error` shape — it already renders a
+- [x] **4.1.2** Map `429` onto the existing `provider_error` shape — it already renders a
       message plus a retry affordance. No new UI state; adding one would be unrequested
       work.
-- [ ] **4.1.3** Add `en` and `ar` strings for both. The type system fails the build if
+- [x] **4.1.3** Add `en` and `ar` strings for both. The type system fails the build if
       Arabic is missing.
-- [ ] **4.1.4** Confirm the discriminated union still makes two simultaneous states
+- [x] **4.1.4** Confirm the discriminated union still makes two simultaneous states
       impossible. That property is why the state machine is a union.
 
 ### 4.2 Session-aware UI
 
-- [ ] **4.2.1** Confirm `UserMenu` renders correctly for a long GitHub display name, a null
+- [x] **4.2.1** Confirm `UserMenu` renders correctly for a long GitHub display name, a null
       name (email fallback), and at ≤30rem where the name hides and the button stays.
-- [ ] **4.2.2** Handle the expired-session case: the page was server-rendered with a session
+- [x] **4.2.2** Handle the expired-session case: the page was server-rendered with a session
       that has since expired. The first API call returns 401 → 4.1.1 handles it.
-- [ ] **4.2.3** Confirm sign-out clears state and returns to `/login` with no stale result
+- [x] **4.2.3** Confirm sign-out clears state and returns to `/login` with no stale result
       rendered behind it.
 
 ### 4.3 Plan history
 
-- [ ] **4.3.1** **Decision:** does this ship, or does the database exist only for metering?
-      A `plans` table nobody can read is defensible — it exists for the rate limit — but it
-      is a weaker demo.
-- [ ] **4.3.2** If yes: a server component at `/scopecraft/history`, newest first.
-- [ ] **4.3.3** Header link, visible only when signed in.
-- [ ] **4.3.4** Empty state for a user with no plans. Reuse the existing `EmptyState`.
-- [ ] **4.3.5** Loading and error states. Every other view has all seven; a new one with two
+- [x] **4.3.1** **Decision — ANSWERED: yes.** `/scopecraft/history`, a server component so
+      the query runs where the credential is. No JSON endpoint behind it: a route that exists
+      only to feed your own frontend is an API surface you have to secure for no benefit.
+- [x] **4.3.2** If yes: a server component at `/scopecraft/history`, newest first.
+- [x] **4.3.3** Header link, visible only when signed in.
+- [x] **4.3.4** Empty state for a user with no plans. Reuse the existing `EmptyState`.
+- [x] **4.3.5** Loading and error states. Every other view has all seven; a new one with two
       is an inconsistency an examiner will find.
-- [ ] **4.3.6** Full i18n and a11y pass — folded into Module 10.
+- [x] **4.3.6** Full i18n and a11y pass — folded into Module 10.
 
 ### 4.4 Board persistence
 
-- [ ] **4.4.1** **Decision:** does the interactive sprint board save the user's edits? This
-      is what `plans.board` exists for.
-- [ ] **4.4.2** If yes: wire `InteractiveSprintBoard` to the `PATCH` from 3.5.5, debounced.
-- [ ] **4.4.3** Confirm `client-recalc.ts` still runs on the loaded board — the arithmetic
+- [x] **4.4.1** **Decision — ANSWERED: yes.** Debounced `PATCH` at 800 ms, because the board
+      reports on every keystroke of a points field and an unthrottled request per keystroke
+      would be both wasteful and racy — the last *response* would win rather than the last
+      *edit*.
+- [x] **4.4.2** If yes: wire `InteractiveSprintBoard` to the `PATCH` from 3.5.5, debounced.
+- [x] **4.4.3** Confirm `client-recalc.ts` still runs on the loaded board — the arithmetic
       stays in code, never in stored state.
-- [ ] **4.4.4** Show save state (saving / saved / failed). Silent persistence that
+- [x] **4.4.4** Show save state (saving / saved / failed). Silent persistence that
       occasionally fails is worse than no persistence.
-- [ ] **4.4.5** Verify a second user cannot patch the first user's board.
+- [x] **4.4.5** Verify a second user cannot patch the first user's board.
 
 ### 4.5 Frontend hygiene
 
-- [ ] **4.5.1** No new client component imports `src/lib/db.ts` or server-only exports of
+- [x] **4.5.1** No new client component imports `src/lib/db.ts` or server-only exports of
       `src/auth.ts`.
 - [ ] **4.5.2** Decide on the React hydration #418 fix (known finding #3). The fix trades a
-      console error for a language flash on load. **Owner's decision.**
-- [ ] **4.5.3** Confirm every new component has a matching CSS Module rather than inline
+      console error for a language flash on load. **Owner's decision — still open.**
+- [x] **4.5.3** Confirm every new component has a matching CSS Module rather than inline
       styles — the CSP allows inline styles, but consistency is the reason the codebase is
       readable.
-- [ ] **4.5.4** Confirm no component grew past the point where its state should move up.
+- [x] **4.5.4** Confirm no component grew past the point where its state should move up.
       `page.tsx` orchestrates state; components render it.
 
 ---

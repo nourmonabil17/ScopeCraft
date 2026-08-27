@@ -27,7 +27,8 @@ import {
 import { POST } from "@/app/api/scopecraft/route";
 import { buildPrompt, fenceUserText } from "@/lib/scopecraft/service";
 import { NextRequest } from "next/server";
-import { dbMock, queueDbResult, signOut } from "./setup";
+import { PATCH } from "@/app/api/scopecraft/[id]/route";
+import { dbMock, queueDbResult, signOut, TEST_USER_ID } from "./setup";
 
 /** Module-level request builder for the Module 3 suites below. */
 function makeRequest(body: string): NextRequest {
@@ -1713,5 +1714,101 @@ describe("pipeline ordering with a session present", () => {
     // typo. Reordering the quota check above validation would break it.
     expect(dbMock).not.toHaveBeenCalled();
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Module 4 — board persistence.
+//
+// The single most important assertion in this file is the last one: the board
+// endpoint must never be able to write `response`. That column holds what the
+// AI produced, and keeping it distinguishable from what the human decided is
+// the product's central claim.
+// ---------------------------------------------------------------------------
+describe("board persistence", () => {
+  const PLAN_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+
+  function patch(id: string, body: unknown) {
+    return PATCH(
+      new NextRequest(`http://localhost/api/scopecraft/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: typeof body === "string" ? body : JSON.stringify(body),
+      }),
+      { params: Promise.resolve({ id }) }
+    );
+  }
+
+  const validEdits = {
+    "US-1": { points: 5, column: "included" },
+    "US-2": { points: 3, column: "deferred" },
+  };
+
+  it("rejects an anonymous caller without querying the database", async () => {
+    signOut();
+    const response = await patch(PLAN_ID, validEdits);
+
+    expect(response.status).toBe(401);
+    expect(dbMock).not.toHaveBeenCalled();
+  });
+
+  it("saves valid edits", async () => {
+    queueDbResult([{ id: PLAN_ID }]);
+    const response = await patch(PLAN_ID, validEdits);
+
+    expect(response.status).toBe(204);
+  });
+
+  it("writes `board` and never `response`", async () => {
+    queueDbResult([{ id: PLAN_ID }]);
+    await patch(PLAN_ID, validEdits);
+
+    // The tagged template's first argument is the SQL fragments. If a future
+    // change ever lets this endpoint touch the model's output, this fails.
+    const fragments = (dbMock.mock.calls.at(-1)?.[0] as string[]).join("?");
+    expect(fragments).toContain("set board =");
+    expect(fragments).not.toContain("response");
+  });
+
+  it("scopes the update by the session user, not by anything in the request", async () => {
+    queueDbResult([{ id: PLAN_ID }]);
+    await patch(PLAN_ID, validEdits);
+
+    const call = dbMock.mock.calls.at(-1) ?? [];
+    const fragments = (call[0] as string[]).join("?");
+    expect(fragments).toContain("user_id =");
+    // The id bound to the query is the session's, never a client-supplied one.
+    expect(call.slice(1)).toContain(TEST_USER_ID);
+  });
+
+  it("answers 404 for another user's plan, indistinguishably from a missing one", async () => {
+    queueDbResult([]); // the user_id predicate matched nothing
+    const response = await patch(PLAN_ID, validEdits);
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.code).toBe("NOT_FOUND");
+  });
+
+  it("rejects a malformed id as 404 rather than reaching Postgres", async () => {
+    const response = await patch("not-a-uuid", validEdits);
+
+    expect(response.status).toBe(404);
+    expect(dbMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects derived fields and out-of-range points", async () => {
+    const cases: unknown[] = [
+      { "US-1": { points: 99, column: "included" } },      // above MAX_STORY_POINTS
+      { "US-1": { points: 5, column: "somewhere-else" } }, // not a real column
+      { "US-1": { points: 5 } },                            // missing column
+      { "US-1": { points: 5, column: "included", moscow: "must" } }, // derived field
+    ];
+
+    for (const body of cases) {
+      const response = await patch(PLAN_ID, body);
+      expect(response.status).toBe(422);
+    }
+    expect(dbMock).not.toHaveBeenCalled();
   });
 });

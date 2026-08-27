@@ -14,6 +14,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { LanguageToggle } from "./LanguageToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
+import { HistoryLink } from "./HistoryLink";
 import styles from "./Header.module.css";
 
 export interface HeaderProps {
@@ -52,6 +53,10 @@ export function Header({ onReset }: HeaderProps) {
         </div>
 
         <div className={styles.actions}>
+          {/* Same reasoning as UserMenu below: renders null when signed out,
+              because a link to a page the visitor would be redirected away
+              from is worse than no link. */}
+          <HistoryLink />
           {/* Renders null when signed out, so the login page gets the same
               header without a dangling, meaningless sign-out control. */}
           <UserMenu />

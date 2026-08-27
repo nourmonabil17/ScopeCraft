@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { InputForm, type IntakeSubmitPayload } from "@/components/scopecraft/InputForm";
 import { ResultView } from "@/components/scopecraft/ResultView";
 import type { BoardSnapshot } from "@/components/scopecraft/InteractiveSprintBoard";
@@ -57,6 +57,15 @@ type UiState =
 /** A response body from the API on any non-2xx status. `issues` and
  *  `questions` are only present for specific codes; both are optional here
  *  and narrowed per-branch below. */
+type SaveState = "idle" | "saving" | "saved" | "failed";
+
+/**
+ * The board reports on every change, including every keystroke in a points
+ * field. Long enough that typing "13" is one save rather than two, short enough
+ * that a user who edits and immediately closes the tab still gets the write.
+ */
+const SAVE_DEBOUNCE_MS = 800;
+
 interface ApiErrorBody {
   code?: string;
   message?: string;
@@ -69,7 +78,61 @@ export default function ScopeCraftPage() {
   const [state, setState] = useState<UiState>({ status: "idle" });
   const [lastRequest, setLastRequest] = useState<IntakeSubmitPayload | null>(null);
   const [board, setBoard] = useState<BoardSnapshot | undefined>(undefined);
+  const [planId, setPlanId] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const resultCounter = useRef(0);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Saves the human's board edits, debounced.
+   *
+   * Debounced because the board fires on every keystroke of a points field, and
+   * an unthrottled PATCH per keystroke would be both wasteful and racy — the
+   * last response to arrive would win rather than the last edit made.
+   *
+   * Only `points` and `column` are sent. Score, MoSCoW and capacity are derived
+   * and get recomputed on load; sending them would make a saved board a second
+   * source of truth for numbers the code owns.
+   */
+  const scheduleSave = useCallback(
+    (snapshot: BoardSnapshot) => {
+      if (!planId) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+
+      saveTimer.current = setTimeout(() => {
+        const edits = Object.fromEntries(
+          snapshot.stories.map((story) => [
+            story.storyId,
+            { points: story.points, column: story.column },
+          ])
+        );
+        setSaveState("saving");
+        fetch(`/api/scopecraft/${planId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(edits),
+        })
+          .then((res) => setSaveState(res.ok ? "saved" : "failed"))
+          .catch(() => setSaveState("failed"));
+      }, SAVE_DEBOUNCE_MS);
+    },
+    [planId]
+  );
+
+  const handleBoardChange = useCallback(
+    (snapshot: BoardSnapshot) => {
+      setBoard(snapshot);
+      scheduleSave(snapshot);
+    },
+    [scheduleSave]
+  );
+
+  // A pending save would otherwise fire against a plan the user has left.
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, []);
 
   function scrollToForm() {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -97,6 +160,13 @@ export default function ScopeCraftPage() {
           setState({ status: "domain_refusal", message });
           return;
         }
+        // A session that expired while the page was open. There is nothing the
+        // user can act on from here, so this is a redirect rather than an error
+        // card — the layout gate would have done the same on a fresh load.
+        if (err.code === "UNAUTHORIZED") {
+          window.location.href = "/login";
+          return;
+        }
         // Every other code — PAYLOAD_TOO_LARGE, INVALID_JSON, CLARIFICATION_REQUIRED,
         // PLANNING_ERROR, SCHEMA_VIOLATION, PROVIDER_ERROR, TIMEOUT — shares the
         // same "explain and offer retry" shape.
@@ -113,6 +183,11 @@ export default function ScopeCraftPage() {
       const promptVersion = res.headers.get("X-Prompt-Version") ?? "unknown";
       resultCounter.current += 1;
       setBoard(undefined); // fresh board state for a fresh generation
+      // Absent when the persistence write failed. The board still works; it
+      // just cannot be saved, and `saveState` says so rather than failing
+      // silently on the first edit.
+      setPlanId(res.headers.get("X-Plan-Id"));
+      setSaveState("idle");
       setState({
         status: "success",
         resultId: resultCounter.current,
@@ -185,6 +260,15 @@ export default function ScopeCraftPage() {
         {state.status === "success" && (
           <>
             <div className={styles.resultsToolbar}>
+              {/* Save state is announced politely rather than assertively: it
+                  changes on a debounce timer, and an assertive region would
+                  interrupt a screen-reader user mid-sentence while they edit. */}
+              <p className={styles.saveState} role="status" aria-live="polite">
+                {saveState === "saving" && t("board.saving")}
+                {saveState === "saved" && t("board.saved")}
+                {saveState === "failed" && t("board.saveFailed")}
+                {saveState === "idle" && planId === null && t("board.saveUnavailable")}
+              </p>
               <button type="button" className={styles.clearButton} onClick={handleClear}>
                 {t("result.clear")}
               </button>
@@ -193,7 +277,7 @@ export default function ScopeCraftPage() {
             <ResultView
               key={state.resultId}
               data={state.data}
-              onBoardChange={setBoard}
+              onBoardChange={handleBoardChange}
               providerUsed={state.providerUsed}
               promptVersion={state.promptVersion}
               board={board}

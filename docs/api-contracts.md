@@ -128,6 +128,7 @@ client can exhaustively switch on it.
 | `422` | `CLARIFICATION_REQUIRED` | Idea detected as unintelligible; response adds `questions: string[]` | no |
 | `422` | `OUT_OF_DOMAIN` | Request is outside software product planning; the model returned the refusal envelope | yes (one tier only) |
 | `429` | `RATE_LIMITED` | Over the rolling 24-hour budget for this account; response adds `limit` and `used` | no |
+| `404` | `NOT_FOUND` | `PATCH` only. No such plan, **or** it belongs to another account — deliberately the same answer for both, so the endpoint cannot be used to discover real ids | no |
 | `502` | `PLANNING_ERROR` | Deterministic planner rejected the model's estimates (story exceeds capacity, missing dependency, dependency cycle, duplicate story ID) | yes |
 | `502` | `SCHEMA_VIOLATION` | Model output failed `ModelReplySchema` on the initial pass **and** on the single retry | yes |
 | `502` | `PROVIDER_ERROR` | Every configured provider was unreachable, or none is configured | yes |
@@ -165,6 +166,58 @@ test.
 `422 OUT_OF_DOMAIN` is implemented and safe for the UI to branch on. Its body is
 `{ error: true, code: "OUT_OF_DOMAIN", message: "ScopeCraft only plans software products." }`
 and carries no PRD fields.
+
+### Response headers on `200`
+
+| Header | Meaning |
+|---|---|
+| `X-Provider-Used` | Which tier of the failover chain answered |
+| `X-Prompt-Version` | Which prompt produced this plan |
+| `X-Plan-Id` | The stored row's id, for `PATCH`. **Absent** when the persistence write failed — the client reads that as "editing works, saving does not" rather than failing on the first edit |
+
+The id travels as a header rather than a body field because the body is a validated Zod
+contract that the model's output has to satisfy, and a database id is not part of a plan.
+
+---
+
+## `PATCH /api/scopecraft/{id}`
+
+Saves the human's edits to the sprint board. Requires a session.
+
+**Request body** — an object keyed by story id:
+
+```json
+{ "US-1": { "points": 5, "column": "included" },
+  "US-2": { "points": 3, "column": "deferred" } }
+```
+
+`points` is an integer in `[1, 13]`; `column` is `"included"` or `"deferred"`. The schema is
+**strict**: any other key is a `422`, not a silently dropped field. Rejecting is the point —
+stripping would tell the caller the save succeeded while discarding part of what they sent.
+
+**Only those two fields are storable, and that is the contract.** Score, MoSCoW bucket and
+capacity are *derived* from them and recomputed on load. Storing them would make a saved
+board a second source of truth for arithmetic the code owns, and would freeze old boards at
+an old scoring formula.
+
+| Status | `code` | Trigger |
+|---|---|---|
+| `204` | — | Saved. No body |
+| `401` | `UNAUTHORIZED` | No session |
+| `404` | `NOT_FOUND` | Unknown id, malformed id, or another account's plan |
+| `413` | `PAYLOAD_TOO_LARGE` | Body over 16 KB |
+| `400` | `INVALID_JSON` | Body is not valid JSON |
+| `422` | `VALIDATION_ERROR` | Body parses but fails `BoardSchema` |
+
+**What this route can never do.** The update statement names exactly one column, `board`.
+`response` — what the AI produced — is not writable through any endpoint. That separation is
+the product's central claim, and it is asserted by a test rather than trusted:
+`tests/api/scopecraft.test.ts` → *"writes `board` and never `response`"*.
+
+**Scoping.** `user_id` comes from the session, never from the request. Without that predicate
+any signed-in user could overwrite any other user's board by guessing an id.
+
+---
 
 ### Exact error payloads
 

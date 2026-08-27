@@ -79,6 +79,35 @@ export function constraintsToText(constraints?: string | string[]): string | und
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+// ---------- BOARD EDITS ----------
+/**
+ * What a human changed on the sprint board, and nothing else.
+ *
+ * Only `points` and `column` are stored, because they are the only two things
+ * the board lets a person change (`setPoints`, `toggleColumn` in
+ * client-recalc.ts). Score, MoSCoW bucket and capacity are *derived* from those
+ * two and are recomputed on load — storing them would create a second source of
+ * truth for numbers the code owns, which is the one thing this codebase does
+ * not do. It also means a change to the scoring formula applies to saved boards
+ * instead of leaving them frozen at an old answer.
+ */
+export const BoardEditSchema = z
+  .object({
+    points: z.number().int().min(MIN_STORY_POINTS).max(MAX_STORY_POINTS),
+    column: z.enum(["included", "deferred"]),
+  })
+  // `.strict()` rather than Zod's default strip. Stripping is safe — a derived
+  // field like `moscow` would never reach the database either way — but it is
+  // silently safe: the caller is told the save succeeded while part of what
+  // they sent was discarded. Rejecting says which field is not storable, and
+  // turns a client bug into an error instead of a mystery.
+  .strict();
+
+/** Keyed by story id. A JSONB column accepts anything; that is not a reason to store anything. */
+export const BoardSchema = z.record(z.string().min(1).max(64), BoardEditSchema);
+
+export type BoardEdits = z.infer<typeof BoardSchema>;
+
 // ---------- RESPONSE ----------
 export const MOSCOW_BUCKETS = ["must", "should", "could", "wont"] as const;
 export const MoscowSchema = z.enum(MOSCOW_BUCKETS);
@@ -259,6 +288,9 @@ export const ERROR_CODES = [
   "VALIDATION_ERROR",
   "CLARIFICATION_REQUIRED",
   "OUT_OF_DOMAIN",
+  // 404 — no such plan, or it belongs to someone else. Deliberately the same
+  // answer for both, so the endpoint cannot be used to discover real ids.
+  "NOT_FOUND",
   // 429 — over the daily generation budget. Checked after the free local
   // validation, so a malformed request never costs a database round trip.
   "RATE_LIMITED",

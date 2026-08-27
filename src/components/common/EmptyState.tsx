@@ -12,13 +12,25 @@
 "use client";
 
 import { useLanguage } from "@/context/LanguageContext";
+import type { TranslationKey } from "@/lib/i18n/translations";
 import styles from "./StateViews.module.css";
 
 export interface EmptyStateProps {
   onStartOver?: () => void;
+  /**
+   * Overrides for callers whose "nothing here" is not "you cleared the
+   * results" — the history page, above all. Defaulted rather than required so
+   * every existing call site keeps working unchanged.
+   */
+  headingKey?: TranslationKey;
+  bodyKey?: TranslationKey;
 }
 
-export function EmptyState({ onStartOver }: EmptyStateProps) {
+export function EmptyState({
+  onStartOver,
+  headingKey = "state.empty.heading",
+  bodyKey = "state.empty.body",
+}: EmptyStateProps) {
   const { t } = useLanguage();
 
   return (
@@ -26,8 +38,8 @@ export function EmptyState({ onStartOver }: EmptyStateProps) {
       <span className={styles.icon} aria-hidden="true">
         🗒
       </span>
-      <p className={styles.heading}>{t("state.empty.heading")}</p>
-      <p className={styles.body}>{t("state.empty.body")}</p>
+      <p className={styles.heading}>{t(headingKey)}</p>
+      <p className={styles.body}>{t(bodyKey)}</p>
       {onStartOver && (
         <div className={styles.actions}>
           <button type="button" className={styles.startOverButton} onClick={onStartOver}>
