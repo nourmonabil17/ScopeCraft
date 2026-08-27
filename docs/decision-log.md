@@ -504,3 +504,64 @@ nonce or hash policy and saying so is more useful than closing the row.
 
     The lesson generalises past this flag: **a check that only reads responses will miss a
     configuration the framework is complaining about.** Read the log too.
+
+23. **NVIDIA retired the primary model; the default is `openai/gpt-oss-20b` — 2026-08-27.**
+    `meta/llama-3.1-8b-instruct` now answers **HTTP 410 Gone**, and the whole Llama 3.x
+    instruct family has left the NIM catalogue with it. This supersedes the model IDs chosen
+    in item 5; that entry is left as written, because it was true when it was written.
+
+    This is also a better explanation for known finding #5 than the one on record. Three
+    production generations were served by Groq and Gemini and never by NVIDIA, which was
+    attributed to a missing `NVIDIA_API_KEY` in Vercel. The key may well be missing too, but
+    a retired model ID produces the same symptom and is now confirmed by a direct `410`.
+
+    **Latency is the real constraint, and no model choice fixes it.** Measured on this
+    account for a full-PRD request, the new default returns valid JSON every time but in
+    **9.3 s, 18.6 s and 26.0 s** across three consecutive runs. `AI_TIMEOUT_MS` defaults to
+    15 s, so NVIDIA times out more often than it succeeds and the request falls through to
+    Groq — the failover chain working as designed, but with a first tier that is unreliable
+    at the default budget.
+
+    Every alternative was worse. `nvidia/nemotron-3-super-120b-a12b` is *consistent* at
+    16–18 s, which is consistently **over** the budget rather than sometimes under it. Every
+    other reachable model either returns 404 on this account or exceeds 30 s. What remains is
+    a decision about `AI_TIMEOUT_MS`, not about the model: raising it to ~30 s would make
+    tier one usually succeed, at the cost of a 90-second worst case when all three fail.
+    Left at 15 s, deliberately, because the common path matters more than the rare one.
+
+    The pinned assertion in `tests/api/scopecraft.test.ts` did exactly its job — it failed on
+    the swap and forced the change to be acknowledged rather than made silently. It was
+    updated, not loosened.
+
+24. **The Neon database is provisioned, and the constraints are proven in production —
+    2026-08-27.** Project `delicate-star-12997110`, region `aws-us-east-2`, two branches:
+    `production` (default) and `dev`, on **separate endpoints**. That satisfies the
+    per-environment split in the plan without extra work — a preview deployment cannot write
+    into the database the demo runs against.
+
+    Both connection strings are pooled (`-pooler` in the host) and carry `sslmode=require`,
+    checked by inspection rather than assumed.
+
+    **The schema was already there**, and re-applying it reported "already exists, skipping"
+    on every statement — the idempotence from entry 15 doing exactly its job on a re-run
+    rather than failing or duplicating.
+
+    **`npm run db:check` passed against both branches.** All four constraints were watched to
+    reject, inside transactions that rolled back, leaving nothing behind. This is the property
+    entry 21 chose `db:check` over a Jest project for: **the assertions run against
+    production**, which no local suite could do. The deployment module's "confirm the check
+    constraints exist in production too" is therefore already satisfied.
+
+    One detail vindicates an earlier correction. On Neon the rate-limit query plans as an
+    **index scan**; on the empty local container it plans as a sequential scan. Had the check
+    asserted the planner's choice rather than the index's existence, it would pass in one
+    place and fail in the other for reasons that have nothing to do with the schema.
+
+    **Verified end to end against Neon `production`:** `401` anonymous, `200` authenticated,
+    and the row persisted with 8 stories and `committed_points` 29 against a capacity of 30.
+    The probe rows were then deleted; both tables are back to zero.
+
+    **A new gap, recorded rather than fixed:** Docker runs PostgreSQL **16.14**, Neon runs
+    **18.6**. Nothing has broken and the schema uses nothing version-sensitive, but testing
+    against a different major version than production is a gap on principle. Moving the
+    container to `postgres:18-alpine` is blocked behind this machine's Docker DNS failure.

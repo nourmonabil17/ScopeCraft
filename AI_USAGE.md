@@ -19,7 +19,7 @@ provider verification, and the evidence-capture pass — to **2026-08-24**.
 | Tool | Role in this work |
 |---|---|
 | Claude Code (CLI agent) | Paired implementation of the provider layer, Zod schemas and documentation; repository audit against the handbook rubric; the frontend pass in PR #3; the two evidence-capture harnesses |
-| NVIDIA NIM — `meta/llama-3.1-8b-instruct` | Product-planning inference at runtime (primary tier) |
+| NVIDIA NIM — `openai/gpt-oss-20b` | Product-planning inference at runtime (primary tier). Was `meta/llama-3.1-8b-instruct` until NVIDIA retired it on 2026-08-27 |
 | Groq — `openai/gpt-oss-120b` | Product-planning inference at runtime (fallback tier 1) |
 | Google Gemini — `gemini-3.5-flash-lite` | Product-planning inference at runtime (fallback tier 2) |
 

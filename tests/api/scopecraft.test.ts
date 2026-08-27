@@ -1563,10 +1563,15 @@ describe("provider model registry", () => {
   it("keeps providers.ts and scripts/smoke-test.ts on one set of model IDs", async () => {
     // Both import from src/lib/ai/models.ts. This asserts the documented
     // defaults so a silent model swap fails here rather than in production.
+    //
+    // The pinned NVIDIA id changed on 2026-08-27: meta/llama-3.1-8b-instruct
+    // now answers HTTP 410 Gone. This assertion is doing exactly what it exists
+    // for — a deliberate swap has to be acknowledged here, and an accidental one
+    // cannot pass. Update it when a provider retires a model, never loosen it.
     const models = await import("@/lib/ai/models");
     const providers = await import("@/lib/ai/providers");
 
-    expect(models.DEFAULT_NVIDIA_MODEL).toBe("meta/llama-3.1-8b-instruct");
+    expect(models.DEFAULT_NVIDIA_MODEL).toBe("openai/gpt-oss-20b");
     expect(models.DEFAULT_GROQ_MODEL).toBe("openai/gpt-oss-120b");
     expect(models.DEFAULT_GEMINI_MODEL).toBe("gemini-3.5-flash-lite");
 

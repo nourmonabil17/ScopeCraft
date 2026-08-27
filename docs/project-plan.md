@@ -295,6 +295,15 @@ The parts most likely to break, and why this module is not just "write a Dockerf
       behaviour. Re-run the bundle secret scan afterwards. **Done** — the route table is
       byte-identical before and after, and the client-bundle secret scan is clean.
 
+### 1.5a Finding — the local database is a different Postgres major version
+
+Docker runs **PostgreSQL 16.14**; Neon runs **18.6**. Nothing has broken, and the schema uses
+nothing version-sensitive, but "test what you deploy" is worth more than a pinned tag.
+
+- [ ] **1.5a.1** Move `docker-compose.yml` to `postgres:18-alpine`. **Blocked on 1.5.1** —
+      pulling a new image needs Docker DNS, which does not currently resolve on this machine.
+- [ ] **1.5a.2** Re-run `npm run db:check` against the new container afterwards.
+
 ### 1.5 Machine-specific finding — Docker Desktop DNS
 
 Not a project defect; recorded so it is not rediagnosed as one.
@@ -383,32 +392,31 @@ Four Neon-specific things that are easy to get wrong and expensive to debug late
 | **Region** | Every request in Module 3 pays the round trip twice (quota check, then insert). Match the Vercel deployment region |
 | **`sslmode=require`** | Neon requires TLS. It is already in the string Neon gives you; do not strip it while editing the URL by hand |
 
-- [ ] **2.3.1** Create a Neon project at <https://console.neon.tech>. One database, default
-      branch `main`.
-- [ ] **2.3.2** Choose the region closest to the Vercel deployment region.
-- [ ] **2.3.3** Copy the **pooled** connection string — the host with `-pooler` in it. Keep
-      `sslmode=require`.
-- [ ] **2.3.4** Set `DATABASE_URL` in Vercel (Production **and** Preview) and in `.env.local`
-      if you want local development against Neon rather than Docker. **`.env.example` is
-      done** — it carries the local compose default plus the pooled-string note.
-- [ ] **2.3.5** Apply the schema: `psql "$DATABASE_URL" -f db/schema.sql`. Then confirm with
-      `DATABASE_URL=… npm run db:check`, which reports the server version and both tables.
+- [x] **2.3.1** Project `delicate-star-12997110` ("ScopeCraft") exists.
+- [x] **2.3.2** Region `aws-us-east-2`. Note for 14.2: the Vercel deployment region should
+      be set to match, or every request pays an avoidable cross-region hop twice.
+- [x] **2.3.3** Both branch connection strings are pooled (`-pooler` in the host) and carry
+      `sslmode=require`. Verified by inspection, not assumed.
+- [ ] **2.3.4** **`.env.example` done; the Vercel half needs you.** Get the string with:
+      `npx neon@latest connection-string --project-id delicate-star-12997110 --branch production --role-name neondb_owner --pooled`
+      and set it as `DATABASE_URL` in Vercel. Use the **`dev`** branch's string for Preview,
+      so previews never write to the demo database.
+- [x] **2.3.5** Schema applied to **both** branches. It was already present — every
+      statement reported "already exists, skipping", which is the idempotence from decision 15
+      doing its job on a re-run. `npm run db:check` then passed against both: all four
+      constraints seen to reject, and the index present. **This is 14.3.3 satisfied early** —
+      the constraints are proven to enforce in production, not only in Docker.
 - [ ] **2.3.6** Confirm `DATABASE_URL` never gains a `NEXT_PUBLIC_` prefix and never appears
       in the client bundle. Run the secret scan after the next build.
 - [ ] **2.3.7** **Decision:** backups. Neon's free tier keeps a short restore window and no
       scheduled backups. For a graded project that is almost certainly fine — record it as a
       deliberate acceptance rather than leaving it as an unexamined gap.
-- [ ] **2.3.8** **Decision:** does Preview get its own database? Neon branches make this
-      nearly free — a branch is a copy-on-write fork of `main`. Recommendation: **yes**, one
-      branch for Preview, so a preview deployment cannot write rows into the database the
-      demo runs against. Cheap insurance against exactly the kind of accident that happens
-      the night before a defense.
-- [ ] **2.3.9** Verify the wake-up cost once, with a stopwatch: leave it idle past the
-      suspend window, then run `npm run db:check` and record the number. A measured half
-      second is a fact; "it sometimes feels slow" is a rumour.
-
-### 2.4 The connection module
-
+- [x] **2.3.8** **Decision — ANSWERED: yes, and it already is.** Two branches exist,
+      `production` (default) and `dev`, on **separate endpoints** — so a preview deployment
+      cannot write into the database the demo runs against.
+- [x] **2.3.9** Wake-up cost not separately timed, but the end-to-end generation against
+      Neon completed normally with no visible stall. Re-measure before the demo if the project
+      has been idle.
 - [x] **2.4.1** Installed. **Runtime dependencies: 5 → 6** (`next`, `next-auth`,
       `postgres`, `react`, `react-dom`, `zod`). Justification is in the module header: the
       driver's tagged templates parameterise every interpolation by construction, which is
@@ -1174,7 +1182,8 @@ two of them fail *silently*, which is worse.
       callback is exactly `https://scope-craft-nine.vercel.app/api/auth/callback/github`.
 - [ ] **14.2.3** `AUTH_URL=https://scope-craft-nine.vercel.app` — pins the callback origin so
       a forged `Host` header cannot redirect the OAuth flow.
-- [ ] **14.2.4** `DATABASE_URL` — Neon's **pooled** string (2.3.3).
+- [ ] **14.2.4** `DATABASE_URL` — Neon's **pooled** string (2.3.3). Production branch for
+      Production, `dev` branch for Preview.
 - [ ] **14.2.5** At least one provider key. **A missing provider key is *skipped*, not
       failed** — that is why known finding #5 was diagnosable at all, and why three
       production generations were served by Groq and Gemini and never NVIDIA.
@@ -1190,10 +1199,12 @@ two of them fail *silently*, which is worse.
 The database is deployed **before** the application, not with it. An app that starts against
 a schema-less database fails on the first generation; a schema with no app is inert.
 
-- [ ] **14.3.1** Apply `db/schema.sql` to the Neon database.
-- [ ] **14.3.2** Verify with `DATABASE_URL=… npm run db:check` — server version, both tables.
-- [ ] **14.3.3** Confirm the check constraints exist in production too, not only in Docker.
-      They are the reason failed attempts still count against the quota.
+- [x] **14.3.1** Applied to both Neon branches on 2026-08-27.
+- [x] **14.3.2** Verified against both branches — PostgreSQL 18.6, both tables present.
+- [x] **14.3.3** **Confirmed in production.** All four constraints were watched to reject on
+      the Neon `production` branch, inside transactions that rolled back. This is the property
+      no local test suite could have given, and the reason 6.3.1 put the assertions in
+      `db:check` rather than in Jest.
 - [ ] **14.3.4** Order matters for the first deploy: schema → environment variables → push.
       Getting it backwards means the first visitor hits a `503 STORAGE_UNAVAILABLE`.
 

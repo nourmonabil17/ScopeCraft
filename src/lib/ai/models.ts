@@ -13,7 +13,21 @@ export const NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
 export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
-export const DEFAULT_NVIDIA_MODEL = "meta/llama-3.1-8b-instruct";
+// Was `meta/llama-3.1-8b-instruct` until 2026-08-27, when NVIDIA retired it —
+// the endpoint answers HTTP 410 Gone, and every Llama 3.x instruct model has
+// left the NIM catalogue with it. A default that 410s means anyone cloning this
+// repository gets a dead first tier and a failover chain that only looks like
+// it has three links.
+//
+// LATENCY, stated because it is the real constraint and no model choice fixes
+// it. Measured on this account for a full-PRD request: this model returns valid
+// JSON every time, but in 9.3 s, 18.6 s and 26.0 s across three consecutive
+// runs. `AI_TIMEOUT_MS` defaults to 15 s, so NVIDIA times out more often than
+// not and the request falls through to Groq. That is the failover chain working
+// as designed rather than a fault, but it does mean tier one is unreliable at
+// the default budget. The alternatives were worse: every other reachable NIM
+// model either 404s on this account or exceeds 30 s.
+export const DEFAULT_NVIDIA_MODEL = "openai/gpt-oss-20b";
 export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 

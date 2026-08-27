@@ -41,7 +41,7 @@ POST /api/scopecraft
    │
    ══════════ no provider module is touched above this line ══════════
    │
-   ├─ NVIDIA NIM · meta/llama-3.1-8b-instruct   (primary)
+   ├─ NVIDIA NIM · openai/gpt-oss-20b            (primary)
    │     └─ on failure ─► Groq · openai/gpt-oss-120b (fallback 1)
    │                        └─ on failure ─► Gemini · gemini-3.5-flash-lite (fallback 2)
    │

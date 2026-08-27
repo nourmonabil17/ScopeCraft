@@ -37,7 +37,7 @@ its last live verification.
 **Live-verified 2026-08-24** via `npm run smoke` with real credentials for
 all three providers, each confirmed with a real `200 OK`:
 
-- NVIDIA NIM uses `meta/llama-3.1-8b-instruct`.
+- NVIDIA NIM uses `openai/gpt-oss-20b`.
 - Groq uses `openai/gpt-oss-120b`.
 - Gemini uses `gemini-3.5-flash-lite`.
 
