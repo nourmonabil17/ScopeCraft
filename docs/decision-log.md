@@ -448,3 +448,59 @@ nonce or hash policy and saying so is more useful than closing the row.
     **Backups are deliberately accepted as-is.** The free tier keeps a short restore window
     and no scheduled backups. For a graded project that is fine; it is recorded here so it is
     an accepted risk rather than an unexamined gap.
+
+21. **Both evidence captures repaired; integration testing lives in `db:check` — 2026-08-27.**
+
+    **The captures signed in rather than bypassing.** Closing the endpoint broke both, exactly
+    as predicted. The tempting fix was an environment flag making the app skip its own auth
+    check during capture — and that would be a production bypass switch living in the route
+    forever, guarded by nothing but the hope the variable is never set in production. Instead
+    `scripts/mint-session.mjs` mints a real cookie, shared by both scripts because bash cannot
+    call `encode()` and two copies of "what a valid session looks like" eventually disagree.
+
+    A consequence worth naming: **the API capture now requires Postgres.** `plans.user_id` is
+    a foreign key, so a cookie whose `uid` matches no row would pass the session check and
+    then fail every insert — recording 200s that never persisted.
+
+    **A long-standing capture flake was diagnosed, not worked around.** Scenario 2 kept
+    falling through to Gemini when it should have been served by Groq. Four rapid five-token
+    probes against the same key all returned 200, which ruled out a request-rate limit; the
+    cause is Groq's free tier metering **tokens** per minute, and back-to-back scenarios each
+    generating a full PRD exhaust that budget. A pause between generating scenarios fixed it,
+    and the capture now passes 14 of 14 rather than 13.
+
+    **No Jest integration project.** The three things mocks cannot cover — the check
+    constraints, the foreign key, the index — are asserted by `npm run db:check`, which
+    already existed. No new framework, no Docker dependency in CI, and one property no local
+    suite could have: **it runs against production**, which is what the deployment module
+    asks for. Each assertion does the forbidden thing inside a transaction that is always
+    rolled back, so it is safe to point at a live database.
+
+    That check found its own bug immediately. The first version asserted the rate-limit query
+    *uses* the index and failed on an empty database — correctly, because a sequential scan
+    over zero rows is the cheaper plan. Asserting a planner decision is asserting the table's
+    size, which is not a property of the schema. It now asserts the index **exists** and
+    prints the chosen plan as information.
+
+    **No coverage threshold in CI.** Every real defect found in Modules 3 to 6 — the eager
+    `DATABASE_URL` read that broke the build, the replayed board score, the silently stripped
+    Zod field, the untyped 500 on a database outage — was found by running the thing, not by
+    an uncovered line. A percentage would buy tests written to satisfy a number.
+
+22. **`output: "standalone"` is Docker-only — 2026-08-27.**
+    It was unconditional, and that was wrong in a way responses did not reveal. Next warns
+    that **`next start` does not work with `output: standalone`** — and `next start` is
+    exactly how both evidence capture scripts run the app. Everything still answered
+    correctly, which is why the earlier check passed: it verified status codes and headers,
+    not the server log.
+
+    Shipping a configuration the framework calls unsupported, on the path that produces
+    graded artifacts, is not a trade worth making for an image size. The flag now lives only
+    where it earns its keep: the Docker builder stage sets `DOCKER_BUILD=1`. Vercel does its
+    own output tracing and never needed it; local development and the captures get an
+    ordinary build and no warning. Verified both ways — no `.next/standalone` from
+    `npm run build`, and a 270 MB non-root image with `server.js` and static assets present
+    from `docker build`.
+
+    The lesson generalises past this flag: **a check that only reads responses will miss a
+    configuration the framework is complaining about.** Read the log too.

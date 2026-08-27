@@ -68,16 +68,21 @@ const SECURITY_HEADERS = [
 
 const nextConfig = {
   // Emits a self-contained server bundle at `.next/standalone`, so the Docker
-  // image copies one traced directory instead of all of `node_modules`.
+  // image copies one traced directory instead of all 505 MB of `node_modules`.
   //
-  // THIS FILE IS SHARED WITH THE VERCEL BUILD. Vercel does not build from the
-  // Dockerfile — it runs `next build` against this same config and then applies
-  // its own output handling, for which `standalone` is a supported no-op. The
-  // risk is not that Vercel rejects it; it is that a change made for Docker
-  // silently alters what production serves. Anything added here for the
-  // container must be verified against the Vercel build immediately, not at the
-  // end of the work.
-  output: "standalone",
+  // CONDITIONAL, AND THAT IS THE POINT. It was unconditional first, which broke
+  // something quietly: Next warns that `next start` "does not work with output:
+  // standalone", and `next start` is exactly how both evidence capture scripts
+  // run the app. Responses were still correct — the warning was the only symptom
+  // — but shipping a configuration the framework says is unsupported, on the
+  // path that produces graded artifacts, is not a trade worth making for an
+  // image size.
+  //
+  // Vercel does not need it either: it does its own output tracing and treats
+  // `standalone` as a no-op. So the flag now exists only where it earns its
+  // keep — the Docker builder stage sets DOCKER_BUILD=1. Vercel and local
+  // development get the ordinary build, and `next start` stops warning.
+  ...(process.env.DOCKER_BUILD ? { output: "standalone" } : {}),
 
   // Next advertises itself with `X-Powered-By: Next.js` by default. Vercel
   // happens to strip it, but `next start` and any self-hosted deployment do

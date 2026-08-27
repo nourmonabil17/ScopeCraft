@@ -28,3 +28,4 @@ node_modules
 # deliberately not shared: it records local paths, account names and working
 # constraints that belong to this machine, not to the project.
 CLAUDE.md
+.neon

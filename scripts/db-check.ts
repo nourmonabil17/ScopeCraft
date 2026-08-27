@@ -32,6 +32,10 @@ async function main() {
   console.log(`  tables   ${found.join(", ") || "(none)"}`);
 
   const missing = EXPECTED_TABLES.filter((t) => !found.includes(t));
+  if (missing.length === 0) {
+    await checkConstraints();
+  }
+
   if (missing.length > 0) {
     // The init script only runs on an empty data directory, so a missing table
     // almost always means the schema changed after the volume was created.
@@ -42,7 +46,121 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("\nOK — reachable, and both tables are present.");
+  if (failures > 0) {
+    console.error(`\nFAIL: ${failures} constraint(s) missing or not enforcing.`);
+    process.exit(1);
+  }
+
+  console.log("\nOK — reachable, both tables present, all constraints enforcing.");
+}
+
+let failures = 0;
+
+/**
+ * Proves the schema's guarantees rather than reading its DDL.
+ *
+ * This is where the integration testing lives (plan §6.3). A Jest project that
+ * needs a live Postgres would go red in CI for reasons unrelated to the code,
+ * and would only ever run where Docker is up. Putting the same three assertions
+ * in a script that already exists means they also run against **production** —
+ * which is exactly what §14.3.3 asks for, and what no local test suite can do.
+ *
+ * Each check is a negative: it does the forbidden thing inside a transaction
+ * and expects to be refused. A constraint nobody has watched reject anything is
+ * a constraint nobody knows works.
+ */
+async function checkConstraints() {
+  const user = "constraint-probe@scopecraft.local";
+
+  await expectRejected(
+    "plans_status_check rejects an unknown status",
+    async (tx) => {
+      const [u] = await tx`insert into users (email) values (${user}) returning id`;
+      await tx`insert into plans (user_id, idea, capacity_points, sprint_days, status, response)
+               values (${u.id}, 'probe', 10, 7, 'pending', '{}'::jsonb)`;
+    }
+  );
+
+  await expectRejected(
+    "plans_ok_has_response rejects an ok row with no response",
+    async (tx) => {
+      const [u] = await tx`insert into users (email) values (${user}) returning id`;
+      await tx`insert into plans (user_id, idea, capacity_points, sprint_days, status)
+               values (${u.id}, 'probe', 10, 7, 'ok')`;
+    }
+  );
+
+  await expectRejected(
+    "plans_user_id_fkey rejects an unknown user",
+    async (tx) => {
+      await tx`insert into plans (user_id, idea, capacity_points, sprint_days, status, response)
+               values ('00000000-0000-0000-0000-000000000000', 'probe', 10, 7, 'ok', '{}'::jsonb)`;
+    }
+  );
+
+  await expectRejected("users_email_key rejects a duplicate address", async (tx) => {
+    await tx`insert into users (email) values (${user})`;
+    await tx`insert into users (email) values (${user})`;
+  });
+
+  await expectIndexed();
+}
+
+/**
+ * Runs `body` in a transaction that is always rolled back, so a check can write
+ * freely without leaving anything behind — including when it is pointed at a
+ * production database.
+ */
+async function expectRejected(
+  label: string,
+  body: (tx: typeof sql) => Promise<unknown>
+) {
+  try {
+    await sql.begin(async (tx) => {
+      await body(tx as unknown as typeof sql);
+      // Reached only if the database accepted what it should have refused.
+      throw new Error("__ACCEPTED__");
+    });
+    report(label, false, "accepted");
+  } catch (error) {
+    const accepted = error instanceof Error && error.message === "__ACCEPTED__";
+    report(label, !accepted, accepted ? "accepted" : "rejected");
+  }
+}
+
+/**
+ * Asserts the index **exists**, and reports the plan as information.
+ *
+ * The first version of this asserted that the rate-limit count *uses* the
+ * index, and failed on an empty database — correctly, because a sequential
+ * scan over zero rows is the cheaper plan and Postgres is right to choose it.
+ * Asserting a planner decision means asserting the table's size, which is not
+ * a property of the schema. The index existing is the invariant; which plan
+ * wins is context, printed rather than enforced.
+ */
+async function expectIndexed() {
+  const [idx] = await sql<{ indexdef: string }[]>`
+    select indexdef from pg_indexes
+    where tablename = 'plans' and indexname = 'plans_user_created_idx'`;
+  report(
+    "plans_user_created_idx exists",
+    Boolean(idx),
+    idx ? "present" : "MISSING"
+  );
+
+  const rows = await sql<{ "QUERY PLAN": string }[]>`
+    explain (costs off)
+    select count(*) from plans
+    where user_id = '00000000-0000-0000-0000-000000000000'::uuid
+      and created_at > now() - interval '24 hours'`;
+  const plan = rows.map((r) => r["QUERY PLAN"]).join(" ");
+  const chosen = plan.includes("plans_user_created_idx") ? "index scan" : "seq scan (table is small)";
+  console.log(`  ---- rate-limit count currently plans as: ${chosen}`);
+}
+
+function report(label: string, ok: boolean, detail: string) {
+  console.log(`  ${ok ? "OK  " : "FAIL"} ${label} (${detail})`);
+  if (!ok) failures += 1;
 }
 
 /** Host and database only. Never the user or the password. */

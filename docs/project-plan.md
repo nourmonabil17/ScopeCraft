@@ -656,27 +656,33 @@ The seams. Each is a place where two correct halves make one broken whole.
 
 ### 6.3 Integration tests
 
-- [ ] **6.3.1** **Decision:** integration tests against a real database, or mock-only?
-      Docker makes a real one cheap, which changes the calculus. Recommendation: **one small
-      integration suite** against the Docker Postgres covering the three things mocks cannot
-      — the foreign key, the check constraint, and the index being used.
-- [ ] **6.3.2** If yes: a separate Jest project so `npm test` stays fast and runs without
-      Docker. A suite that needs infrastructure must be opt-in.
-- [ ] **6.3.3** If no: write down what is therefore not covered, referencing 2.2.
-
-### 6.4 Evidence capture repair
-
-- [ ] **6.4.1** `scripts/capture-evidence.sh` posts unauthenticated on all eleven cases and
-      will get `401` on every one after 3.2.
-- [ ] **6.4.2** Give it a session the way `capture-ui-evidence.mjs` does — mint a real
-      cookie from `AUTH_SECRET`. **Do not** add an env flag that makes the app skip its own
-      auth check; a production bypass switch is a worse thing to own.
-- [ ] **6.4.3** The shell script cannot call `encode` directly. Move cookie minting into one
-      shared `.mjs` helper both scripts import.
-- [ ] **6.4.4** Add a `401` case (no cookie).
-- [ ] **6.4.5** Add a `429` case — one run with `DAILY_PLAN_LIMIT=1`.
-- [ ] **6.4.6** Re-run both captures end to end. Confirm the committability guard still
-      passes and nothing lands in a `.gitignore` path.
+- [x] **6.3.1** **Decision — ANSWERED, and not the way this step proposed.** No Jest
+      integration project. The three things mocks cannot cover are now asserted by
+      `npm run db:check`, which already existed — no new framework, no Docker dependency in
+      CI, and one property a local suite could never have: **it runs against production too**,
+      which is what 14.3.3 asks for. Each check does the forbidden thing inside a transaction
+      that is always rolled back, so it is safe to point at a live database.
+- [x] **6.3.2** Not applicable — no separate project was created. See 6.3.1.
+- [x] **6.3.3** Covered by `db:check`: `plans_status_check`, `plans_ok_has_response`,
+      `plans_user_id_fkey`, `users_email_key`, and the index's existence. **Not** covered:
+      concurrent writes, and the planner's *choice* of index — see 6.6.2 for why the second
+      one is deliberate.
+- [x] **6.4.1** Confirmed broken exactly as predicted, then fixed.
+- [x] **6.4.2** The capture signs in the way a person does, with a real cookie minted from
+      `AUTH_SECRET`. **No bypass flag** — that would be a production switch living in the
+      route forever, guarded only by the hope nobody sets the variable.
+- [x] **6.4.3** `scripts/mint-session.mjs` — one implementation, imported by the Node
+      capture and shelled out to by the bash one. It also upserts a real `users` row, because
+      `plans.user_id` is a foreign key: a cookie whose `uid` matches no row passes the session
+      check and then fails every insert, so the capture would record 200s that never
+      persisted. **The API capture now needs Postgres**, and says so when it is missing.
+- [x] **6.4.4** Added — `anonymous request is refused → 401`.
+- [x] **6.4.5** Added as Scenario 7, its own server because `DAILY_PLAN_LIMIT` is read once
+      at module load: first request serves, second returns `429`.
+- [x] **6.4.6** Both captures re-run end to end. **API: 14/14 scenarios pass**, secret scan
+      clean, committability guard clean. **UI: 17 screenshots**, 19 contrast pairs with none
+      below AA in either theme, 0 unnamed controls, 0 heading skips, and no horizontal
+      overflow at any of six viewport/direction combinations.
 - [ ] **6.4.7** Update `docs/evidence/curl-evidence.md` and
       `docs/evidence/provider-fallback-log.md` with the new counts and cases.
 
@@ -698,11 +704,18 @@ Things no automated test in this repository covers.
 
 ### 6.6 Coverage honesty
 
-- [ ] **6.6.1** Produce a coverage map: what each suite covers, in one table.
-- [ ] **6.6.2** Name what is **not** covered and why. A coverage percentage without that
-      list is a number, not information.
-- [ ] **6.6.3** **Decision:** is a coverage threshold enforced in CI? Recommendation: no.
-      A threshold on a project this size produces tests written to satisfy a number.
+- [ ] **6.6.1** Produce a coverage map: what each suite covers, in one table. Belongs in
+      `docs/qa-test-plan.md` (11.4.4), not here.
+- [ ] **6.6.2** Name what is **not** covered and why. Started, in 6.3.3 — the honest one is
+      that `db:check` asserts the index **exists** rather than that the planner **uses** it.
+      The first version asserted the plan and failed on an empty database, correctly: a
+      sequential scan over zero rows is the cheaper plan. Asserting a planner decision means
+      asserting the table's size, which is not a property of the schema.
+- [x] **6.6.3** **Decision — ANSWERED: no threshold.** On a project this size a coverage
+      percentage produces tests written to satisfy a number rather than to catch a defect.
+      Every real bug found in Modules 3–6 — the eager `DATABASE_URL` read, the replayed board
+      score, the silent Zod strip, the untyped 500 on a database outage — was found by
+      running the thing, not by an uncovered line. Recorded as a deliberate omission.
 
 ---
 

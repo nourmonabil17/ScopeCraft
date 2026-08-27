@@ -22,7 +22,7 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { encode } from "next-auth/jwt";
+import { mintCaptureSession } from "./mint-session.mjs";
 
 // /scopecraft requires a session (src/app/scopecraft/layout.tsx). Rather than
 // bypassing that with a flag the app would have to carry into production, the
@@ -139,22 +139,20 @@ async function colorScheme(value) {
  * the same unprefixed name under those conditions.
  */
 async function signInAsCaptureUser() {
-  const token = await encode({
-    token: {
-      name: "Evidence Capture",
-      email: "capture@scopecraft.local",
-      sub: "capture-user",
-    },
-    secret: AUTH_SECRET,
-    salt: "authjs.session-token",
-    maxAge: 60 * 60,
-  });
+  // Minting moved to scripts/mint-session.mjs when the API route started
+  // requiring a session (Module 3). It is shared with capture-evidence.sh,
+  // which cannot call encode() from bash, and it upserts a real users row —
+  // the token carries that row's id as `uid`, which is what plans.user_id
+  // references. A cookie with no uid passes nothing: every generation would
+  // return 401 and the whole capture would record the login redirect.
+  const { cookie, name } = await mintCaptureSession({ secret: AUTH_SECRET });
+
   await send("Network.enable", {}, session);
   await send(
     "Network.setCookie",
     {
-      name: "authjs.session-token",
-      value: token,
+      name,
+      value: cookie,
       domain: "127.0.0.1",
       path: "/",
       httpOnly: true,

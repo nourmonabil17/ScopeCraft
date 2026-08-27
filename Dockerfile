@@ -34,6 +34,13 @@ COPY . .
 # even if nothing later referenced it. Verified: the production build completes
 # with none of them set.
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Turns on `output: "standalone"` in next.config.js. Deliberately not the
+# default: Next warns that `next start` does not work with standalone output,
+# and `next start` is how both evidence capture scripts run the app. Only this
+# build wants a traced bundle, so only this build asks for one.
+ENV DOCKER_BUILD=1
+
 RUN npm run build
 
 # --------------------------------------------------------------- runner -----

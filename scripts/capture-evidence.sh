@@ -48,6 +48,38 @@ BAD_KEY="INVALID_KEY_FOR_EVIDENCE_CAPTURE"
 SERVER_PID=""
 FAILURES=0
 
+# ---------------------------------------------------------------- session ---
+# The endpoint requires a session as of Module 3, so the capture signs in the
+# way a person does rather than the app carrying a bypass flag into production.
+# Minting lives in scripts/mint-session.mjs because bash cannot call next-auth's
+# encode(), and because two copies of "what a valid session looks like" would
+# eventually disagree with each other.
+#
+# This also means the capture now needs Postgres: plans.user_id is a foreign
+# key, so a cookie whose uid matches no row would pass the session check and
+# then fail every insert - recording 200s that never actually persisted.
+if [[ -z "${AUTH_SECRET:-}" ]]; then
+  echo "FATAL: AUTH_SECRET is not set." >&2
+  echo "       Export the same value the captured server will run with, or" >&2
+  echo "       every case returns 401 instead of what it is meant to show." >&2
+  exit 1
+fi
+
+export DATABASE_URL="${DATABASE_URL:-postgres://scopecraft:scopecraft@localhost:5432/scopecraft}"
+
+if ! SESSION_COOKIE="$(node "${REPO_ROOT}/scripts/mint-session.mjs" 2>&1)"; then
+  echo "FATAL: could not mint a capture session." >&2
+  echo "       ${SESSION_COOKIE}" >&2
+  echo "       Start the database with: npm run db:up" >&2
+  exit 1
+fi
+COOKIE_HEADER="authjs.session-token=${SESSION_COOKIE}"
+
+# The recorded command shows a placeholder, never the real cookie. A committed
+# transcript is a public artifact and a session token is a credential; the shape
+# is what a reviewer needs, not the bytes.
+SHOWN_COOKIE="authjs.session-token=<session-cookie>"
+
 cleanup() {
   if [[ -n "${SERVER_PID}" ]] && kill -0 "${SERVER_PID}" 2>/dev/null; then
     kill "${SERVER_PID}" 2>/dev/null || true
@@ -121,11 +153,13 @@ expect_body() {
     echo ""
     echo "\$ curl -sS -i -X POST ${URL} \\"
     echo "    -H 'Content-Type: application/json' \\"
+    echo "    -b '${SHOWN_COOKIE}' \\"
     echo "    -d '${body}'"
     echo ""
   } >> "${TRANSCRIPT}"
 
   curl -sS -i -X POST "${URL}" -H 'Content-Type: application/json' \
+    -b "${COOKIE_HEADER}" \
     --data-binary "${body}" > "${TMP}/resp.txt" 2>&1 || true
   finish_case "${label}" "${want}"
 }
@@ -142,12 +176,39 @@ expect_file() {
     [[ -n "${prelude}" ]] && echo "\$ ${prelude}"
     echo "\$ curl -sS -i -X POST ${URL} \\"
     echo "    -H 'Content-Type: application/json' \\"
+    echo "    -b '${SHOWN_COOKIE}' \\"
     echo "    --data-binary @${shown}"
     echo ""
   } >> "${TRANSCRIPT}"
 
   curl -sS -i -X POST "${URL}" -H 'Content-Type: application/json' \
+    -b "${COOKIE_HEADER}" \
     --data-binary "@${path}" > "${TMP}/resp.txt" 2>&1 || true
+  finish_case "${label}" "${want}"
+}
+
+# expect_anonymous <label> <want-status> <inline-json>
+# The one case that must NOT carry the session. The auth boundary deserves the
+# same captured evidence as every other status code, and asserting it here means
+# a regression that reopened the endpoint would fail the capture, not just a
+# unit test.
+expect_anonymous() {
+  local label="$1" want="$2" body="$3"
+  {
+    echo ""
+    echo "-------------------------------------------------------------------"
+    echo "CASE: ${label}"
+    echo "EXPECT: HTTP ${want}"
+    echo ""
+    echo "# No -b flag: this is the anonymous case."
+    echo "\$ curl -sS -i -X POST ${URL} \\"
+    echo "    -H 'Content-Type: application/json' \\"
+    echo "    -d '${body}'"
+    echo ""
+  } >> "${TRANSCRIPT}"
+
+  curl -sS -i -X POST "${URL}" -H 'Content-Type: application/json' \
+    --data-binary "${body}" > "${TMP}/resp.txt" 2>&1 || true
   finish_case "${label}" "${want}"
 }
 
@@ -160,11 +221,13 @@ expect_method() {
     echo "CASE: ${label}"
     echo "EXPECT: HTTP ${want}"
     echo ""
-    echo "\$ curl -sS -i -X ${method} ${URL}"
+    echo "\$ curl -sS -i -X ${method} ${URL} \\"
+    echo "    -b '${SHOWN_COOKIE}'"
     echo ""
   } >> "${TRANSCRIPT}"
 
-  curl -sS -i -X "${method}" "${URL}" > "${TMP}/resp.txt" 2>&1 || true
+  curl -sS -i -X "${method}" "${URL}" -b "${COOKIE_HEADER}" \
+    > "${TMP}/resp.txt" 2>&1 || true
   finish_case "${label}" "${want}"
 }
 
@@ -201,6 +264,7 @@ capture_success() {
     echo ""
     echo "\$ curl -sS -D - -o ${saved} -X POST ${URL} \\"
     echo "    -H 'Content-Type: application/json' \\"
+    echo "    -b '${SHOWN_COOKIE}' \\"
     echo "    --data-binary @request-valid.json"
     echo ""
   } >> "${TRANSCRIPT}"
@@ -214,6 +278,7 @@ capture_success() {
     curl -sS -D "${TMP}/head.txt" -o "${TMP}/body.json" \
       -X POST "${URL}" \
       -H 'Content-Type: application/json' \
+      -b "${COOKIE_HEADER}" \
       --data-binary "@${body_file}" || true
     got="$(head -1 "${TMP}/head.txt" | awk '{print $2}')"
     [[ "${got}" == "200" ]] && break
@@ -326,7 +391,7 @@ echo "Capturing evidence against a production build on port ${PORT}..."
 echo ""
 
 # ---- Scenario 1: all providers configured and reachable --------------------
-echo "[1/6] Local rejections and the happy path (all providers healthy)"
+echo "[1/7] Local rejections and the happy path (all providers healthy)"
 start_server "healthy"
 section "SCENARIO 1 — all three providers configured (env from .env.local)"
 
@@ -347,11 +412,29 @@ expect_body "unintelligible idea asks for clarification" "422" \
 
 expect_method "GET is not an allowed method" "405" "GET"
 
+expect_anonymous "anonymous request is refused" "401" \
+  '{"idea": "A study group matching app for students"}'
+
 append_server_log "SCENARIO 1 — all three providers configured and reachable"
 stop_server
 
+# Groq's free tier meters tokens per minute, not just requests. Each scenario
+# below generates a full PRD — thousands of tokens — and back-to-back scenarios
+# were exhausting that budget, which surfaced as "groq (unavailable)" and made
+# Scenario 2 fall through to Gemini. Four rapid 5-token probes against the same
+# key all returned 200, which is what ruled out a plain request-rate limit.
+#
+# A pause is the honest fix: the capture is meant to demonstrate which provider
+# serves, and a starved provider demonstrates the wrong thing.
+settle() {
+  printf '    · pausing %ss so the provider token budget refills\n' "${SETTLE_SECONDS}"
+  sleep "${SETTLE_SECONDS}"
+}
+SETTLE_SECONDS="${EVIDENCE_SETTLE_SECONDS:-45}"
+
 # ---- Scenario 2: primary fails, first fallback serves ----------------------
-echo "[2/6] One-hop failover: NVIDIA credential invalid"
+echo "[2/7] One-hop failover: NVIDIA credential invalid"
+settle
 start_server "failover-groq" "NVIDIA_API_KEY=${BAD_KEY}"
 section "SCENARIO 2 — NVIDIA credential invalid; Groq and Gemini healthy"
 capture_success "failover to Groq serves the request" "groq" "${VALID_BODY}" "200-response-groq.json"
@@ -359,7 +442,8 @@ append_server_log "SCENARIO 2 — NVIDIA credential invalid (expect: nvidia fail
 stop_server
 
 # ---- Scenario 3: two providers fail, last one serves -----------------------
-echo "[3/6] Two-hop failover: NVIDIA and Groq credentials invalid"
+echo "[3/7] Two-hop failover: NVIDIA and Groq credentials invalid"
+settle
 start_server "failover-gemini" "NVIDIA_API_KEY=${BAD_KEY}" "GROQ_API_KEY=${BAD_KEY}"
 section "SCENARIO 3 — NVIDIA and Groq credentials invalid; Gemini healthy"
 capture_success "failover to Gemini serves the request" "gemini" "${VALID_BODY}" "200-response-gemini.json"
@@ -367,7 +451,7 @@ append_server_log "SCENARIO 3 — NVIDIA and Groq credentials invalid (expect: t
 stop_server
 
 # ---- Scenario 4: the whole chain is exhausted ------------------------------
-echo "[4/6] Chain exhausted: all three credentials invalid"
+echo "[4/7] Chain exhausted: all three credentials invalid"
 start_server "exhausted" "NVIDIA_API_KEY=${BAD_KEY}" "GROQ_API_KEY=${BAD_KEY}" "GEMINI_API_KEY=${BAD_KEY}"
 section "SCENARIO 4 — every provider credential invalid"
 expect_file "exhausted chain returns a safe 502" "502" \
@@ -376,7 +460,7 @@ append_server_log "SCENARIO 4 — every provider credential invalid (expect: thr
 stop_server
 
 # ---- Scenario 5: nothing configured ----------------------------------------
-echo "[5/6] Nothing configured: no provider credentials present"
+echo "[5/7] Nothing configured: no provider credentials present"
 start_server "unconfigured" "NVIDIA_API_KEY=" "GROQ_API_KEY=" "GEMINI_API_KEY="
 section "SCENARIO 5 — no provider credential is configured"
 expect_file "unconfigured deployment returns a safe 502" "502" \
@@ -385,13 +469,36 @@ append_server_log "SCENARIO 5 — no provider credential configured (expect: ski
 stop_server
 
 # ---- Scenario 6: timeout ----------------------------------------------------
-echo "[6/6] Timeout: providers healthy, 1 ms deadline"
+echo "[6/7] Timeout: providers healthy, 1 ms deadline"
 start_server "timeout" "AI_TIMEOUT_MS=1"
 section "SCENARIO 6 — providers healthy but the deadline is 1 ms"
 expect_file "deadline exceeded returns 504" "504" \
   "${VALID_BODY}" "request-valid.json"
 append_server_log "SCENARIO 6 — AI_TIMEOUT_MS=1 (expect: every provider aborts on the clock)"
 stop_server
+
+# ---- Scenario 7: the daily quota -------------------------------------------
+# Its own server, because DAILY_PLAN_LIMIT is read once at module load. The
+# limit is set to 1, so the first request succeeds and the second is refused —
+# which also demonstrates the property the whole design turns on: the budget
+# counts *attempts*, and a request that reached a provider has spent its token
+# whether or not it produced a plan.
+echo "[7/7] Daily quota: DAILY_PLAN_LIMIT=1"
+node "${REPO_ROOT}/scripts/mint-session.mjs" --reset >/dev/null 2>&1 || true
+SESSION_COOKIE="$(node "${REPO_ROOT}/scripts/mint-session.mjs")"
+COOKIE_HEADER="authjs.session-token=${SESSION_COOKIE}"
+
+start_server "quota" "DAILY_PLAN_LIMIT=1"
+section "SCENARIO 7 — DAILY_PLAN_LIMIT=1, so the second request is over budget"
+capture_success "first request is within budget" "any" "${VALID_BODY}" "200-response-quota.json"
+expect_file "second request is refused as over budget" "429" \
+  "${VALID_BODY}" "request-valid.json"
+append_server_log "SCENARIO 7 — DAILY_PLAN_LIMIT=1 (expect: first serves, second 429)"
+stop_server
+
+# Leave the database as it was found. The capture user and its plans go
+# together — the foreign key cascades.
+node "${REPO_ROOT}/scripts/mint-session.mjs" --reset >/dev/null 2>&1 || true
 
 # ------------------------------------------------------------ secret scan ----
 
