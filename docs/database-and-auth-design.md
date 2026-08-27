@@ -1,6 +1,7 @@
 # Database & Authentication — Design
 
-**Owner:** Yousef Mohmed Hasabo · **Status:** designed, **not implemented**
+**Owner:** Yousef Mohmed Hasabo
+**Status:** the **authentication half is implemented**; the database half is still design only.
 **Schema:** [`db/schema.sql`](../db/schema.sql)
 
 This closes the boundary already recorded in [`architecture.md` §4a](architecture.md) and
@@ -10,6 +11,31 @@ anonymous callers can spend provider quota.
 > **Scope note.** `architecture.md` §4 froze "no authentication" as an MVP non-goal. This
 > design reverses that. Worth saying out loud at the defense as a deliberate scope change
 > rather than letting an examiner find the contradiction.
+
+## What is built, and what is not
+
+| | Status | Where |
+|---|---|---|
+| GitHub OAuth sign-in, JWT session | **shipped** | [`src/auth.ts`](../src/auth.ts) |
+| `/login` page (bilingual, themed) | **shipped** | [`LoginCard.tsx`](../src/components/common/LoginCard.tsx) |
+| `/scopecraft` requires a session | **shipped** | [`scopecraft/layout.tsx`](../src/app/scopecraft/layout.tsx) |
+| Header identity + sign out | **shipped** | [`UserMenu.tsx`](../src/components/common/UserMenu.tsx) |
+| `users` / `plans` tables | design only | [`db/schema.sql`](../db/schema.sql) |
+| Stage-0 session check on the API route | design only | below |
+| Daily rate limit (`429 RATE_LIMITED`) | design only | below |
+
+**The important consequence of that split:** the page is gated and the endpoint is not. A
+signed-out visitor cannot use the UI, but anyone can still `curl` `POST /api/scopecraft` and
+spend provider quota. Sign-in is a prerequisite for metering, not metering itself — do not
+describe the quota gap as closed.
+
+**Why the split, rather than doing both at once:** the shipped half needs no database, so it
+costs one dependency and breaks nothing. The remaining half needs Postgres, a `DATABASE_URL`,
+an auth mock across the route tests, and a session for `scripts/capture-evidence.sh`, which
+currently posts anonymously on all eleven cases. Different size, different risk, different
+change.
+
+## The rest of this document: the database half
 
 ## The whole design in one paragraph
 
@@ -231,15 +257,19 @@ New environment variables — add to `.env.example` and the hosting provider:
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | From a GitHub OAuth app; callback `<url>/api/auth/callback/github` |
 | `DAILY_PLAN_LIMIT` | Optional, defaults to 20 |
 
-## Cost of adopting this
+## Cost of adopting the remaining half
 
-Honest accounting, because it is not free days before a defense:
+Honest accounting, because it is not free days before a defense. The sign-in half is already
+paid for — one dependency (`next-auth`, four → five), and 251 tests green. What is left:
 
-- **Two new dependencies** (`postgres`, `next-auth`) against a current total of four.
-- **245 tests will need work.** Every route test now hits an auth check. The lazy fix is one
-  mock of `auth()` in the existing setup file, not 82 edits.
-- **The evidence captures break** — `capture-evidence.sh` posts unauthenticated and would get
-  `401` on all eleven cases. They need a session cookie or a test bypass.
+- **One more dependency** (`postgres`), and a `DATABASE_URL` that has to exist and stay up.
+- **Route tests will need an auth mock.** Every test in `tests/api/scopecraft.test.ts` posts
+  anonymously and would start getting `401`. The lazy fix is one mock of `auth()`, not 82
+  edits.
+- **`scripts/capture-evidence.sh` breaks** — it posts unauthenticated and would get `401` on
+  all eleven cases. `scripts/capture-ui-evidence.mjs` already solved the equivalent problem by
+  minting a real session cookie from `AUTH_SECRET` (see `signInAsCaptureUser`); the shell
+  script can do the same rather than acquiring an auth bypass.
 - **`docs/api-contracts.md`** needs the two new codes and the changed pre-provider ordering.
 
 Roughly half a day including test repair. Nothing here is hard; it is just wider than it

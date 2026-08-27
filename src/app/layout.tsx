@@ -110,21 +110,31 @@ const rootStyle = `
 
   /* Skip link: off-screen until focused, then pinned above everything. The
      header is sticky, so a link that merely became visible could still be
-     covered by it — hence the explicit z-index. */
+     covered by it — hence the explicit z-index.
+
+     Offsets are logical, not physical. A physical left: -9999px parks the link
+     in unscrollable space under LTR, but under RTL that same offset lands in
+     *scrollable* space: the document measured 11279px wide against a 1280px
+     viewport, so every Arabic page scrolled ~10000px sideways. inset-inline-start
+     resolves to whichever edge is the inline start, so it is off-screen in both
+     directions — and the same reasoning applies to the corner radius below. */
   .sc-skip-link {
     position: absolute;
-    left: -9999px;
+    inset-inline-start: -9999px;
     top: 0;
     z-index: 1000;
     padding: 0.6rem 1rem;
     background: var(--sc-accent);
     color: var(--sc-accent-contrast);
-    border-radius: 0 0 6px 0;
+    border-start-start-radius: 0;
+    border-start-end-radius: 0;
+    border-end-start-radius: 0;
+    border-end-end-radius: 6px;
     font: inherit;
     text-decoration: none;
   }
   .sc-skip-link:focus {
-    left: 0;
+    inset-inline-start: 0;
   }
 
   /* The header is sticky, so any in-page anchor target — the skip link's

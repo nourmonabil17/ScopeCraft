@@ -10,6 +10,7 @@
 // setup.ts), so a theme or locale chosen in one test cannot leak into the next.
 
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
+import { SessionProvider } from "next-auth/react";
 import { LanguageProvider, LOCALE_STORAGE_KEY } from "@/context/LanguageContext";
 import { ThemeProvider, THEME_STORAGE_KEY } from "@/context/ThemeContext";
 import { ToastProvider } from "@/context/ToastContext";
@@ -26,14 +27,23 @@ export interface ProviderRenderOptions extends Omit<RenderOptions, "wrapper"> {
 
 function AllProviders({ children }: { children: React.ReactNode }) {
   return (
-    <LanguageProvider>
-      <ThemeProvider>
-        <ToastProvider>
-          {children}
-          <ToastViewport />
-        </ToastProvider>
-      </ThemeProvider>
-    </LanguageProvider>
+    // `session={null}` is not decoration: given an explicit session,
+    // SessionProvider treats it as already-resolved and skips the mount-time
+    // GET /api/auth/session. Without it every UI test would fire a fetch that
+    // the shared `globalThis.fetch` mock answers with undefined, and the
+    // resulting rejection surfaces as an unrelated failure in whichever test
+    // happens to still be mounted. Signed-out is also the honest default —
+    // no component under test depends on being signed in.
+    <SessionProvider session={null}>
+      <LanguageProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            {children}
+            <ToastViewport />
+          </ToastProvider>
+        </ThemeProvider>
+      </LanguageProvider>
+    </SessionProvider>
   );
 }
 

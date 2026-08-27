@@ -82,14 +82,19 @@ never enter the client bundle; the pre-provider gates mean a malformed or abusiv
 request costs nothing; and error responses carry no provider name, model ID, stack trace or
 echoed input.
 
-**What is not protected.** The *volume* of well-formed requests. There is no authentication
-and no rate limiting, so provider quota is spendable by any anonymous caller. Accepted for the
-MVP — there are no user accounts in scope — and recorded here as the primary gap for
+**What is not protected.** The *volume* of well-formed requests. `/scopecraft` — the page —
+now requires a GitHub session (`src/app/scopecraft/layout.tsx`), but `POST /api/scopecraft`
+still accepts anonymous callers and applies no rate limit, so provider quota remains spendable
+by anyone with the URL and a terminal. A gated page in front of an open endpoint moves the
+casual-visitor bar, not the security boundary; recorded here as the primary remaining gap for
 production.
 
-**Upgrade path.** Edge middleware token-bucket rate limiting backed by a durable store
-(e.g. Upstash Redis) so limits survive serverless cold starts → session JWT authentication so
-quota is attributable and revocable per account → per-account daily generation budgets.
+**Upgrade path.** ~~session JWT authentication~~ **done for the page** — Auth.js, GitHub
+OAuth, JWT strategy, no session table. What remains, in order: the stage-0 session check
+inside the route handler so the endpoint itself is attributable → per-account daily generation
+budgets counted from the `plans` table → edge middleware token-bucket rate limiting backed by
+a durable store (e.g. Upstash Redis) for the per-IP layer sign-in cannot cover. Designed in
+[`database-and-auth-design.md`](database-and-auth-design.md).
 
 ## 5. Repository & Branch Rules
 

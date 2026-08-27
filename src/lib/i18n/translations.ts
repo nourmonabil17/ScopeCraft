@@ -32,6 +32,7 @@ const en = {
   "header.status.description": "Deployed and running",
   "header.reset": "New PRD",
   "header.reset.description": "Clear the current result and start over",
+  "header.signOut": "Sign out",
   "header.theme.toggle": "Switch theme",
   "header.theme.light": "Light",
   "header.theme.dark": "Dark",
@@ -39,6 +40,15 @@ const en = {
   "header.language.toggle": "Change language",
   "header.language.en": "English",
   "header.language.ar": "العربية",
+
+  // ---- Sign-in ----
+  "login.heading": "Sign in to ScopeCraft",
+  "login.subtitle":
+    "ScopeCraft turns a product idea into a PRD, user stories, risks, and a capacity-bounded sprint plan. Sign in to get started.",
+  "login.github": "Continue with GitHub",
+  "login.redirecting": "Redirecting to GitHub…",
+  "login.note":
+    "ScopeCraft never sees your GitHub password. It receives only your name, email address, and avatar.",
 
   // ---- Intake wizard ----
   "form.heading": "Describe your product",
@@ -234,6 +244,7 @@ const ar: Record<TranslationKey, string> = {
   "header.status.description": "منشور وقيد التشغيل",
   "header.reset": "وثيقة جديدة",
   "header.reset.description": "امسح النتيجة الحالية وابدأ من جديد",
+  "header.signOut": "تسجيل الخروج",
   "header.theme.toggle": "تبديل المظهر",
   "header.theme.light": "فاتح",
   "header.theme.dark": "داكن",
@@ -243,6 +254,15 @@ const ar: Record<TranslationKey, string> = {
   "header.language.toggle": "تغيير اللغة",
   "header.language.en": "English",
   "header.language.ar": "العربية",
+
+  // ---- Sign-in ----
+  "login.heading": "تسجيل الدخول إلى ScopeCraft",
+  "login.subtitle":
+    "يحوّل ScopeCraft فكرة المنتج إلى وثيقة متطلبات وقصص مستخدم ومخاطر وخطة سبرنت مقيّدة بالسعة. سجّل الدخول للبدء.",
+  "login.github": "المتابعة عبر GitHub",
+  "login.redirecting": "جارٍ التحويل إلى GitHub…",
+  "login.note":
+    "لا يطّلع ScopeCraft على كلمة مرور GitHub الخاصة بك، بل يستقبل اسمك وبريدك الإلكتروني وصورتك الرمزية فقط.",
 
   // ---- Intake wizard ----
   "form.heading": "صف منتجك",

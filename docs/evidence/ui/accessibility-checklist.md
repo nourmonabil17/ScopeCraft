@@ -10,20 +10,23 @@ rather than ticked.
 Machine-readable output: [`accessibility-audit.txt`](accessibility-audit.txt) — regenerate with
 `npm run capture:ui`. The run **fails** (exit 1) if any contrast pair drops below its
 threshold, any control loses its accessible name, a heading level is skipped, or the page
-overflows horizontally.
+overflows horizontally in either text direction.
 
 ## Measured results
 
 | Metric | Light | Dark |
 |---|---|---|
-| Distinct text/background pairs measured | 18 | 18 |
+| Distinct text/background pairs measured | 19 | 19 |
 | Below WCAG AA threshold | **0** | **0** |
 | Lowest ratio observed | 4.87:1 (11px "Live" badge, needs 4.5) | 4.87:1 |
-| Interactive controls without an accessible name | **0** of 13 | **0** of 13 |
-| Keyboard-reachable elements | 13 | 13 |
+| Interactive controls without an accessible name | **0** of 14 | **0** of 14 |
+| Keyboard-reachable elements | 14 | 14 |
 | Skipped heading levels | 0 (`h1`, `h2`) | 0 |
 | Landmarks | `banner` + `main`, exactly one `h1` | same |
-| Horizontal overflow at 1280 / 768 / 390px | none | — |
+| Horizontal overflow at 1280 / 768 / 390px, **`en/ltr` and `ar/rtl`** | none in all six | — |
+
+The 14th control and the two extra contrast pairs are the header's sign-out button and the
+signed-in name, added with authentication. Both clear AA (17.03:1 and 6.28:1).
 
 ## Perceivable
 
@@ -32,7 +35,7 @@ overflows horizontally.
 | ✅ | **1.1.1 Non-text content** — images have text alternatives | 0 `<img>` elements; the "SC" mark and the progress ring are `aria-hidden` with the accessible value beside them |
 | ✅ | **1.3.1 Info and relationships** — structure is conveyed programmatically | `banner`/`main` landmarks, real `<label for>`, `<fieldset>/<legend>` for presets, a true ARIA `tablist` for results |
 | ✅ | **1.3.5 Identify input purpose** | `autocomplete` set on all four controls; `type="number"` + `inputmode="numeric"` on the numeric fields |
-| ✅ | **1.4.3 Contrast (minimum)** | 36 pairs measured across both themes, 0 failures, lowest 4.87:1 |
+| ✅ | **1.4.3 Contrast (minimum)** | 38 pairs measured across both themes, 0 failures, lowest 4.87:1 |
 | ✅ | **1.4.1 Use of colour** | MoSCoW badges carry a text label as well as a hue; invalid fields get a thicker border *and* a message *and* `aria-invalid` — never colour alone |
 | ✅ | **1.4.10 Reflow** — no 2-D scrolling at 320px-equivalent | measured at 390px: `scrollWidth === clientWidth` |
 | ✅ | **1.4.12 Text spacing** | layout is flex/grid with no fixed heights on text containers |
@@ -94,6 +97,16 @@ Found by auditing against the Web Interface Guidelines, then verified by re-meas
    translation renders it as "craft of scope" in Arabic.
 7. **No `touch-action`/tap-highlight handling** — added globally, removing the 300ms
    double-tap delay and the grey flash on tap.
+8. **~10000px horizontal overflow on every Arabic page** (1.4.10) — the skip link added in
+   item 1 was parked at the physical `left: -9999px`, which is unscrollable space under LTR
+   but *scrollable* space under RTL: `scrollWidth` measured 11279 against a 1280px viewport.
+   Fixed with logical properties (`inset-inline-start`, `border-end-end-radius`).
+
+   **Item 3 above should have caught this and did not**, because the overflow loop ran LTR
+   only and tested the right edge only — an element escaping past the *left* edge was
+   unreportable. The loop now runs every viewport in both `en/ltr` and `ar/rtl` and checks
+   both edges. A direction-blind check on a bilingual app is not a passing check; it is an
+   untested direction.
 
 ## Not verified — do not claim these
 

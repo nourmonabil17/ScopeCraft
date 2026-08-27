@@ -1,6 +1,7 @@
 // Extends expect() with DOM matchers (toBeInTheDocument, toHaveAttribute, ...).
 import "@testing-library/jest-dom";
 import { installMatchMedia, resetPreferences } from "./render-helpers";
+import { resetStubSession, signIn, signOut } from "./next-auth-stub";
 
 // jsdom's test environment has no `fetch` global at all — `jest.spyOn` needs
 // the property to already exist to wrap it. A fresh mock is assigned before
@@ -21,4 +22,10 @@ beforeEach(() => {
   // localStorage persists across tests in the same file. Without this, a test
   // that switches to Arabic would silently start the next one in Arabic.
   resetPreferences();
+
+  // Same reasoning as localStorage above: a test that signs a user in must not
+  // leave the next one authenticated.
+  resetStubSession();
+  signIn.mockClear();
+  signOut.mockClear();
 });

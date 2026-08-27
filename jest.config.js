@@ -31,6 +31,9 @@ module.exports = {
         "\\.module\\.css$": "identity-obj-proxy",
         "\\.css$": "<rootDir>/tests/ui/style-stub.ts",
         "^@/(.*)$": "<rootDir>/src/$1",
+        // next-auth/react is ESM-only and this project runs as CommonJS.
+        // See the header of tests/ui/next-auth-stub.tsx.
+        "^next-auth/react$": "<rootDir>/tests/ui/next-auth-stub.tsx",
       },
     },
   ],

@@ -206,3 +206,50 @@ nonce or hash policy and saying so is more useful than closing the row.
     "Better performance" as its benefits over nonces. It is marked experimental and App
     Router only. Not adopted for a graded submission days from its defense; it is the
     correct next step and should be evaluated before any real production use.
+
+12. **Authentication ships for the page, not for the endpoint — CLOSED 2026-08-27 for the
+    sign-in half; the endpoint half is deliberately still open.**
+    `/scopecraft` now requires a GitHub session. `POST /api/scopecraft` still does not. That
+    is a real, stated gap, not an oversight: a login page in front of an open API raises the
+    bar for a casual visitor and gives quota an owner to attribute to, but it stops nobody who
+    reads the network tab. Anyone describing the quota boundary as closed is wrong, and the
+    defense should say so before an examiner does.
+
+    Three sub-decisions worth defending:
+
+    - **GitHub OAuth, not email + password.** No password is ever seen, hashed, stored, reset
+      or leaked — a vulnerability class removed rather than mitigated. The cost is that a user
+      needs a GitHub account, which for this audience is not a cost.
+    - **JWT session strategy, so no database at all.** The design in
+      `database-and-auth-design.md` pairs auth with two tables, but neither is needed to sign
+      someone in: the session lives in a signed cookie. One new dependency instead of two, and
+      nothing to keep running. The trade is that a session cannot be revoked server-side
+      before it expires; rotating `AUTH_SECRET` invalidates all of them at once and is the
+      only lever.
+    - **`trustHost: true` in `src/auth.ts`.** Auth.js only trusts the incoming Host header
+      automatically on Vercel and in development. Under a plain `next start` — how both
+      evidence captures and any self-hosted deploy run the app — it rejects every request as
+      `UntrustedHost` and `auth()` returns null, silently locking out signed-in users. Setting
+      `AUTH_URL` in production pins the callback origin regardless, which is the actual
+      mitigation for the forged-Host risk the flag guards.
+
+    **Cost paid:** `/scopecraft` and `/login` are no longer statically prerendered. Reading
+    cookies makes a route dynamic; that is what "this page requires a session" means, and the
+    page's own work was always a client-side fetch, so nothing user-visible got slower.
+
+13. **The skip link was making every Arabic page scroll ~10000px sideways — FIXED 2026-08-27.**
+    Found while checking the new login page in RTL, and it was never about the login page: the
+    off-screen offset in `layout.tsx` was the physical `left: -9999px`. Under LTR that lands in
+    unscrollable space; under RTL it lands in *scrollable* space, and `documentElement.scrollWidth`
+    measured 11279px against a 1280px viewport. Every Arabic page in the app was affected, and
+    had been since the skip link was added.
+
+    It survived the accessibility audit because the audit's horizontal-overflow loop ran
+    **LTR only**, and tested `getBoundingClientRect().right` overflow only — an element
+    escaping past the *left* edge could not be reported. Both holes are now closed:
+    `scripts/capture-ui-evidence.mjs` measures every viewport in `en/ltr` **and** `ar/rtl`, and
+    checks both edges. The fix itself is logical properties (`inset-inline-start`,
+    `border-end-end-radius`), which are correct in both directions by construction.
+
+    The generalisable lesson, and the one worth saying at the defense: a direction-blind test
+    on a bilingual app is not a passing test, it is an untested direction.

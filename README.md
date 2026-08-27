@@ -25,9 +25,12 @@ cover.
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in at least one provider key
+cp .env.example .env.local   # then fill in at least one provider key + the AUTH_* vars
 npm run dev                  # http://localhost:3000/scopecraft
 ```
+
+Without the `AUTH_*` variables set, `/scopecraft` redirects to `/login` and sign-in fails —
+see [Authentication](#authentication).
 
 ### Environment
 
@@ -37,6 +40,9 @@ leaks the key to every visitor.
 
 | Variable | Purpose | Default |
 |---|---|---|
+| `AUTH_SECRET` | Signs the session cookie. `npx auth secret` | — (required) |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth app; callback `<origin>/api/auth/callback/github` | — (required) |
+| `AUTH_URL` | Production origin. Pins the OAuth callback host behind a proxy | derived from the request |
 | `NVIDIA_API_KEY` | Primary provider (NVIDIA NIM) | — |
 | `GROQ_API_KEY` | Fallback 1 (Groq) | — |
 | `GEMINI_API_KEY` | Fallback 2 (Google Gemini) | — |
@@ -44,9 +50,46 @@ leaks the key to every visitor.
 | `AI_TIMEOUT_MS` | Per-attempt abort timeout | `15000` |
 | `NVIDIA_MODEL` / `GROQ_MODEL` / `GEMINI_MODEL` | Model ID overrides | see `.env.example` |
 
-**At least one key is required.** A provider with no credential is skipped rather than
-treated as a failure, so a single key still gives a working endpoint — you simply lose the
-failover tiers behind it.
+**At least one provider key is required.** A provider with no credential is skipped rather
+than treated as a failure, so a single key still gives a working endpoint — you simply lose
+the failover tiers behind it. The three `AUTH_*` variables are not optional in the same way:
+without them nothing behind the login page loads at all.
+
+## Authentication
+
+`/scopecraft` is behind a GitHub sign-in. `/login` is the only way in.
+
+**There is no password anywhere in this system, by design.** Sign-in is OAuth, so ScopeCraft
+never sees, hashes, stores, resets or leaks a password — a class of vulnerability removed
+rather than mitigated. GitHub returns only a name, email address and avatar.
+
+**There is also no database.** Auth.js runs with the JWT session strategy, so the session
+lives entirely in a signed cookie: no `sessions` table, no adapter, no per-request DB round
+trip, and one new dependency instead of two. The trade is that a session cannot be revoked
+server-side before it expires — rotating `AUTH_SECRET` invalidates all of them at once, which
+is the only lever. Full reasoning, and the schema for when plans do need persisting, in
+[`docs/database-and-auth-design.md`](docs/database-and-auth-design.md).
+
+### Setting up the GitHub OAuth app
+
+1. <https://github.com/settings/developers> → **New OAuth App**
+2. Authorization callback URL — **exactly** `<your-origin>/api/auth/callback/github`
+   (e.g. `http://localhost:3000/api/auth/callback/github` for local development)
+3. Copy the client ID and generated secret into `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET`
+4. `npx auth secret` → `AUTH_SECRET`
+
+Local and production are different origins, so they need either two OAuth apps or two
+callback URLs registered on one. In production also set `AUTH_URL` to the public origin:
+Auth.js otherwise builds the callback URL from the incoming request, which behind a proxy can
+resolve to an internal hostname that GitHub then rejects as a mismatch.
+
+| File | What it does |
+|---|---|
+| [`src/auth.ts`](src/auth.ts) | The whole Auth.js configuration — provider, JWT strategy, `/login` |
+| [`src/app/scopecraft/layout.tsx`](src/app/scopecraft/layout.tsx) | The gate: a server component that redirects when there is no session |
+| [`src/app/login/page.tsx`](src/app/login/page.tsx) | Bounces an already-signed-in visitor straight through |
+| [`src/components/common/LoginCard.tsx`](src/components/common/LoginCard.tsx) | The sign-in screen (bilingual, themed) |
+| [`src/components/common/UserMenu.tsx`](src/components/common/UserMenu.tsx) | Header identity + sign out; renders nothing when signed out |
 
 ## Deterministic vs AI generative boundary
 
@@ -149,11 +192,19 @@ pull request to `main` and `dev`.
 Stated honestly, because the release gate asks for bounded limitations rather than a clean
 sales pitch.
 
-**Unauthenticated endpoint & rate-limiting boundary.** `POST /api/scopecraft` is a **public
-demo endpoint**. There is no authentication, no session, and no per-caller rate limiting, so
-anyone who knows the URL can spend the project's provider quota. This is a deliberate MVP
-scope decision, not an oversight — the app has no user accounts to authenticate against — but
-it is the single boundary that must close before any broader production use.
+**Unauthenticated endpoint & rate-limiting boundary.** The *page* at `/scopecraft` now
+requires a signed-in session (GitHub OAuth — see [Authentication](#authentication)). The
+*endpoint* behind it does not. `POST /api/scopecraft` remains a **public demo endpoint**:
+no session check, no per-caller rate limiting, so anyone who knows the URL can still spend
+the project's provider quota by calling it directly with curl.
+
+That gap is deliberate and worth naming rather than glossing. Gating the UI raises the bar
+for a casual visitor and gives quota an owner to attribute to, but it is **not** a security
+control on its own — a login page in front of an open API stops nobody who reads the network
+tab. Closing it is stage 0 in
+[`docs/database-and-auth-design.md`](docs/database-and-auth-design.md) and is a separate
+change, because it also requires a database, a rate limit, and repairing every route test and
+evidence capture that currently posts anonymously.
 
 What bounds the exposure today:
 
@@ -173,8 +224,9 @@ request always reaches a provider.
 1. **Edge middleware token-bucket rate limiting** — per-IP and per-session, in Next middleware
    backed by a durable store (Upstash Redis or equivalent), so the limit survives serverless
    cold starts rather than living in per-instance memory.
-2. **Session authentication (JWT)** — move the endpoint behind a signed session so quota is
-   attributable to a user rather than an IP, and abuse can be revoked per account.
+2. **Session authentication (JWT)** — ~~move the endpoint~~ **partially done**: sign-in exists
+   and `/scopecraft` is behind it, but the *endpoint* is still anonymous. What remains is the
+   stage-0 session check in the route handler itself.
 3. **Per-account quota accounting** — daily generation budgets, since provider spend is the
    real resource being protected.
 

@@ -14,6 +14,10 @@ acceptance row requires "screen recording or screenshots", "responsive views" an
 
 ```bash
 npm run build
+# The same secret must reach both the servers and the capture script: /scopecraft
+# now requires a session, and the script mints its own cookie rather than adding a
+# production auth bypass. A mismatch fails the run with that exact diagnosis.
+export AUTH_SECRET=$(npx auth secret --raw 2>/dev/null || openssl rand -base64 32)
 npx next start -p 3200 &
 NVIDIA_API_KEY=INVALID_KEY_FOR_EVIDENCE_CAPTURE \
   GROQ_API_KEY=INVALID_KEY_FOR_EVIDENCE_CAPTURE \
@@ -23,7 +27,15 @@ npm run capture:ui
 
 [`scripts/capture-ui-evidence.mjs`](../../../scripts/capture-ui-evidence.mjs) drives headless
 Chrome over the DevTools Protocol using Node 22's built-in `WebSocket` — **no Playwright, no
-Puppeteer, no new dependency**. It fills the real form and submits it, so the loading,
+Puppeteer, no new dependency**.
+
+`/scopecraft` requires a session, so the script signs itself in: it mints a real Auth.js
+session cookie from `AUTH_SECRET` and installs it via CDP. Deliberately *not* an environment
+flag that makes the app skip its own auth check — a production bypass switch is a worse thing
+to own than ten lines of cookie minting. The signed-out `00-login` shot is captured before
+that cookie exists, so it is the genuine gate rather than the page with auth quietly disabled.
+Every later screenshot shows "Evidence Capture · Sign out" in the header, which is the visible
+proof the session was real. It fills the real form and submits it, so the loading,
 success and error shots are of real application states, not components rendered in isolation
 with fake props. The second server exists only so the provider-failure state can be captured
 against genuinely dead credentials.
@@ -36,6 +48,7 @@ each also has a unit test in [`tests/ui/StateTransitions.test.tsx`](../../../tes
 
 | # | State | Screenshot | What it shows |
 |---|---|---|---|
+| 0 | Sign-in | [`00-login`](shots/00-login.png) | The gate every other screen is behind — GitHub is the only credential path, no password field exists |
 | 1 | Idle | [`01-idle-desktop-light`](shots/01-idle-desktop-light.png) | Three starter presets, labelled fields, character counters |
 | 2 | Loading | [`09-loading`](shots/09-loading.png) | Progress steps announced politely; form disabled and `aria-busy` |
 | 3 | Success | [`10-success-desktop`](shots/10-success-desktop.png) | Tabbed PRD — Overview / Sprint Backlog / Traceability |

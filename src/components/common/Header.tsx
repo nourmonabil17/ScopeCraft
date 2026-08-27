@@ -13,6 +13,7 @@
 import { useLanguage } from "@/context/LanguageContext";
 import { LanguageToggle } from "./LanguageToggle";
 import { ThemeToggle } from "./ThemeToggle";
+import { UserMenu } from "./UserMenu";
 import styles from "./Header.module.css";
 
 export interface HeaderProps {
@@ -51,6 +52,9 @@ export function Header({ onReset }: HeaderProps) {
         </div>
 
         <div className={styles.actions}>
+          {/* Renders null when signed out, so the login page gets the same
+              header without a dangling, meaningless sign-out control. */}
+          <UserMenu />
           <LanguageToggle />
           <ThemeToggle />
           {onReset && (

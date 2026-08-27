@@ -133,3 +133,31 @@
     display: none;
   }
 }
+
+/* ---- Signed-in identity (UserMenu) ---- */
+
+.user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.userName {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--sc-text-muted);
+  /* A long GitHub display name must not push the toggles off the bar. */
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Below this the header is already tight; the sign-out button stays, the
+   name goes — it is a nicety, the control is not. */
+@media (max-width: 30rem) {
+  .userName {
+    display: none;
+  }
+}

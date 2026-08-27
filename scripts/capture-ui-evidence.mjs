@@ -22,6 +22,21 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { encode } from "next-auth/jwt";
+
+// /scopecraft requires a session (src/app/scopecraft/layout.tsx). Rather than
+// bypassing that with a flag the app would have to carry into production, the
+// capture mints a real Auth.js session cookie with the same AUTH_SECRET the
+// server was started with — so what gets screenshotted is the authenticated
+// app, reached the way a signed-in visitor reaches it.
+const AUTH_SECRET = process.env.AUTH_SECRET;
+if (!AUTH_SECRET) {
+  console.error(
+    "FATAL: AUTH_SECRET is not set. Export the same value the server under " +
+      "capture was started with, or every page will redirect to /login."
+  );
+  process.exit(1);
+}
 
 const BASE = process.env.UI_BASE_URL ?? "http://127.0.0.1:3200";
 const BAD_BASE = process.env.UI_BAD_BASE_URL ?? "http://127.0.0.1:3201";
@@ -115,13 +130,54 @@ async function colorScheme(value) {
   );
 }
 
-async function goto(url) {
+/**
+ * Installs a session cookie so the gated pages render instead of redirecting.
+ *
+ * Both capture servers are on 127.0.0.1, differing only by port, and cookies
+ * ignore ports — so one call covers BASE and BAD_BASE. The cookie name has no
+ * `__Secure-` prefix because the capture runs over plain http; Auth.js picks
+ * the same unprefixed name under those conditions.
+ */
+async function signInAsCaptureUser() {
+  const token = await encode({
+    token: {
+      name: "Evidence Capture",
+      email: "capture@scopecraft.local",
+      sub: "capture-user",
+    },
+    secret: AUTH_SECRET,
+    salt: "authjs.session-token",
+    maxAge: 60 * 60,
+  });
+  await send("Network.enable", {}, session);
+  await send(
+    "Network.setCookie",
+    {
+      name: "authjs.session-token",
+      value: token,
+      domain: "127.0.0.1",
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+    session
+  );
+}
+
+/**
+ * `readySelector` is what "mounted" means for this page. It defaults to the
+ * intake form because almost every capture is of /scopecraft; /login has no
+ * form at all, so waiting for one there would time out on a page that rendered
+ * perfectly.
+ */
+async function goto(url, readySelector = "form") {
   await send("Page.navigate", { url }, session);
   // Poll for React to have mounted rather than guessing at a fixed delay.
   for (let i = 0; i < 80; i += 1) {
     try {
       const ready = await evaluate(
-        `document.readyState === 'complete' && !!document.querySelector('form')`
+        `document.readyState === 'complete' && ` +
+          `!!document.querySelector(${JSON.stringify(readySelector)})`
       );
       if (ready) {
         await sleep(400); // let fonts settle so text is not captured mid-swap
@@ -131,6 +187,16 @@ async function goto(url) {
       /* navigating */
     }
     await sleep(150);
+  }
+  // The most likely reason a page with a form never shows one is that the
+  // session cookie was rejected and the gate bounced us. Say so, rather than
+  // leaving a bare timeout to be misread as a slow build.
+  const landed = await evaluate(`location.pathname`).catch(() => "?");
+  if (landed === "/login" && !url.endsWith("/login")) {
+    throw new Error(
+      `redirected to /login while loading ${url} — AUTH_SECRET does not match ` +
+        `the server's, so the minted session cookie was rejected`
+    );
   }
   throw new Error(`page never became ready: ${url}`);
 }
@@ -324,8 +390,21 @@ try {
   await send("Page.enable", {}, session);
   await send("Runtime.enable", {}, session);
 
-  console.log("\n[1/5] Responsive views — the same idle screen at three widths");
+  console.log("\n[0/5] Sign-in — the gate every other screen is behind");
+  // Chrome runs against a persistent --user-data-dir, so without this the
+  // session minted by the *previous* run is still installed and /login
+  // redirects straight past the screen we came to photograph.
+  await send("Network.enable", {}, session);
+  await send("Network.clearBrowserCookies", {}, session);
   await colorScheme("light");
+  await viewport({ width: 1280, height: 900 });
+  // Captured *before* the session cookie is installed, so this is the genuine
+  // signed-out screen rather than a page rendered with auth quietly bypassed.
+  await goto(`${BASE}/login`, '[data-testid="login-card"]');
+  await shot("00-login", "signed out — GitHub is the only credential path");
+  await signInAsCaptureUser();
+
+  console.log("\n[1/5] Responsive views — the same idle screen at three widths");
   await seed({ theme: "light" });
 
   await viewport({ width: 1280, height: 900 });
@@ -646,34 +725,47 @@ try {
   report.push("=".repeat(72));
   report.push("");
   await colorScheme("light");
-  await seed({ theme: "light" });
-  for (const [label, w, h, mobile] of [
-    ["desktop", 1280, 900, false],
-    ["tablet", 768, 1024, false],
-    ["mobile", 390, 844, true],
-  ]) {
-    await viewport({ width: w, height: h, mobile });
-    await goto(`${BASE}/scopecraft`);
-    const o = JSON.parse(await evaluate(`
-      (() => {
-        const d = document.documentElement;
-        const wide = [...document.querySelectorAll('*')]
-          .filter((el) => el.getBoundingClientRect().right > d.clientWidth + 1)
-          .map((el) => el.tagName.toLowerCase() + (el.className && typeof el.className === 'string'
-            ? '.' + el.className.split(' ')[0] : ''));
-        return JSON.stringify({
-          scrollWidth: d.scrollWidth, clientWidth: d.clientWidth,
-          overflowing: [...new Set(wide)].slice(0, 5)
-        });
-      })()
-    `));
-    const clean = o.scrollWidth <= o.clientWidth;
-    report.push(
-      `  ${label.padEnd(8)} ${String(w).padStart(4)}px : scrollWidth ${o.scrollWidth} vs viewport ` +
-      `${o.clientWidth} — ${clean ? "no horizontal scroll" : "OVERFLOW: " + o.overflowing.join(", ")}`
-    );
-    console.log(`  ${clean ? "✓" : "✗"} ${label}: ${clean ? "no horizontal overflow" : "OVERFLOWS"}`);
-    if (!clean) failed = true;
+  // Measured in both directions. It used to be LTR only, which is how a skip
+  // link parked at `left: -9999px` went unnoticed: that offset is unscrollable
+  // under LTR but scrollable under RTL, and every Arabic page was ~10000px
+  // wide. An RTL-blind overflow check is an overflow check with a hole in it.
+  for (const locale of ["en", "ar"]) {
+    await seed({ theme: "light", locale });
+    for (const [label, w, h, mobile] of [
+      ["desktop", 1280, 900, false],
+      ["tablet", 768, 1024, false],
+      ["mobile", 390, 844, true],
+    ]) {
+      await viewport({ width: w, height: h, mobile });
+      await goto(`${BASE}/scopecraft`);
+      const o = JSON.parse(await evaluate(`
+        (() => {
+          const d = document.documentElement;
+          // Both edges: under RTL an element escapes past the *left* edge, so
+          // a right-only test reports clean while the page scrolls sideways.
+          const wide = [...document.querySelectorAll('*')]
+            .filter((el) => {
+              const r = el.getBoundingClientRect();
+              return r.right > d.clientWidth + 1 || r.left < -1;
+            })
+            .map((el) => el.tagName.toLowerCase() + (el.className && typeof el.className === 'string'
+              ? '.' + el.className.split(' ')[0] : ''));
+          return JSON.stringify({
+            dir: d.dir,
+            scrollWidth: d.scrollWidth, clientWidth: d.clientWidth,
+            overflowing: [...new Set(wide)].slice(0, 5)
+          });
+        })()
+      `));
+      const clean = o.scrollWidth <= o.clientWidth;
+      const tag = `${label} (${locale}/${o.dir})`;
+      report.push(
+        `  ${tag.padEnd(20)} ${String(w).padStart(4)}px : scrollWidth ${o.scrollWidth} vs viewport ` +
+        `${o.clientWidth} — ${clean ? "no horizontal scroll" : "OVERFLOW: " + o.overflowing.join(", ")}`
+      );
+      console.log(`  ${clean ? "✓" : "✗"} ${tag}: ${clean ? "no horizontal overflow" : "OVERFLOWS"}`);
+      if (!clean) failed = true;
+    }
   }
   report.push("");
   report.push(`Sprint board capacity readout in the committed screenshot: ${capacityReadout}`);
