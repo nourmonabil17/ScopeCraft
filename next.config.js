@@ -67,6 +67,18 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig = {
+  // Emits a self-contained server bundle at `.next/standalone`, so the Docker
+  // image copies one traced directory instead of all of `node_modules`.
+  //
+  // THIS FILE IS SHARED WITH THE VERCEL BUILD. Vercel does not build from the
+  // Dockerfile — it runs `next build` against this same config and then applies
+  // its own output handling, for which `standalone` is a supported no-op. The
+  // risk is not that Vercel rejects it; it is that a change made for Docker
+  // silently alters what production serves. Anything added here for the
+  // container must be verified against the Vercel build immediately, not at the
+  // end of the work.
+  output: "standalone",
+
   // Next advertises itself with `X-Powered-By: Next.js` by default. Vercel
   // happens to strip it, but `next start` and any self-hosted deployment do
   // not — and naming your framework and stack to every caller is free

@@ -1,0 +1,33 @@
+# Build context exclusions. Two jobs: keep the context small, and make it
+# impossible for a secret to reach a layer.
+#
+# A file copied into any layer survives in the image history even if a later
+# layer deletes it. `docker history` and an unpacked layer both give it back.
+# That is why .env* is excluded here rather than cleaned up later.
+
+.env
+.env.*
+
+# Rebuilt inside the image; copying the host's would bake macOS-native binaries
+# into a Linux image and silently shadow `npm ci`.
+node_modules
+.next
+
+.git
+.gitignore
+.github
+
+# Not needed to build or run the app. Excluding them keeps the context small
+# and keeps captured evidence (16 PNGs) out of the build entirely.
+docs
+tests
+scripts
+*.md
+!README.md
+
+.DS_Store
+**/.DS_Store
+.claude-flow
+Dockerfile
+.dockerignore
+docker-compose.yml

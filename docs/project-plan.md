@@ -200,25 +200,32 @@ Start here. This half pays for itself immediately.
 
 ### 1.2 The application image
 
-- [ ] **1.2.1** Add `output: "standalone"` to `next.config.js`. Without it the image carries
+- [x] **1.2.1** Add `output: "standalone"` to `next.config.js`. Without it the image carries
       all of `node_modules`; with it Next emits a self-contained server bundle.
       **Verify the Vercel build still works immediately after this** — it is a build-level
       change to a config file Vercel shares.
-- [ ] **1.2.2** Write a multi-stage `Dockerfile`: `deps` → `builder` → `runner`, on
+- [x] **1.2.2** Write a multi-stage `Dockerfile`: `deps` → `builder` → `runner`, on
       `node:22-alpine`. Node 22 is required — `scripts/capture-ui-evidence.mjs` uses the
       global `WebSocket`.
-- [ ] **1.2.3** Run as a non-root user in the final stage. A container running as root is a
+- [x] **1.2.3** Run as a non-root user in the final stage. A container running as root is a
       finding an examiner spots in five seconds.
-- [ ] **1.2.4** Write `.dockerignore`: `node_modules`, `.next`, `.git`, `.env*`,
+- [x] **1.2.4** Write `.dockerignore`: `node_modules`, `.next`, `.git`, `.env*`,
       `docs/evidence/ui/shots`. **Verify no `.env` file can enter the image** — a baked-in
       secret survives in every layer.
-- [ ] **1.2.5** `AUTH_SECRET` and `DATABASE_URL` are **run-time**, never `ARG`, never baked
+- [x] **1.2.5** `AUTH_SECRET` and `DATABASE_URL` are **run-time**, never `ARG`, never baked
       into a layer.
-- [ ] **1.2.6** Add the `web` service to compose, depending on `db` with
+- [x] **1.2.6** Add the `web` service to compose, depending on `db` with
       `condition: service_healthy`.
 - [ ] **1.2.7** Verify: `docker compose up --build`, open `http://localhost:3000/login`,
       sign in, generate a plan, confirm the row lands in the containerised database.
-- [ ] **1.2.8** Check the final image size. Over ~400 MB means standalone output is not
+      **Partly done (2026-08-27).** The container serves `/login` with `200`, the CSP and
+      `X-Frame-Options` headers arrive, `X-Powered-By` is absent, the CSS chunks serve
+      (so the `.next/static` copy is right), `POST /api/scopecraft` answers `422` on an
+      empty body, and `web` reaches `db:5432` over the compose network. **Sign-in and the
+      database row cannot be verified yet** — sign-in needs a real GitHub OAuth app
+      (0.2.6) and nothing in the app writes to the database until Module 3. Re-run this
+      step after 3.3 and close it then.
+- [x] **1.2.8** Check the final image size. Over ~400 MB means standalone output is not
       being used correctly.
 
 ### 1.3 Developer experience
@@ -250,8 +257,30 @@ The parts most likely to break, and why this module is not just "write a Dockerf
       container's own hostname is not `localhost`. Verify the OAuth callback resolves from
       the **browser's** point of view, not the container's.
 - [ ] **1.4.4** Re-test 0.1 (Safari) against the containerised app.
-- [ ] **1.4.5** Confirm `output: "standalone"` did not change the built HTML or CSP
-      behaviour. Re-run the bundle secret scan afterwards.
+- [x] **1.4.5** Confirm `output: "standalone"` did not change the built HTML or CSP
+      behaviour. Re-run the bundle secret scan afterwards. **Done** — the route table is
+      byte-identical before and after, and the client-bundle secret scan is clean.
+
+### 1.5 Machine-specific finding — Docker Desktop DNS
+
+Not a project defect; recorded so it is not rediagnosed as one.
+
+**On this machine, `docker build` cannot resolve DNS.** Containers get
+`nameserver 192.168.65.7` (Docker Desktop's internal resolver) and it does not answer —
+`npm ci` dies with `ECONNRESET` after ~160 s, and `docker pull` of an uncached image times
+out. The host resolves fine, and `docker run --dns 8.8.8.8` resolves fine, which isolates
+it to Docker Desktop's own forwarder. The daemon also has an HTTP proxy configured at
+`http.docker.internal:3128`, which is the likely cause.
+
+The image was built with `docker build --network=host`, which bypasses the forwarder.
+That flag is **not** in `docker-compose.yml` — a local machine's broken resolver does not
+belong in a committed project file.
+
+- [ ] **1.5.1** Fix it properly in Docker Desktop → Settings → Resources → Proxies (set
+      "No proxy", or point it at a proxy that actually answers), then confirm plain
+      `docker compose up --build` works with no flags.
+- [ ] **1.5.2** Add it to `docs/local-development.md` troubleshooting (11.4.1) — symptom,
+      one-line diagnosis (`docker run --rm alpine cat /etc/resolv.conf`), and both fixes.
 
 ---
 

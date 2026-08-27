@@ -54,5 +54,53 @@ services:
 
     restart: unless-stopped
 
+  # The application image. Day-to-day work does not need this — run the app on
+  # the host against the `db` service above, which is faster than a bind-mounted
+  # rebuild on macOS. This service exists to verify the image actually works and
+  # to give a portable one-command demo.
+  #
+  #   docker compose up -d          database + app
+  #   docker compose up -d db       database only, app on the host
+  web:
+    build:
+      context: .
+    image: scopecraft:local
+    container_name: scopecraft-web
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+    environment:
+      # `db` is the compose service name, which is also its hostname on the
+      # default network. Not `localhost` — inside the container that is the
+      # container itself, which is the mistake this line exists to prevent.
+      DATABASE_URL: "postgres://${POSTGRES_USER:-scopecraft}:${POSTGRES_PASSWORD:-scopecraft}@db:5432/${POSTGRES_DB:-scopecraft}"
+
+      # No defaults, deliberately. A committed fallback secret is a secret that
+      # ships; `:?` fails the start with this message instead. Generate one with
+      # `npx auth secret` and put it in a compose `.env` file (gitignored).
+      AUTH_SECRET: "${AUTH_SECRET:?set AUTH_SECRET in .env — generate one with npx auth secret}"
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      AUTH_GITHUB_ID: "${AUTH_GITHUB_ID:?set AUTH_GITHUB_ID in .env}"
+      AUTH_GITHUB_SECRET: "${AUTH_GITHUB_SECRET:?set AUTH_GITHUB_SECRET in .env}"
+
+      # Passed through rather than defaulted. A missing provider key is skipped
+      # by the failover chain, so the app still starts with none of them set —
+      # it just cannot generate.
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      PRIMARY_AI_PROVIDER: ${PRIMARY_AI_PROVIDER:-}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-}
+      DAILY_PLAN_LIMIT: ${DAILY_PLAN_LIMIT:-}
+
+    # Waits for the healthcheck above, not merely for the container to exist.
+    # Without `condition: service_healthy` this races Postgres' startup and
+    # fails on a first run only — which the retry then hides.
+    depends_on:
+      db:
+        condition: service_healthy
+
+    restart: unless-stopped
+
 volumes:
   db-data:
