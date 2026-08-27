@@ -324,33 +324,49 @@ belong in a committed project file.
 
 `db/schema.sql` was written as a design artifact and has never been executed.
 
-- [ ] **2.1.1** Confirm `users.id` (`uuid default gen_random_uuid()`) matches whatever the
-      `jwt` callback writes into `token.uid`. A type mismatch makes every `plans` insert
-      fail on the foreign key.
-- [ ] **2.1.2** Confirm `users` still needs no password column. It does not — sign-in is
-      OAuth. Re-state that in the file so nobody adds one later "for flexibility".
-- [ ] **2.1.3** Check `plans_ok_has_response` against the real response shape — 13 top-level
-      fields, stored whole as JSONB.
-- [ ] **2.1.4** **Decision:** `plans.constraints` as `text` or JSONB? The request schema
-      accepts more than one shape and `constraintsToText` already normalises it. Storing the
-      normalised text is the lazy correct answer — write down that the original shape is not
-      recoverable from it.
-- [ ] **2.1.5** Confirm `plans_user_created_idx` serves both queries ("my plans, newest
-      first" and the rate-limit count). Verify with `EXPLAIN` in 3.4.6, not by assuming.
+- [x] **2.1.1** **Verified against a live database.** `src/auth.ts` has no `jwt` callback
+      yet (that is 3.1), so this was checked as a type path rather than a call: the upsert
+      returns a 36-character text uuid, and using that string as `plans.user_id` — a `uuid`
+      column with a foreign key — inserts successfully. Postgres casts text to uuid on the
+      way in, so what 3.1 will put in `token.uid` is already the right shape.
+- [x] **2.1.2** Confirmed: no password column, and `db/schema.sql` already says why in a
+      comment. Sign-in is GitHub OAuth, so the app never sees, hashes, stores, resets or
+      leaks a password — a class of vulnerability removed rather than mitigated.
+- [x] **2.1.3** **Verified.** The response schema has exactly 13 top-level fields, and all
+      13 keys survive a JSONB round trip unchanged. `plans_ok_has_response` only asserts
+      `response is not null`, so it is shape-agnostic and will not break when the PRD shape
+      changes.
+- [x] **2.1.4** **Decision — ANSWERED: `text`.** The evidence settles it rather than taste.
+      `constraints` is `string | string[]`, and `service.ts` calls
+      `constraintsToText(request.constraints)` *before* building the prompt — so the model
+      never receives the original shape either. Storing the normalised text therefore loses
+      nothing that could have affected the output. Recorded: the array-versus-string
+      distinction is **not** recoverable from a stored row, and nothing needs it to be.
+- [x] **2.1.5** **Verified with `EXPLAIN`, better than assumed.** The rate-limit count plans
+      as an **Index Only Scan** on `plans_user_created_idx` with both predicates in the
+      `Index Cond` — it never touches the heap. One index, both jobs, confirmed. This also
+      closes 3.4.6 ahead of time.
 
 ### 2.2 Apply and prove it
 
-- [ ] **2.2.1** Apply via the Docker init mount (1.1.3), or
-      `psql "$DATABASE_URL" -f db/schema.sql`.
-- [ ] **2.2.2** `\d users` and `\d plans` show the expected columns, constraints and index.
-- [ ] **2.2.3** Prove the `status` check constraint: rejects `'pending'`, accepts `'ok'` and
-      `'failed'`. A constraint nobody has seen fire is a constraint nobody knows works.
-- [ ] **2.2.4** Prove `on delete cascade`: delete the test user, confirm the plan row goes.
-- [ ] **2.2.5** Prove the foreign key: an insert with an unknown `user_id` must be rejected.
-- [ ] **2.2.6** Delete the test rows.
-- [ ] **2.2.7** Record the migration story: two tables and one developer do not need a
-      migration engine. `db/schema.sql` is idempotent; future changes are numbered files
-      beside it.
+- [x] **2.2.1** Applied via the Docker init mount (1.1.3). `db/schema.sql` has now been
+      executed for the first time since it was written, and applied cleanly.
+- [x] **2.2.2** Verified — every column, both check constraints, the composite index and
+      the foreign key are present exactly as declared.
+- [x] **2.2.3** **Seen to fire.** `'pending'` → rejected by `plans_status_check`;
+      `'failed'` → accepted with a null response; `'ok'` with a null response → rejected by
+      `plans_ok_has_response`. Also proved `users_email_key` rejects a duplicate email.
+- [x] **2.2.4** **Seen to fire.** Two plan rows, one `delete from users`, zero plan rows
+      after.
+- [x] **2.2.5** **Seen to fire.** An insert with an unknown `user_id` is rejected by
+      `plans_user_id_fkey`.
+- [x] **2.2.6** Done — the cascade in 2.2.4 removed them; the database is back to zero
+      rows in both tables.
+- [x] **2.2.7** Recorded as decision-log entry 15. `db/schema.sql` is idempotent
+      (`create table if not exists`) and is mounted into the container's init directory;
+      future changes are numbered files beside it. The trap that comes with that — the init
+      directory runs **once**, only on an empty data directory — is documented in
+      `docs/local-development.md` and is why `npm run db:reset` exists.
 
 ### 2.3 Production database
 
@@ -360,8 +376,9 @@ belong in a committed project file.
 - [ ] **2.3.2** Choose the region closest to the Vercel deployment region. Every request in
       Module 3 pays this latency twice.
 - [ ] **2.3.3** Use the **pooled** connection string, not the direct one.
-- [ ] **2.3.4** Set `DATABASE_URL` in Vercel and `.env.local`; add to `.env.example` with a
-      comment saying which connection string and why.
+- [ ] **2.3.4** Set `DATABASE_URL` in Vercel and `.env.local`. **`.env.example` is done** —
+      it carries the local compose default plus a note to use the provider's *pooled*
+      string in production and why. The Vercel and `.env.local` halves need you.
 - [ ] **2.3.5** Apply the schema to the production database.
 - [ ] **2.3.6** Confirm `DATABASE_URL` never gains a `NEXT_PUBLIC_` prefix and never appears
       in the client bundle.
@@ -370,17 +387,28 @@ belong in a committed project file.
 
 ### 2.4 The connection module
 
-- [ ] **2.4.1** `npm i postgres` — dependency six. Justify it against the ladder in
-      `CLAUDE.md`: two tables and ~6 queries do not earn an ORM's schema DSL, generate step
-      and migration engine.
-- [ ] **2.4.2** Write `src/lib/db.ts`: one pooled client at module scope, `{ max: 1 }`, so
-      warm serverless containers reuse it.
-- [ ] **2.4.3** Comment *why* `max: 1` — serverless multiplies connections by instance count
-      and a free-tier Postgres has a low connection ceiling.
-- [ ] **2.4.4** Grep to confirm `src/lib/db.ts` is never imported from a `"use client"`
-      file. One accidental import would try to bundle a database driver into the browser.
-- [ ] **2.4.5** Verify with a one-off script that runs `select 1` and exits. Do not verify by
-      starting the whole app.
+- [x] **2.4.1** Installed. **Runtime dependencies: 5 → 6** (`next`, `next-auth`,
+      `postgres`, `react`, `react-dom`, `zod`). Justification is in the module header: the
+      driver's tagged templates parameterise every interpolation by construction, which is
+      the one property an ORM would have been bought for.
+- [x] **2.4.2** Written. Also throws at **import** time when `DATABASE_URL` is missing,
+      rather than at first query — a deployment mistake should surface while the stack trace
+      still names this file.
+- [x] **2.4.3** Commented, with the arithmetic: a pool of 10 across 20 warm instances
+      exhausts a free-tier ceiling.
+- [x] **2.4.4** Checked across all **21** client components: none imports `@/lib/db`.
+      Worth noting the check itself was wrong twice first — the directive is not on line 1
+      (it follows each file's header comment), and a naive grep self-matched `db.ts`, whose
+      own comment contains the string `"use client"`.
+- [x] **2.4.5** Verified, and left behind as `npm run db:check` rather than thrown away —
+      the same pattern as `npm run smoke`, answering "is Postgres reachable right now" the
+      way that one answers it for the providers. All three paths tested: success, missing
+      `DATABASE_URL`, connection refused, and reachable-but-schema-missing.
+
+      One real defect found and fixed in it. A connection failure from the driver is an
+      `AggregateError` whose own `message` is the **empty string** — the detail lives on
+      `.code` and inside `.errors[]`. Reporting `error.message` printed `FAIL:` and nothing
+      else. That is now a named function with the reason written above it.
 
 ---
 

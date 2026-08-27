@@ -11,6 +11,7 @@
     "db:logs": "docker compose logs -f db",
     "db:psql": "docker compose exec db psql -U scopecraft -d scopecraft",
     "db:reset": "docker compose down -v && docker compose up -d",
+    "db:check": "tsx --env-file-if-exists=.env.local scripts/db-check.ts",
     "test": "jest",
     "typecheck": "tsc --noEmit --incremental false",
     "lint": "eslint . --max-warnings=0",
@@ -21,6 +22,7 @@
   "dependencies": {
     "next": "^16.2.12",
     "next-auth": "^5.0.0-beta.32",
+    "postgres": "^3.4.9",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zod": "^4.4.3"

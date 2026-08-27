@@ -280,3 +280,29 @@ nonce or hash policy and saying so is more useful than closing the row.
     normal case to improve the rare one. They are empty defaults now, with the reason written
     at the point of the compromise. No fallback value: a committed secret is a secret that
     ships.
+
+15. **No migration engine, and `plans.constraints` is `text` — 2026-08-27.**
+    Two decisions taken while applying the schema for the first time.
+
+    **No migration tool.** Two tables and one developer do not earn Prisma Migrate or
+    Drizzle Kit. `db/schema.sql` is idempotent (`create table if not exists`) and is mounted
+    into the container's init directory, so a fresh volume gets the schema automatically;
+    any future change is a numbered file beside it. The cost is real and is written down in
+    `docs/local-development.md`: **the init directory runs once**, only while the data
+    directory is empty, so editing the schema does nothing until `npm run db:reset`. That is
+    the single most common surprise with a containerised Postgres, and it is a documentation
+    problem rather than an argument for a migration engine at this size.
+
+    **`constraints` stored as `text`, not JSONB.** The request accepts `string | string[]`,
+    and `service.ts` calls `constraintsToText()` *before* building the prompt — so the model
+    never receives the original shape either. Storing the normalised text therefore discards
+    nothing that could have influenced the output. Recorded plainly: the array-versus-string
+    distinction is not recoverable from a stored row, and nothing needs it to be.
+
+    **What was proved rather than assumed.** Every constraint in the schema has now been
+    seen to fire: `plans_status_check` rejects `'pending'`, `plans_ok_has_response` rejects
+    an `'ok'` row with no response, `plans_user_id_fkey` rejects an unknown user, the unique
+    index rejects a duplicate email, and `on delete cascade` took two plan rows with the user
+    that owned them. The rate-limit count plans as an **Index Only Scan** on
+    `plans_user_created_idx` — it never touches the heap. A constraint nobody has watched
+    fire is a constraint nobody knows works.
