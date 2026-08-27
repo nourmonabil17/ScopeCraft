@@ -255,16 +255,42 @@ Start here. This half pays for itself immediately.
 
 The parts most likely to break, and why this module is not just "write a Dockerfile".
 
-- [ ] **1.4.1** The evidence scripts run `next start` on **host** ports 3200/3201/3100.
-      Decide host or container, and keep the base URLs configurable either way — they
-      already read `UI_BASE_URL` / `UI_BAD_BASE_URL`.
-- [ ] **1.4.2** `scripts/capture-ui-evidence.mjs` launches Chrome from a macOS path and
-      cannot run inside the app container without a headless Chrome image. Keep it on the
-      host — say so in the docs rather than leaving someone to discover it.
-- [ ] **1.4.3** `AUTH_URL` inside the container is `http://localhost:3000`, but the
-      container's own hostname is not `localhost`. Verify the OAuth callback resolves from
-      the **browser's** point of view, not the container's.
-- [ ] **1.4.4** Re-test 0.1 (Safari) against the containerised app.
+- [x] **1.4.1** **Decided: both capture scripts stay on the host — structurally, not by
+      preference.** `capture-evidence.sh` boots `next start` six times, each with a
+      different provider environment; it *is* the server's lifecycle manager, so it cannot
+      be pointed at a long-running container whose environment is fixed at start. That is
+      the whole mechanism by which failover evidence gets captured.
+
+      **Verified:** `next start` is unaffected by `output: "standalone"` — `/login` 200,
+      `POST /api/scopecraft` 422 on an empty body, CSS chunk 200. Both scripts therefore
+      still work after Module 1.
+
+      **Verified:** no port collision. The scripts use 3100 / 3200 / 3201 / 9333; compose
+      uses 3000 (profiled off) and 5432. Only 5432 was listening.
+
+      No base-URL knob was added to `capture-evidence.sh`. `EVIDENCE_PORT` already covers
+      the real need (a port clash), and a host override would be configuration for a
+      scenario that cannot exist.
+- [x] **1.4.2** `scripts/capture-ui-evidence.mjs` launches Chrome from a macOS path and
+      cannot run inside the app container without a headless Chrome image. Kept on the
+      host, and said out loud in `docs/local-development.md` rather than left to be
+      discovered. **Confirmed:** the discovery list is two macOS `.app` paths, so the
+      script exits with a clear message on any other platform. No Linux paths were added —
+      nothing runs this outside this machine, and the failure is already legible.
+- [x] **1.4.3** **Verified.** The container's own hostname is `8aec4e96dddf`; with
+      `AUTH_URL=http://localhost:3000` set, `/api/auth/providers` advertises
+      `http://localhost:3000/api/auth/callback/github`, and the real `redirect_uri` sent in
+      the 302 to `github.com/login/oauth/authorize` is that same URL. Correct, because
+      GitHub redirects the **browser** — which is on the host — not the container. Without
+      `AUTH_URL` this would resolve to the container ID and GitHub would reject the
+      callback as a mismatch.
+- [ ] **1.4.4** **Partly done (2026-08-27).** Re-tested at the mechanism level: the container's
+      `Content-Security-Policy` header is **byte-identical** to the host's under
+      `next start` (same md5), `upgrade-insecure-requests` included, and it is served over
+      the same `http://localhost` origin. So the containerised app reproduces 0.1 exactly
+      — there is no container-specific variant of this bug, and fixing 0.1.2 fixes both.
+      **Not closed:** confirming what Safari actually does still needs the Safari console,
+      which is step 0.1.1 and needs you.
 - [x] **1.4.5** Confirm `output: "standalone"` did not change the built HTML or CSP
       behaviour. Re-run the bundle secret scan afterwards. **Done** — the route table is
       byte-identical before and after, and the client-bundle secret scan is clean.
