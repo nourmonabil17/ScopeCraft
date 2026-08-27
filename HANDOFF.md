@@ -45,6 +45,21 @@ right there.
 The folder is now gitignored along with `.DS_Store` and `.claude-flow/`, so a stray
 `git add -A` can no longer sweep them in. (It swept three `.DS_Store` files in once.)
 
+### ⚠️ 1.4a Nothing runs without the `AUTH_*` variables
+
+`/scopecraft` is behind a GitHub sign-in as of `fd840e7`. Without `AUTH_SECRET`,
+`AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET` in `.env.local`, every visit redirects to `/login`
+and the sign-in button fails — which looks exactly like a broken build. Set them first; see
+README → Authentication for the two-minute GitHub OAuth app setup.
+
+**These are almost certainly not set in Vercel yet.** Production will bounce to `/login` and
+stay there until they are, plus `AUTH_URL` set to the public origin. Check that before
+demoing anything.
+
+`npm run capture:ui` needs the *same* `AUTH_SECRET` the server under capture was started
+with — it mints its own session cookie rather than bypassing auth. A mismatch fails the run
+with that exact diagnosis in the error message.
+
 ### ⚠️ 1.4 Vercel MCP tools are connected to the WRONG account
 
 They authenticate as team `mohanad3` (hobby plan), which **cannot see or deploy**
@@ -91,14 +106,14 @@ Router), React 19, TypeScript strict, Zod 4. Team 10, four members.
 
 | Ref | Commit |
 |---|---|
-| team `dev` | `85457a6` ← newest |
-| fork `main` | `85457a6` ← **what production serves** |
+| team `dev` | `fd840e7` ← newest |
+| fork `main` | `fd840e7` ← **what production serves** |
 | team `main` | `4fea03b` ← **stale, see §1.2** |
 | local `main` | `4fea03b` |
 
 ### Verified green
 
-- **245 tests**, 8 suites (131 node: API · tools · evaluation — 114 UI)
+- **251 tests**, 9 suites (131 node: API · tools · evaluation — 120 UI)
 - `npm run lint` (`--max-warnings=0`), `npx tsc --noEmit`, `npm run build` all clean
 - Client-bundle secret scan clean; git history scan clean (0 hits, all branches)
 - All three providers reachable (`npm run smoke`)
@@ -107,6 +122,9 @@ Router), React 19, TypeScript strict, Zod 4. Team 10, four members.
   returns `422 OUT_OF_DOMAIN`
 - Security headers live: CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,
   `Permissions-Policy`; `X-Powered-By` absent
+- **Sign-in works end to end**: signed out, `/scopecraft` 307s to `/login`;
+  `POST /api/auth/signin/github` 302s to GitHub with PKCE. `npm run capture:ui` passes
+  through the real gate with a minted session, all six RTL/LTR overflow checks green
 
 ### Local-only, never committed
 
@@ -178,13 +196,18 @@ dangling dependencies before planning instead of failing the request.
       stale (it claimed no live provider call had ever been made, which was no longer true)
 - [x] Security review + CSP, `poweredByHeader: false`, headers consolidated into
       `next.config.js` (`vercel.json` deleted — defining them twice double-emits headers)
+- [x] **Authentication** — GitHub OAuth, JWT session, `/login`, `/scopecraft` gated. Design in
+      `docs/database-and-auth-design.md`; the database half of that document is still design
+      only, and **the API endpoint is still anonymous** — say that out loud rather than
+      letting it read as solved
 - [ ] *Optional:* broader live adversarial pass (5 cases × 3 providers); a server-side domain
       classifier. Both documented as known gaps, neither required
 
 ### Joe / Youssef Alaaeldin — Product UI & Workflow Engineer
 - [x] 7 UI states, structured rendering, evidence panel, responsive
-- [x] **Screenshots — done.** 16 in `docs/evidence/ui/shots/`, all seven states captured live,
-      three widths, both themes, Arabic RTL. Regenerate: `npm run capture:ui`
+- [x] **Screenshots — done.** 17 in `docs/evidence/ui/shots/`, all seven states captured live,
+      plus the sign-in screen, three widths, both themes, Arabic RTL. Regenerate:
+      `npm run capture:ui` (needs `AUTH_SECRET` — see §1.4a)
 - [x] **Accessibility checklist** — `docs/evidence/ui/accessibility-checklist.md`, WCAG 2.2 AA,
       every row measured or test-backed, plus a machine-readable `accessibility-audit.txt`
 - [ ] **AI_USAGE section is a placeholder** ← the only gap left on this row
@@ -231,13 +254,14 @@ item 11, which records `experimental.sri` as the upgrade path that keeps static 
 
 ---
 
-## 7. Decision log — 11 items, 6 closed
+## 7. Decision log — 13 items, 8 closed
 
 `docs/decision-log.md` opens its Open Items section with a status table. Read that rather than
 re-deriving it.
 
 **Closed:** 3 (uncitable source), 5 (model IDs), 6 (Zod/Next sources), 7 (stale checklists),
-8 (tool shapes), 10 (`sprint_plan` evidence).
+8 (tool shapes), 10 (`sprint_plan` evidence), 13 (RTL skip-link overflow).
+**Half-closed by design:** 12 (auth — the page is gated, the endpoint is not).
 **Partially closed:** 2 (injection — one live case, not coverage).
 **Open:** 1 (MoSCoW/RICE URLs), 4 (OWASP page 403s automated fetch), 9 (Yasmin's sign-off),
 11 (CSP `unsafe-inline`, open **by decision**).
@@ -251,7 +275,7 @@ Four of the five need a human decision or a human visit, not code.
 ```bash
 cd ~/Downloads/ScopeCraft
 
-npm test                 # 245 tests, 8 suites
+npm test                 # 251 tests, 9 suites
 npm run lint             # --max-warnings=0
 npx tsc --noEmit
 npm run build
@@ -260,9 +284,10 @@ npm run dev              # localhost:3000/scopecraft
 
 # regenerate evidence (both make real, billable provider calls)
 npm run build && npm run capture:evidence     # API + failover evidence, port 3100
-npm run capture:ui                            # 16 screenshots + a11y audit
+npm run capture:ui                            # 17 screenshots + a11y audit
                                               # needs servers on 3200 (good keys)
                                               # and 3201 (deliberately invalid keys)
+                                              # and AUTH_SECRET matching both — see §1.4a
 
 # secret scan (run after build)
 grep -rqE "AIza[0-9A-Za-z_-]{20,}|gsk_[0-9A-Za-z]{20,}|nvapi-[0-9A-Za-z_-]{20,}" .next/static && echo "LEAK" || echo "CLEAN"
@@ -282,5 +307,6 @@ GitHub auth is `gh` as `mr-h12`. **Do not add a `Co-Authored-By` trailer** — s
 acceptance criterion, and it belongs to a teammate, so it needs a human decision before
 anything else can be called done.
 
-After that, in value order: the three placeholder AI_USAGE sections (~15 min each, blocking a
-Required submission row), a git tag, and the `NVIDIA_API_KEY` check in Vercel.
+After that, in value order: **set the `AUTH_*` variables in Vercel** (production currently
+bounces everyone to `/login` — see §1.4a), the three placeholder AI_USAGE sections (~15 min
+each, blocking a Required submission row), a git tag, and the `NVIDIA_API_KEY` check.
