@@ -43,7 +43,12 @@ export type { ProviderName };
 
 export interface AIProvider {
   name: ProviderName;
-  generate(prompt: string): Promise<ModelReply>;
+  /**
+   * `timeoutMs` is the budget for THIS attempt, handed down by
+   * `generateWithFallback` so the whole chain stays inside one deadline.
+   * Optional so a direct caller (a script, a test) still works without it.
+   */
+  generate(prompt: string, timeoutMs?: number): Promise<ModelReply>;
 }
 
 // ---- Typed errors ----
@@ -73,12 +78,40 @@ export class ProviderError extends Error {
 }
 
 // ---- Configuration ----
-const DEFAULT_TIMEOUT_MS = 15_000;
+//
+// Per attempt. Raised from 15 s on 2026-08-28, but NOT for the reason it looks
+// like. Measured over 8 live runs at each setting:
+//
+//   15 s: 3 of 8 timed out on NVIDIA and fell through — median 14.2 s, max 22.3 s
+//   30 s: 0 of 8 timed out; NVIDIA answered in 9.8-25.8 s — median 16.1 s, max 25.9 s
+//
+// So this does NOT make requests faster. End-to-end latency is a wash, and the
+// median is marginally worse: a 25 s answer from tier one costs about what a
+// 15 s timeout plus a 20 s fallback cost. What changes is that the wait now buys
+// something. At 15 s a third of requests paid the full timeout and threw the
+// result away, then spent a Groq call — and Groq meters tokens per minute, which
+// has already broken evidence captures. Fewer discarded attempts is the argument
+// here; speed is not.
+const DEFAULT_TIMEOUT_MS = 30_000;
+
+// For the whole chain, across every attempt. Raising the per-attempt budget
+// without this would put the three-tier worst case near 90 s, and a serverless
+// platform kills the function before that: the caller then gets the platform's
+// own 504 instead of this app's typed TIMEOUT envelope, which breaks the
+// contract that every failure carries a code. The budget is what keeps the
+// worst case bounded regardless of how many tiers are configured.
+const DEFAULT_TOTAL_BUDGET_MS = 50_000;
 
 /** Read at call time, not module load, so tests can vary it per case. */
 export function getTimeoutMs(): number {
   const raw = Number(process.env.AI_TIMEOUT_MS);
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
+}
+
+/** The ceiling for the whole failover chain. See DEFAULT_TOTAL_BUDGET_MS. */
+export function getTotalBudgetMs(): number {
+  const raw = Number(process.env.AI_TOTAL_BUDGET_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TOTAL_BUDGET_MS;
 }
 
 /** Kept as a named export for callers that want the configured default. */
@@ -127,7 +160,8 @@ async function openAICompatibleGenerate(
   provider: ProviderName,
   url: string,
   apiKey: string,
-  prompt: string
+  prompt: string,
+  timeoutMs?: number
 ): Promise<ModelReply> {
   const res = await fetchWithTimeout(url, {
     method: "POST",
@@ -142,7 +176,7 @@ async function openAICompatibleGenerate(
       temperature: 0.2,
       max_tokens: 4096,
     }),
-  });
+  }, timeoutMs ?? getTimeoutMs());
 
   if (!res.ok) {
     // Status only. The response body can echo the request, including the key.
@@ -157,7 +191,7 @@ async function openAICompatibleGenerate(
 // ---- NVIDIA NIM (primary) ----
 export const nvidiaProvider: AIProvider = {
   name: "nvidia",
-  async generate(prompt: string) {
+  async generate(prompt: string, timeoutMs?: number) {
     const apiKey = process.env.NVIDIA_API_KEY;
     if (!apiKey) throw new Error("MISSING_NVIDIA_API_KEY");
 
@@ -165,7 +199,8 @@ export const nvidiaProvider: AIProvider = {
       "nvidia",
       `${NVIDIA_BASE_URL}/chat/completions`,
       apiKey,
-      prompt
+      prompt,
+      timeoutMs
     );
   },
 };
@@ -173,7 +208,7 @@ export const nvidiaProvider: AIProvider = {
 // ---- Groq (fallback 1) ----
 export const groqProvider: AIProvider = {
   name: "groq",
-  async generate(prompt: string) {
+  async generate(prompt: string, timeoutMs?: number) {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) throw new Error("MISSING_GROQ_API_KEY");
 
@@ -181,7 +216,8 @@ export const groqProvider: AIProvider = {
       "groq",
       `${GROQ_BASE_URL}/chat/completions`,
       apiKey,
-      prompt
+      prompt,
+      timeoutMs
     );
   },
 };
@@ -189,7 +225,7 @@ export const groqProvider: AIProvider = {
 // ---- Gemini (fallback 2) ----
 export const geminiProvider: AIProvider = {
   name: "gemini",
-  async generate(prompt: string) {
+  async generate(prompt: string, timeoutMs?: number) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error("MISSING_GEMINI_API_KEY");
 
@@ -210,7 +246,8 @@ export const geminiProvider: AIProvider = {
             temperature: 0.2,
           },
         }),
-      }
+      },
+      timeoutMs ?? getTimeoutMs()
     );
 
     if (!res.ok) throw new ProviderError("provider_unavailable");
@@ -275,12 +312,17 @@ function isInvalidOutputError(error: unknown): boolean {
  * failure, so a team that configures only one key still gets a working app.
  *
  * Throws ProviderError("all_providers_failed"), or ProviderError("timeout") when
- * the final attempt aborted on the clock.
+ * the final attempt aborted on the clock or the chain ran out of total budget.
  */
 export async function generateWithFallback(
   prompt: string
 ): Promise<{ result: ModelReply; providerUsed: ProviderName }> {
   const order = getProviderOrder();
+
+  // One deadline for the whole chain. Each attempt gets whichever is smaller:
+  // its own budget, or whatever is left. Without this the worst case is
+  // per-attempt x tiers, which grows every time a provider is added.
+  const deadline = Date.now() + getTotalBudgetMs();
 
   // Sticky: if any provider in the chain aborted on the clock, the caller is
   // told TIMEOUT (504, "retry shortly") rather than a hard PROVIDER_ERROR (502).
@@ -290,8 +332,19 @@ export async function generateWithFallback(
 
   for (const name of order) {
     const provider = PROVIDERS[name];
+
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      // Out of clock with tiers still untried. Reported as a timeout because
+      // that is what it is from the caller's seat, and because a 504 "try again
+      // shortly" is the honest answer when the chain never got to finish.
+      console.warn(`AI provider chain out of budget before ${name}.`);
+      sawTimeout = true;
+      break;
+    }
+
     try {
-      const result = await provider.generate(prompt);
+      const result = await provider.generate(prompt, Math.min(getTimeoutMs(), remaining));
       return { result, providerUsed: name };
     } catch (error) {
       if (isMissingKeyError(error)) {

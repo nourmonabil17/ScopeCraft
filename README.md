@@ -5,7 +5,7 @@ sprint plan.
 
 **Live public beta:** **https://scope-craft-nine.vercel.app/scopecraft**
 
-**Status:** deployed and live-verified. Lint, type-check, **266/266 tests** and the
+**Status:** deployed and live-verified. Lint, type-check, **268/268 tests** and the
 production build all pass. All three AI providers are confirmed reachable with real
 credentials (`npm run smoke`), and the full journey has been exercised **against the
 deployed production URL** — a real idea returns a coherent 11-field PRD with a
@@ -47,7 +47,8 @@ leaks the key to every visitor.
 | `GROQ_API_KEY` | Fallback 1 (Groq) | — |
 | `GEMINI_API_KEY` | Fallback 2 (Google Gemini) | — |
 | `PRIMARY_AI_PROVIDER` | Which tier is tried first | `nvidia` |
-| `AI_TIMEOUT_MS` | Per-attempt abort timeout | `15000` |
+| `AI_TIMEOUT_MS` | Per-attempt abort timeout | `30000` |
+| `AI_TOTAL_BUDGET_MS` | Ceiling for the whole failover chain | `50000` |
 | `NVIDIA_MODEL` / `GROQ_MODEL` / `GEMINI_MODEL` | Model ID overrides | see `.env.example` |
 
 **At least one provider key is required.** A provider with no credential is skipped rather
@@ -158,7 +159,7 @@ once.
 ## Test and verify
 
 ```bash
-npm test          # 266 tests, 9 suites
+npm test          # 268 tests, 9 suites
 npm run typecheck
 npm run lint
 npm run build
@@ -213,7 +214,7 @@ What bounds the exposure today:
 | Strict Zod validation | `RequestSchema`, before any provider import | A malformed request costs **zero** provider tokens **and zero database round trips** |
 | Local clarification heuristic | `getClarification`, pre-provider | Unintelligible input is refused without a model call |
 | Daily quota | `quota.ts`, stage 4b | One indexed `count(*)`; `429` once the rolling 24-hour budget is spent |
-| Per-request provider timeout | `AI_TIMEOUT_MS`, default 15 s | A single request cannot hold a connection open indefinitely |
+| Per-request provider timeout | `AI_TIMEOUT_MS`, default 30 s, bounded by `AI_TOTAL_BUDGET_MS` (50 s) across the whole chain | A single request cannot hold a connection open indefinitely, and the worst case does not grow with the number of providers |
 | Server-only credentials | Route handler + `NEXT_PUBLIC_` audit | A caller can spend quota but can never read a key |
 
 What is **still not bounded**, named rather than glossed:

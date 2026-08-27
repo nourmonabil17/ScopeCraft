@@ -31,7 +31,8 @@ Project → Settings → Environment Variables), **never** in code or a committe
 | `GROQ_API_KEY` | — | Fallback 1 |
 | `GEMINI_API_KEY` | — | Fallback 2 |
 | `PRIMARY_AI_PROVIDER` | No — defaults to `nvidia` | Set explicitly as `"nvidia"` for clarity in the hosting dashboard |
-| `AI_TIMEOUT_MS` | No — defaults to `15000` | Per-attempt abort timeout; total worst-case latency is roughly 3× this across the failover chain |
+| `AI_TIMEOUT_MS` | No — defaults to `30000` | Per-attempt abort timeout |
+| `AI_TOTAL_BUDGET_MS` | No — defaults to `50000` | Ceiling for the whole failover chain, so the worst case does not grow with the number of tiers. Must stay under the route's `maxDuration` (60 s) |
 
 - [ ] **`NVIDIA_API_KEY` set in hosting provider's environment — evidence says NO.**
       Three consecutive production generations on 2026-08-24 were served by `groq` and
@@ -45,7 +46,7 @@ Project → Settings → Environment Variables), **never** in code or a committe
       generation served with `x-provider-used: gemini`
 - [ ] `PRIMARY_AI_PROVIDER="nvidia"` set explicitly — cannot be confirmed from outside, and
       the observed order is consistent with it being unset. Check the dashboard.
-- [ ] `AI_TIMEOUT_MS=15000` set explicitly — not externally observable; check the dashboard
+- [ ] `AI_TIMEOUT_MS=30000` set explicitly — not externally observable; check the dashboard
 - [x] No env variable containing a secret is prefixed `NEXT_PUBLIC_` (that prefix inlines
       the value into the client bundle and permanently leaks it to every visitor) — verified:
       zero `NEXT_PUBLIC_` occurrences in `src/`, and `.next/static` scanned clean for

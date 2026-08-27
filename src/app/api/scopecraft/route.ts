@@ -47,6 +47,18 @@ import { ProviderError } from "@/lib/ai/providers";
 
 export const runtime = "nodejs";
 
+// Stated explicitly rather than left to the platform default, because the
+// default is invisible from inside the repository and this route is the one that
+// waits on a provider chain. It must stay ABOVE the chain's total budget
+// (AI_TOTAL_BUDGET_MS, 50 s by default) with room for validation and the
+// database write: if the platform kills the function first, the caller gets the
+// platform's untyped 504 instead of this app's TIMEOUT envelope, and "every
+// failure carries a code" stops being true.
+//
+// Hosting plans cap this. If the deploy target's ceiling is lower than 60, lower
+// the budget to match rather than raising this number.
+export const maxDuration = 60;
+
 /** Sanitized server log. Code and status only — never payloads or credentials. */
 function logFailure(code: string, status: number): void {
   console.error(`scopecraft.request_failed code=${code} status=${status}`);

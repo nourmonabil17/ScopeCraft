@@ -619,3 +619,46 @@ nonce or hash policy and saying so is more useful than closing the row.
     the code shipped v5 — the version constant jumps straight to v5 in commit `05ee549`
     with no notes for v3 or v4. Recorded as a gap rather than back-filled from guesswork;
     what the v5 prompt contained is described from the code, not from invented history.
+
+26. **The provider chain gets a total budget, and the per-attempt timeout goes to 30 s —
+    2026-08-28.** Entry 23 left `AI_TIMEOUT_MS` at 15 s deliberately. This revisits that,
+    and the measurement did not support the reason for revisiting it.
+
+    **The argument that failed.** The case for raising the timeout was latency: NVIDIA
+    answers in ~9-13 s, a 15 s budget times it out about half the time, and each timeout
+    costs the caller the full 15 s before the next tier starts. Eight live runs at each
+    setting:
+
+    | Per-attempt | Tier-one timeouts | Median | Max |
+    |---|---|---|---|
+    | 15 s | 3 of 8 | 14.2 s | 22.3 s |
+    | 30 s | 0 of 8 | 16.1 s | 25.9 s |
+
+    End-to-end latency is a wash, and the median is marginally *worse*. Waiting 25 s for
+    tier one costs about what a 15 s timeout plus a 20 s fallback costs. The predicted
+    halving does not exist. Recorded because the prediction was made out loud and a doc
+    that only records the predictions that came true is not a decision log.
+
+    A measurement error is worth recording too: the first verification run appeared to
+    show a large improvement, because `.env.local` pins `AI_TIMEOUT_MS=15000` and the new
+    default was never exercised. The numbers above are from the re-run.
+
+    **Kept at 30 s anyway, on a different argument.** At 15 s a third of requests paid a
+    full timeout, discarded the result, and then spent a Groq call. Groq meters tokens per
+    minute, and that has already broken an evidence capture (entry 21). Fewer attempts
+    paid for and thrown away is worth having; speed is not the reason.
+
+    **The part that is not a judgement call: `AI_TOTAL_BUDGET_MS`, 50 s.** The chain now
+    runs against one deadline, and each attempt gets the smaller of its own budget and
+    what remains. Without it the worst case is per-attempt × tiers — 90 s at the new
+    setting — which outlives a serverless function limit. The caller would then get the
+    platform's untyped 504 instead of this app's `TIMEOUT` envelope, and "every failure
+    carries a typed code" would quietly stop being true. That is a contract property, not
+    a tuning preference, which is why the budget shipped with the raise rather than after
+    it.
+
+    `maxDuration = 60` is now stated explicitly on the route for the same reason: the
+    platform default is invisible from inside the repository, and the budget has to sit
+    under it. **This needs confirming against the hosting plan's ceiling** — it is the one
+    part of this entry not verified by running it. If the plan caps lower than 60 s, lower
+    `AI_TOTAL_BUDGET_MS` to match rather than raising `maxDuration`.

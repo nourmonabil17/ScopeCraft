@@ -22,11 +22,17 @@ export const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta
 // LATENCY, stated because it is the real constraint and no model choice fixes
 // it. Measured on this account for a full-PRD request: this model returns valid
 // JSON every time, but in 9.3 s, 18.6 s and 26.0 s across three consecutive
-// runs. `AI_TIMEOUT_MS` defaults to 15 s, so NVIDIA times out more often than
-// not and the request falls through to Groq. That is the failover chain working
-// as designed rather than a fault, but it does mean tier one is unreliable at
-// the default budget. The alternatives were worse: every other reachable NIM
-// model either 404s on this account or exceeds 30 s.
+// runs. The alternatives were worse: every other reachable NIM model either
+// 404s on this account or exceeds 30 s.
+//
+// A later 8-run sample widened the observed range to 9.8-25.8 s, so the spread
+// above is the shape of it rather than the extremes.
+//
+// `AI_TIMEOUT_MS` defaulted to 15 s until 2026-08-28, which timed this model out
+// on roughly a third of live runs. It now defaults to 30 s, bounded by
+// `AI_TOTAL_BUDGET_MS` across the whole chain so the worst case cannot grow with
+// the number of tiers. That change does not make requests faster — see the
+// measurements in providers.ts — it stops attempts being paid for and discarded.
 export const DEFAULT_NVIDIA_MODEL = "openai/gpt-oss-20b";
 export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";

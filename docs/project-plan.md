@@ -763,7 +763,8 @@ hardest.
 - [ ] **7.3.2** Confirm the three-tier order and that a **missing** key is skipped while a
       **failing** key is attempted. That distinction is why known finding #5 is diagnosable.
 - [ ] **7.3.3** Confirm `AbortController` timeouts still apply per attempt, and that
-      worst-case total latency is still roughly 3 × `AI_TIMEOUT_MS`.
+      worst-case total latency is bounded by `AI_TOTAL_BUDGET_MS` rather than by
+      3 × `AI_TIMEOUT_MS`, so it no longer grows with the number of tiers.
 - [ ] **7.3.4** Confirm no provider name reaches an error response body.
 
 ### 7.4 Knowledge, taxonomy and sources
@@ -941,7 +942,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 27 | Environment | **Deployment guide** | `docs/deployment.md` | The fork-deploy trap lives only in `HANDOFF.md` and `CLAUDE.md`, neither team-facing |
 | 28 | Environment | **Environment variables reference** | `docs/environment-variables.md` | Eleven variables across three concerns; the README table is outgrowing itself |
 | 29 | Frontend | **Frontend architecture** | `docs/frontend-architecture.md` | **The biggest gap.** No component map, no state model, nothing on the seven-state union or the pre-paint theme/locale scripts. Backend has three documents; frontend has zero |
-| 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 266 tests with no document saying what is covered, what is not, and how manual QA runs |
+| 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 268 tests with no document saying what is covered, what is not, and how manual QA runs |
 | 31 | QA | **Manual QA evidence** | `docs/evidence/qa/` | 6.5 produces findings with nowhere to live |
 | 32 | Operations | **Runbook / troubleshooting** | `docs/runbook.md` | What to do when providers fail, the database is down, or sign-in breaks. Every known finding is a runbook entry |
 | 33 | Submission | **Known limitations** | `docs/known-limitations.md` | The rubric asks for *signed-off* known limitations. Currently scattered across README, architecture and the decision log |

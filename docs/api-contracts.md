@@ -446,7 +446,8 @@ Server-only. Never prefix any of these with `NEXT_PUBLIC_`.
 | `GROQ_API_KEY` | Fallback 1 credential | — |
 | `GEMINI_API_KEY` | Fallback 2 credential | — |
 | `PRIMARY_AI_PROVIDER` | `nvidia` \| `groq` \| `gemini` | `nvidia` |
-| `AI_TIMEOUT_MS` | Per-attempt abort timeout | `15000` |
+| `AI_TIMEOUT_MS` | Per-attempt abort timeout | `30000` |
+| `AI_TOTAL_BUDGET_MS` | Ceiling for the whole failover chain; each attempt gets the smaller of this remainder and `AI_TIMEOUT_MS` | `50000` |
 | `NVIDIA_MODEL` | Model override | `openai/gpt-oss-20b` |
 | `GROQ_MODEL` | Model override | `openai/gpt-oss-120b` |
 | `GEMINI_MODEL` | Model override | `gemini-3.5-flash-lite` |

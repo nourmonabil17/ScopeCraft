@@ -27,7 +27,8 @@ POST /api/scopecraft
   5  runScopeCraft .......... route.ts:127
        ├─ buildPrompt ............... service.ts:130   (rules first, user text fenced)
        ├─ generateWithFallback ...... providers.ts:280 (nvidia → groq → gemini)
-       │    each attempt wrapped in fetchWithTimeout (providers.ts:88, 15 s default)
+       │    each attempt wrapped in fetchWithTimeout (providers.ts, 30 s default,
+       │    and the chain as a whole capped by AI_TOTAL_BUDGET_MS at 50 s)
        ├─ retry once on invalid output ... service.ts:156  → 502 SCHEMA_VIOLATION
        ├─ refusal envelope? .............. → 422 OUT_OF_DOMAIN
        ├─ scheduleSprints ................ tools.ts:86    → 502 PLANNING_ERROR

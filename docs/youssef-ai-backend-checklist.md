@@ -53,7 +53,8 @@
 - [x] A provider with no credential is skipped, not failed, so one key still gives a
       working endpoint.
 - [x] Missing API keys are detected before any network request.
-- [x] Per-attempt timeout is **15 s**, configurable via `AI_TIMEOUT_MS`.
+- [x] Per-attempt timeout is **30 s**, configurable via `AI_TIMEOUT_MS`, with the whole
+      chain bounded by `AI_TOTAL_BUDGET_MS` (50 s).
 - [x] I added request cancellation using `AbortController`.
 - [x] The Gemini credential travels in the `x-goog-api-key` header, never in the URL —
       URLs are logged by proxies and error trackers; headers are not.
@@ -65,7 +66,7 @@
 > **Correction (2026-08-24).** This file previously said "Gemini as the primary
 > provider, Groq as the fallback" with a 10-second timeout and prompt version 2.
 > All three were out of date: the chain is now NVIDIA-first with two fallbacks, the
-> timeout is 15 s, and the prompt contract is v5.
+> timeout is 30 s, and the prompt contract is v6.
 
 ## Live verification (2026-08-24)
 

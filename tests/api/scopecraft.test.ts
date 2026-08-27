@@ -249,6 +249,56 @@ describe("AI provider fallback", () => {
     expect(errorLog).toHaveBeenCalledWith("AI provider fallback exhausted.");
     expect(errorLog.mock.calls.flat()).not.toContainEqual(expect.any(Error));
   });
+
+  // The chain must be bounded as a whole, not just per attempt. Without the
+  // deadline the worst case is per-attempt x tiers, which a serverless platform
+  // kills before the app can answer — the caller then gets the platform's 504
+  // instead of this app's typed TIMEOUT.
+  //
+  // Date.now is stubbed rather than slept on, so the test is deterministic:
+  // the first attempt sees a full budget, the second sees the clock past the
+  // deadline.
+  it("stops trying providers once the total budget is spent", async () => {
+    jest.spyOn(console, "warn").mockImplementation();
+    jest.spyOn(console, "error").mockImplementation();
+
+    const realNow = Date.now();
+    jest.spyOn(Date, "now")
+      .mockReturnValueOnce(realNow)  // deadline is computed from here
+      .mockReturnValueOnce(realNow)  // first tier: full budget remaining
+      .mockReturnValue(realNow + 10 * 60 * 1000); // and then the clock is past it
+
+    const nvidia = jest.spyOn(nvidiaProvider, "generate")
+      .mockRejectedValue(new Error("NVIDIA down"));
+    const groq = jest.spyOn(groqProvider, "generate").mockResolvedValue(fakeResponse);
+    const gemini = jest.spyOn(geminiProvider, "generate").mockResolvedValue(fakeResponse);
+
+    await expect(generateWithFallback("a valid idea here"))
+      .rejects.toMatchObject({ code: "timeout" });
+
+    expect(nvidia).toHaveBeenCalledTimes(1);
+    // The remaining tiers are never reached, even though both would have
+    // succeeded: there was no clock left to reach them with.
+    expect(groq).not.toHaveBeenCalled();
+    expect(gemini).not.toHaveBeenCalled();
+  });
+
+  it("hands each attempt the smaller of its own budget and what remains", async () => {
+    jest.spyOn(console, "warn").mockImplementation();
+    process.env.AI_TIMEOUT_MS = "30000";
+    process.env.AI_TOTAL_BUDGET_MS = "5000";
+
+    const nvidia = jest.spyOn(nvidiaProvider, "generate").mockResolvedValue(fakeResponse);
+    await generateWithFallback("a valid idea here");
+
+    // 5 s of budget beats the 30 s per-attempt default.
+    const handed = nvidia.mock.calls[0][1] as number;
+    expect(handed).toBeGreaterThan(0);
+    expect(handed).toBeLessThanOrEqual(5000);
+
+    delete process.env.AI_TIMEOUT_MS;
+    delete process.env.AI_TOTAL_BUDGET_MS;
+  });
 });
 
 describe("AI provider safety", () => {
