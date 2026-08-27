@@ -14,6 +14,10 @@ module.exports = {
       preset: "ts-jest",
       testEnvironment: "node",
       testMatch: ["<rootDir>/tests/api/**/*.test.ts", "<rootDir>/tests/evaluation/**/*.test.ts"],
+      // Mocks `@/auth` and `@/lib/db` for every node test. next-auth is
+      // ESM-only and this project runs as CommonJS, so without this the suites
+      // fail to load rather than fail an assertion. See the file's header.
+      setupFilesAfterEnv: ["<rootDir>/tests/api/setup.ts"],
       moduleNameMapper: {
         "^@/(.*)$": "<rootDir>/src/$1",
       },

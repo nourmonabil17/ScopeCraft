@@ -121,11 +121,13 @@ client can exhaustively switch on it.
 
 | Status | `code` | Trigger | Provider called? |
 |---|---|---|---|
+| `401` | `UNAUTHORIZED` | No valid session cookie. Checked **first**, before the body is read | no |
 | `400` | `INVALID_JSON` | Body is not valid JSON (syntax) | no |
 | `413` | `PAYLOAD_TOO_LARGE` | Body exceeds 16 KB, by declared `Content-Length` or by measured stream | no |
 | `422` | `VALIDATION_ERROR` | Body parses but fails `RequestSchema`; response adds `issues: {path, message}[]` | **no** |
 | `422` | `CLARIFICATION_REQUIRED` | Idea detected as unintelligible; response adds `questions: string[]` | no |
 | `422` | `OUT_OF_DOMAIN` | Request is outside software product planning; the model returned the refusal envelope | yes (one tier only) |
+| `429` | `RATE_LIMITED` | Over the rolling 24-hour budget for this account; response adds `limit` and `used` | no |
 | `502` | `PLANNING_ERROR` | Deterministic planner rejected the model's estimates (story exceeds capacity, missing dependency, dependency cycle, duplicate story ID) | yes |
 | `502` | `SCHEMA_VIOLATION` | Model output failed `ModelReplySchema` on the initial pass **and** on the single retry | yes |
 | `502` | `PROVIDER_ERROR` | Every configured provider was unreachable, or none is configured | yes |
@@ -174,6 +176,13 @@ with `npm run capture:evidence`, which fails if any response drifts from this ta
 
 ```jsonc
 // 400 — body is not valid JSON
+{ "error": true, "code": "UNAUTHORIZED",
+  "message": "Please sign in to generate a plan." }
+
+{ "error": true, "code": "RATE_LIMITED",
+  "message": "You have reached the limit of 20 plans per day. Please try again tomorrow.",
+  "limit": 20, "used": 20 }
+
 { "error": true, "code": "INVALID_JSON",
   "message": "Request body must be valid JSON." }
 
@@ -224,13 +233,27 @@ The route performs the cheap local checks before anything remote, so a bad reque
 zero tokens:
 
 ```
-1. size cap (16 KB)     → 413
-2. JSON.parse           → 400
-3. RequestSchema        → 422 VALIDATION_ERROR
-4. clarification check  → 422 CLARIFICATION_REQUIRED
+0.  session check       → 401 UNAUTHORIZED
+────────────── nothing is read from an anonymous caller above this line ──────────────
+1.  size cap (16 KB)    → 413
+2.  JSON.parse          → 400
+3.  RequestSchema       → 422 VALIDATION_ERROR
+4.  clarification check → 422 CLARIFICATION_REQUIRED
+────────────── no database round trip above this line ──────────────
+4b. daily quota         → 429 RATE_LIMITED
 ────────────── no provider module touched above this line ──────────────
-5. runScopeCraft        → 200 / 422 / 502 / 504
+5.  runScopeCraft       → 200 / 422 / 502 / 504
+6.  persist the outcome       (never changes the response)
 ```
+
+Two of those lines are load-bearing and are asserted by tests rather than trusted:
+
+- **Nothing is read from an anonymous caller.** A request with no session returns `401`
+  having called no provider and made no database query.
+- **A malformed request from a *signed-in* caller reaches neither.** This is what makes
+  counting attempts fair — a typo cannot consume quota, because validation runs before the
+  quota query. Reordering those two breaks the test at
+  `tests/api/scopecraft.test.ts` → *"never reaches the database for a malformed body"*.
 
 Twelve rejection shapes are driven through the route and asserted to leave spies on **all
 three** providers — and on `global.fetch` — at zero calls. The 413 path additionally

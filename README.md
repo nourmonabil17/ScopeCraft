@@ -192,43 +192,45 @@ pull request to `main` and `dev`.
 Stated honestly, because the release gate asks for bounded limitations rather than a clean
 sales pitch.
 
-**Unauthenticated endpoint & rate-limiting boundary.** The *page* at `/scopecraft` now
-requires a signed-in session (GitHub OAuth — see [Authentication](#authentication)). The
-*endpoint* behind it does not. `POST /api/scopecraft` remains a **public demo endpoint**:
-no session check, no per-caller rate limiting, so anyone who knows the URL can still spend
-the project's provider quota by calling it directly with curl.
+**Endpoint authentication & rate limiting — closed 2026-08-27.** Both the *page* at
+`/scopecraft` and the *endpoint* behind it now require a signed-in session (GitHub OAuth —
+see [Authentication](#authentication)). `POST /api/scopecraft` returns `401 UNAUTHORIZED`
+before it reads the request body, every generation is attributed to a `users` row, and a
+rolling 24-hour per-account budget returns `429 RATE_LIMITED`.
 
-That gap is deliberate and worth naming rather than glossing. Gating the UI raises the bar
-for a casual visitor and gives quota an owner to attribute to, but it is **not** a security
-control on its own — a login page in front of an open API stops nobody who reads the network
-tab. Closing it is stage 0 in
-[`docs/database-and-auth-design.md`](docs/database-and-auth-design.md) and is a separate
-change, because it also requires a database, a rate limit, and repairing every route test and
-evidence capture that currently posts anonymously.
+The budget counts **attempts, not successes**. A generation that reached a provider and then
+failed still spent tokens, so failed rows are recorded and counted — otherwise a caller could
+burn the whole quota on failures for free. A request rejected *before* the provider (bad JSON,
+schema failure, unintelligible idea) costs nothing and is not recorded, which is what makes
+counting attempts fair.
 
 What bounds the exposure today:
 
 | Control | Where | Effect |
 |---|---|---|
+| Session check | `route.ts`, stage 0 | An anonymous caller gets `401` before the body is read — no provider call, no database query |
 | 16 KB streamed body cap | `route.ts`, before `JSON.parse` | An oversized body is rejected without ever being parsed or held in memory |
-| Strict Zod validation | `RequestSchema`, before any provider import | A malformed request costs **zero** provider tokens |
+| Strict Zod validation | `RequestSchema`, before any provider import | A malformed request costs **zero** provider tokens **and zero database round trips** |
 | Local clarification heuristic | `getClarification`, pre-provider | Unintelligible input is refused without a model call |
+| Daily quota | `quota.ts`, stage 4b | One indexed `count(*)`; `429` once the rolling 24-hour budget is spent |
 | Per-request provider timeout | `AI_TIMEOUT_MS`, default 15 s | A single request cannot hold a connection open indefinitely |
 | Server-only credentials | Route handler + `NEXT_PUBLIC_` audit | A caller can spend quota but can never read a key |
 
-What is **not** bounded: the number of *valid* requests one caller may make. A well-formed
-request always reaches a provider.
+What is **still not bounded**, named rather than glossed:
+
+- **Per-IP abuse.** The limit is per account. Requiring a session stops anonymous quota burn;
+  someone willing to create many GitHub accounts is not addressed.
+- **Server-side session revocation.** JWT sessions cannot be killed before they expire.
+  Rotating `AUTH_SECRET` invalidates every session at once and is the only lever.
 
 **Production upgrade path**, in the order it should be done:
 
-1. **Edge middleware token-bucket rate limiting** — per-IP and per-session, in Next middleware
-   backed by a durable store (Upstash Redis or equivalent), so the limit survives serverless
-   cold starts rather than living in per-instance memory.
-2. **Session authentication (JWT)** — ~~move the endpoint~~ **partially done**: sign-in exists
-   and `/scopecraft` is behind it, but the *endpoint* is still anonymous. What remains is the
-   stage-0 session check in the route handler itself.
-3. **Per-account quota accounting** — daily generation budgets, since provider spend is the
-   real resource being protected.
+1. **Edge middleware token-bucket rate limiting** — per-IP, in Next middleware backed by a
+   durable store (Upstash Redis or equivalent), so the limit survives serverless cold starts
+   rather than living in per-instance memory. This is the one remaining layer.
+2. ~~**Session authentication (JWT)**~~ — **done.** Sign-in, the page, and the endpoint.
+3. ~~**Per-account quota accounting**~~ — **done.** Rolling 24-hour budget counted from the
+   `plans` table, configurable with `DAILY_PLAN_LIMIT`.
 
 Until (1) exists, treat the deployed URL as a demo whose cost ceiling is the provider account's
 own limits.

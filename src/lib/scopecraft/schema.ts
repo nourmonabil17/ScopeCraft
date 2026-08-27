@@ -252,11 +252,16 @@ export const REQUIRED_RESPONSE_FIELDS = [
  * distinguishable from "every provider was unreachable".
  */
 export const ERROR_CODES = [
+  // 401 — no valid session. First check in the route, before the body is read.
+  "UNAUTHORIZED",
   "PAYLOAD_TOO_LARGE",
   "INVALID_JSON",
   "VALIDATION_ERROR",
   "CLARIFICATION_REQUIRED",
   "OUT_OF_DOMAIN",
+  // 429 — over the daily generation budget. Checked after the free local
+  // validation, so a malformed request never costs a database round trip.
+  "RATE_LIMITED",
   "PLANNING_ERROR",
   "SCHEMA_VIOLATION",
   "PROVIDER_ERROR",

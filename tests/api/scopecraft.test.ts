@@ -27,6 +27,7 @@ import {
 import { POST } from "@/app/api/scopecraft/route";
 import { buildPrompt, fenceUserText } from "@/lib/scopecraft/service";
 import { NextRequest } from "next/server";
+import { dbMock, queueDbResult, signOut } from "./setup";
 
 /** Module-level request builder for the Module 3 suites below. */
 function makeRequest(body: string): NextRequest {
@@ -1593,5 +1594,124 @@ describe("provider model registry", () => {
       groq: "GROQ_API_KEY",
       gemini: "GEMINI_API_KEY",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Module 3 — the authentication and quota boundary.
+//
+// These exist because the ordering in route.ts is a security property, not a
+// style choice, and nothing else in this file would notice if it were reordered.
+// ---------------------------------------------------------------------------
+describe("authentication boundary", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("rejects an anonymous caller with 401 before touching anything", async () => {
+    signOut();
+    const spies = [
+      jest.spyOn(nvidiaProvider, "generate"),
+      jest.spyOn(groqProvider, "generate"),
+      jest.spyOn(geminiProvider, "generate"),
+    ];
+
+    const response = await POST(
+      makeRequest(JSON.stringify({ idea: "A valid product planning idea" }))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.code).toBe("UNAUTHORIZED");
+    // The point of putting the check at stage 0: an anonymous request costs
+    // neither a provider call nor a database round trip.
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+    expect(dbMock).not.toHaveBeenCalled();
+  });
+
+  it("does not leak provider or infrastructure detail in the 401", async () => {
+    signOut();
+    const response = await POST(makeRequest(JSON.stringify({ idea: "A valid idea here" })));
+    const body = JSON.stringify(await response.json());
+
+    expect(body).not.toMatch(/nvidia|groq|gemini|postgres|sql|session|token/i);
+  });
+});
+
+describe("daily quota boundary", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("returns 429 once the limit is reached, without calling a provider", async () => {
+    const spies = [
+      jest.spyOn(nvidiaProvider, "generate"),
+      jest.spyOn(groqProvider, "generate"),
+      jest.spyOn(geminiProvider, "generate"),
+    ];
+    queueDbResult([{ used: 20 }]); // at the default DAILY_LIMIT
+
+    const response = await POST(
+      makeRequest(JSON.stringify({ idea: "A valid product planning idea" }))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body.code).toBe("RATE_LIMITED");
+    expect(body.limit).toBe(20);
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("allows the request when under the limit", async () => {
+    queueDbResult([{ used: 3 }]);
+    jest.spyOn(nvidiaProvider, "generate").mockResolvedValue(fakeResponse);
+
+    const response = await POST(
+      makeRequest(JSON.stringify({ idea: "A valid product planning idea" }))
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it("records a failed generation, so a burnt attempt still counts against the quota", async () => {
+    jest.spyOn(console, "error").mockImplementation();
+    jest.spyOn(console, "warn").mockImplementation();
+    for (const p of [nvidiaProvider, groqProvider, geminiProvider]) {
+      jest.spyOn(p, "generate").mockRejectedValue(new ProviderError("provider_unavailable"));
+    }
+
+    const response = await POST(
+      makeRequest(JSON.stringify({ idea: "A valid product planning idea" }))
+    );
+    expect(response.status).toBe(502);
+
+    // The insert is the last query. Its interpolated values carry the status.
+    const values = dbMock.mock.calls.at(-1)?.slice(1) ?? [];
+    expect(values).toContain("failed");
+    expect(values).toContain("PROVIDER_ERROR");
+  });
+});
+
+describe("pipeline ordering with a session present", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it("never reaches the database for a malformed body from a signed-in caller", async () => {
+    const spies = [
+      jest.spyOn(nvidiaProvider, "generate"),
+      jest.spyOn(groqProvider, "generate"),
+      jest.spyOn(geminiProvider, "generate"),
+    ];
+
+    const cases: Array<[string, number]> = [
+      [JSON.stringify({ idea: "a".repeat(MAX_REQUEST_BODY_BYTES) }), 413],
+      ["{ not json", 400],
+      [JSON.stringify({ idea: "too short" }), 422],
+    ];
+
+    for (const [body, expected] of cases) {
+      expect((await POST(makeRequest(body))).status).toBe(expected);
+    }
+
+    // This is the assertion the quota fairness argument rests on: a malformed
+    // request costs the caller nothing, so counting attempts cannot punish a
+    // typo. Reordering the quota check above validation would break it.
+    expect(dbMock).not.toHaveBeenCalled();
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
   });
 });

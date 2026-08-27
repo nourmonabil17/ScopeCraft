@@ -52,7 +52,7 @@ Team reviews and edits the result
 - Replacing product-owner decisions
 - Generating unbounded/uncontrolled scope
 
-## 4a. Trust boundary: unauthenticated API surface
+## 4a. Trust boundary: the API surface
 
 Added 2026-08-24 after an information-disclosure review, so the boundary is a recorded
 decision rather than an unstated assumption.
@@ -60,21 +60,25 @@ decision rather than an unstated assumption.
 ```
    public internet
         │
-        │  no auth, no session, no rate limit   ← the open boundary
         ▼
 ┌───────────────────────────────────────────────┐
 │  POST /api/scopecraft   (Next.js route handler)│
 │  ┌─────────────────────────────────────────┐  │
+│  │ session check       → 401, body unread  │  │  ← closed 2026-08-27
+│  ├─────────────────────────────────────────┤  │
 │  │ 16 KB body cap      → 413, unparsed     │  │
 │  │ JSON.parse          → 400               │  │  cheap, local,
-│  │ Zod RequestSchema   → 422               │  │  zero-token
-│  │ clarification check → 422               │  │  rejections
+│  │ Zod RequestSchema   → 422               │  │  zero-token,
+│  │ clarification check → 422               │  │  zero-query
+│  ├─────────────────────────────────────────┤  │  rejections
+│  │ daily quota (1 query) → 429             │  │
 │  └─────────────────────────────────────────┘  │
 │  ══ no provider module imported above here ══ │
 │  provider call (credential never leaves here) │
+│  persist the outcome, success or failure      │
 └───────────────────────────────────────────────┘
-        │
-        ▼  NVIDIA / Groq / Gemini
+        │                          │
+        ▼  NVIDIA / Groq / Gemini  ▼  Postgres (users, plans)
 ```
 
 **What is protected.** Provider credentials are read only inside the server route handler and
@@ -82,19 +86,31 @@ never enter the client bundle; the pre-provider gates mean a malformed or abusiv
 request costs nothing; and error responses carry no provider name, model ID, stack trace or
 echoed input.
 
-**What is not protected.** The *volume* of well-formed requests. `/scopecraft` — the page —
-now requires a GitHub session (`src/app/scopecraft/layout.tsx`), but `POST /api/scopecraft`
-still accepts anonymous callers and applies no rate limit, so provider quota remains spendable
-by anyone with the URL and a terminal. A gated page in front of an open endpoint moves the
-casual-visitor bar, not the security boundary; recorded here as the primary remaining gap for
-production.
+**Closed 2026-08-27.** The endpoint is no longer anonymous. `POST /api/scopecraft` requires a
+session before it reads the body, every generation is attributed to a `users` row, and a
+rolling 24-hour per-account budget is counted from `plans`. The budget counts **attempts**,
+not successes — a generation that reached a provider and then failed still spent tokens, so
+`plans.status` allows `'failed'` and those rows count. Verified end to end: `401` with no
+cookie and zero rows written, `200` with a session and the row persisted, `429` at the limit.
 
-**Upgrade path.** ~~session JWT authentication~~ **done for the page** — Auth.js, GitHub
-OAuth, JWT strategy, no session table. What remains, in order: the stage-0 session check
-inside the route handler so the endpoint itself is attributable → per-account daily generation
-budgets counted from the `plans` table → edge middleware token-bucket rate limiting backed by
-a durable store (e.g. Upstash Redis) for the per-IP layer sign-in cannot cover. Designed in
+**What is still not protected.** The limit is **per account, not per IP**. Requiring a session
+is what stops anonymous quota burn; someone willing to create many GitHub accounts is not
+addressed. Sessions also cannot be revoked server-side before they expire — that is the price
+of the JWT strategy, and rotating `AUTH_SECRET` invalidates all of them at once, which is the
+only lever. Edge middleware token-bucket limiting backed by a durable store is the next layer
+if per-IP abuse becomes real; it is designed, not built.
+
+**Upgrade path.** ~~session JWT authentication~~ **done** — Auth.js, GitHub OAuth, JWT
+strategy, no session table. ~~stage-0 session check inside the route handler~~ **done**.
+~~per-account daily generation budgets counted from the `plans` table~~ **done**. What remains
+is edge middleware token-bucket rate limiting backed by a durable store (e.g. Upstash Redis)
+for the per-IP layer sign-in cannot cover. Designed in
 [`database-and-auth-design.md`](database-and-auth-design.md).
+
+> **Scope note.** §4 below froze "no authentication" as an MVP non-goal. That decision has
+> been deliberately reversed, in two steps — the page in the sign-in change, the endpoint
+> here. Recorded rather than left for an examiner to find as a contradiction; the reasoning is
+> in [`decision-log.md`](decision-log.md) entries 12 and 16.
 
 ## 5. Repository & Branch Rules
 

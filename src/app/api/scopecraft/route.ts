@@ -3,9 +3,19 @@
 // AI & Backend endpoint (owner: Youssef) — Module 4.
 //
 // Security boundary. Everything cheap and local happens before anything expensive
-// and remote: size cap, then JSON parse, then schema validation, then the domain
-// clarification check. No provider module is touched until all four have passed,
-// so a malformed request costs zero tokens.
+// and remote, and the ordering is the security property:
+//
+//   0.  session check      401  no reason to read a body from an anonymous caller
+//   1.  size cap           413
+//   2.  JSON parse         400
+//   3.  schema             422
+//   4.  clarification      422
+//   4b. daily quota        429  one DB round trip, after every free local check
+//   5.  generate                the only expensive step
+//   6.  persist the outcome
+//
+// A malformed request from a signed-in caller still costs zero provider tokens
+// *and* zero database round trips. Do not reorder these.
 //
 // Error discipline. Every failure is mapped to a typed code and a user-safe
 // message. Messages never contain provider names, model IDs, stack traces,
@@ -14,12 +24,17 @@
 // message can contain the request URL and therefore a key.
 
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { sql } from "@/lib/db";
+import { checkDailyQuota } from "@/lib/quota";
 import {
+  constraintsToText,
   getClarification,
   MAX_REQUEST_BODY_BYTES,
   normalizeRequestInput,
   RequestSchema,
   type ScopeCraftError,
+  type ScopeCraftRequest,
   type ValidationIssue,
 } from "@/lib/scopecraft/schema";
 import {
@@ -83,6 +98,13 @@ async function readLimitedBody(
 }
 
 export async function POST(req: NextRequest) {
+  // ---- 0. Session. Before the body is touched. ----
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return fail("UNAUTHORIZED", "Please sign in to generate a plan.", 401);
+  }
+
   // ---- 1. Size cap (before reading anything into memory) ----
   let body: unknown;
   try {
@@ -124,9 +146,30 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ---- 4b. Daily budget. The first database round trip, and the last check
+  //           before anything costs provider tokens. ----
+  const quota = await checkDailyQuota(userId);
+  if (quota.exceeded) {
+    return fail(
+      "RATE_LIMITED",
+      `You have reached the limit of ${quota.limit} plans per day. Please try again tomorrow.`,
+      429,
+      { limit: quota.limit, used: quota.used }
+    );
+  }
+
   // ---- 5. Generate ----
   try {
     const { data, providerUsed, promptVersion } = await runScopeCraft(parsed.data);
+
+    // ---- 6. Record the success. ----
+    await recordPlan(userId, parsed.data, {
+      status: "ok",
+      response: data,
+      providerUsed,
+      promptVersion,
+    });
+
     return NextResponse.json(data, {
       status: 200,
       headers: {
@@ -135,7 +178,78 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    return mapGenerationError(error);
+    const response = mapGenerationError(error);
+
+    // ---- 6. Record the failure too. ----
+    // Only failures that got this far are recorded, and every one of them
+    // reached a provider — the 4xx paths above return long before here. That is
+    // what makes counting attempts fair: a malformed request still costs the
+    // caller nothing, while a generation that burned tokens and then failed
+    // counts against the quota.
+    await recordPlan(userId, parsed.data, {
+      status: "failed",
+      errorCode: await readErrorCode(response),
+    });
+
+    return response;
+  }
+}
+
+interface PlanOutcome {
+  status: "ok" | "failed";
+  response?: unknown;
+  errorCode?: string;
+  providerUsed?: string;
+  promptVersion?: string;
+}
+
+/**
+ * Persists one generation attempt.
+ *
+ * Never throws. A failed bookkeeping write must not destroy a plan the user
+ * already waited for and already paid provider tokens for — the request
+ * succeeded, and the only thing lost is a row. The failure is logged so it is
+ * visible rather than silent, but the caller's result is returned regardless.
+ * The cost of that choice is honest: a persistence outage under-counts the
+ * quota for as long as it lasts.
+ */
+async function recordPlan(
+  userId: string,
+  request: ScopeCraftRequest,
+  outcome: PlanOutcome
+): Promise<void> {
+  try {
+    await sql`
+      insert into plans (user_id, idea, constraints, capacity_points, sprint_days,
+                         status, error_code, response, provider_used, prompt_version)
+      values (${userId},
+              ${request.idea},
+              ${constraintsToText(request.constraints) ?? null},
+              ${request.team_capacity_points},
+              ${request.sprint_length_days},
+              ${outcome.status},
+              ${outcome.errorCode ?? null},
+              ${outcome.response ? sql.json(outcome.response as never) : null},
+              ${outcome.providerUsed ?? null},
+              ${outcome.promptVersion ?? null})`;
+  } catch (error) {
+    // Deliberately not `logFailure`: this is not a request failure, and
+    // conflating the two would make the quota look like it was rejecting
+    // people. No connection string, no request body.
+    console.error(
+      `scopecraft.persist_failed status=${outcome.status} ` +
+        `reason=${error instanceof Error ? error.name : "unknown"}`
+    );
+  }
+}
+
+/** Reads the typed code back off a response we just built, without consuming it. */
+async function readErrorCode(response: NextResponse): Promise<string> {
+  try {
+    const body = (await response.clone().json()) as Partial<ScopeCraftError>;
+    return body.code ?? "PROVIDER_ERROR";
+  } catch {
+    return "PROVIDER_ERROR";
   }
 }
 

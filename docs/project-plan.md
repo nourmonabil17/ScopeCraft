@@ -416,20 +416,24 @@ belong in a committed project file.
 
 ### 3.1 Persist the user on sign-in
 
-- [ ] **3.1.1** Add the `jwt` callback to `src/auth.ts` — upsert on `email`, return the row
+- [x] **3.1.1** Add the `jwt` callback to `src/auth.ts` — upsert on `email`, return the row
       id, store as `token.uid`.
-- [ ] **3.1.2** Add the `session` callback so `session.user.id` reaches anything that needs
+- [x] **3.1.2** Add the `session` callback so `session.user.id` reaches anything that needs
       it.
-- [ ] **3.1.3** Add the `next-auth` module augmentation so `session.user.id` is typed.
+- [x] **3.1.3** Add the `next-auth` module augmentation so `session.user.id` is typed.
       Without it `npm run typecheck` passes on a lie.
-- [ ] **3.1.4** Keep the `if (token.uid) return token` early exit — the callback runs on
+- [x] **3.1.4** Keep the `if (token.uid) return token` early exit — the callback runs on
       every JWT refresh, not only first sign-in. That guard is what makes it one insert per
       user rather than one per request.
-- [ ] **3.1.5** **Decision:** what happens when GitHub returns no email (a private-email
-      user)? `token.email` would be null and the upsert violates `not null`. Either request
-      the `user:email` scope explicitly, or fail sign-in with an actionable message. **Do
-      not** silently generate a fake email.
-- [ ] **3.1.6** Verify: sign in → exactly one row in `users`. Sign out, sign in again →
+- [x] **3.1.5** **Decision — ANSWERED, and the premise was half wrong.** The Auth.js GitHub
+      provider *already* requests `read:user user:email` and already falls back to
+      `/user/emails` for the primary address when the public one is null, so a private email
+      is not the failure case. What remains is genuinely rare — a revoked scope, a GitHub API
+      failure mid-flow, an account with no address at all — and it now **fails the sign-in
+      with a named error** rather than surfacing as a `not null` violation. No placeholder is
+      generated: `users.email` is the unique key, so a fabricated value would either collide
+      with another user or create an unreachable orphan row.
+- [x] **3.1.6** Verify: sign in → exactly one row in `users`. Sign out, sign in again →
       still exactly one row.
 
 ### 3.2 Stage-0 session check on the API route
@@ -437,47 +441,53 @@ belong in a committed project file.
 **The point of the whole exercise.** Until this step the endpoint is open and the quota
 boundary is not closed.
 
-- [ ] **3.2.1** Add `UNAUTHORIZED` (401) and `RATE_LIMITED` (429) to `ERROR_CODES` in
+- [x] **3.2.1** Add `UNAUTHORIZED` (401) and `RATE_LIMITED` (429) to `ERROR_CODES` in
       `src/lib/scopecraft/schema.ts`.
-- [ ] **3.2.2** Put the session check **first** in the handler — before the 16 KB body read.
+- [x] **3.2.2** Put the session check **first** in the handler — before the 16 KB body read.
       There is no reason to read a body from an anonymous caller.
-- [ ] **3.2.3** Match the existing error envelope exactly. A new code with a different shape
+- [x] **3.2.3** Match the existing error envelope exactly. A new code with a different shape
       breaks the frontend's single error parser.
-- [ ] **3.2.4** Confirm the 401 body leaks nothing — no provider name, no stack, no echoed
+- [x] **3.2.4** Confirm the 401 body leaks nothing — no provider name, no stack, no echoed
       input.
-- [ ] **3.2.5** Verify with `curl`: no cookie → `401`; valid session cookie → proceeds.
-- [ ] **3.2.6** Re-verify the pipeline is otherwise unchanged — a malformed request from an
+- [x] **3.2.5** Verify with `curl`: no cookie → `401`; valid session cookie → proceeds.
+- [x] **3.2.6** Re-verify the pipeline is otherwise unchanged — a malformed request from an
       *authenticated* caller must still cost zero provider tokens.
 
 ### 3.3 Persist the plan
 
-- [ ] **3.3.1** Insert the success row after `runScopeCraft` returns, including
+- [x] **3.3.1** Insert the success row after `runScopeCraft` returns, including
       `provider_used` and `prompt_version` (they mirror the response headers).
-- [ ] **3.3.2** Insert the failure row in the `catch` with `status = 'failed'` and the error
+- [x] **3.3.2** Insert the failure row in the `catch` with `status = 'failed'` and the error
       code. A generation that reached a provider and then failed still cost tokens; if only
       successes were stored, a caller could burn quota on failures for free.
-- [ ] **3.3.3** Confirm the 4xx paths above stage 5 never reach either insert.
-- [ ] **3.3.4** **Decision:** what if the *insert* fails while the *generation* succeeded?
-      Recommendation: return the plan and log the persistence failure. A user's result
-      should not be discarded because a bookkeeping write failed.
-- [ ] **3.3.5** Confirm `sql.json(data)` round-trips unchanged — select it back and
+- [x] **3.3.3** Confirm the 4xx paths above stage 5 never reach either insert.
+- [x] **3.3.4** **Decision — ANSWERED: return the plan, log the failure.** `recordPlan` never
+      throws. A failed bookkeeping write must not destroy a plan the user already waited for
+      and already spent provider tokens on. The cost is stated rather than hidden: a
+      persistence outage under-counts the quota for as long as it lasts. Logged with an error
+      *name* only — no connection string, no request body.
+- [x] **3.3.5** Confirm `sql.json(data)` round-trips unchanged — select it back and
       deep-compare against what was returned to the client.
 
 ### 3.4 Rate limiting
 
-- [ ] **3.4.1** Write `src/lib/quota.ts` — `count(*)` over `plans` in the last 24 hours.
-- [ ] **3.4.2** Place it at **stage 4b**: after the free local checks, before
+- [x] **3.4.1** Write `src/lib/quota.ts` — `count(*)` over `plans` in the last 24 hours.
+- [x] **3.4.2** Place it at **stage 4b**: after the free local checks, before
       `runScopeCraft`. A malformed request must never cost a database round trip.
-- [ ] **3.4.3** Configurable via `DAILY_PLAN_LIMIT`, default 20. Add to `.env.example`.
-- [ ] **3.4.4** Confirm it counts **attempts**, not successes.
-- [ ] **3.4.5** Return the limit and a reset hint in the 429 body so the UI can say
+- [x] **3.4.3** Configurable via `DAILY_PLAN_LIMIT`, default 20. Add to `.env.example`.
+- [x] **3.4.4** Confirm it counts **attempts**, not successes.
+- [x] **3.4.5** Return the limit and a reset hint in the 429 body so the UI can say
       something better than "try again later".
-- [ ] **3.4.6** `EXPLAIN` the count query — confirm it uses `plans_user_created_idx` and
+- [x] **3.4.6** `EXPLAIN` the count query — confirm it uses `plans_user_created_idx` and
       does not sequential-scan. This runs on every generation.
-- [ ] **3.4.7** Verify with `DAILY_PLAN_LIMIT=2` locally and three generations.
-- [ ] **3.4.8** Write down what it does **not** solve: it is per-account, not per-IP.
+- [x] **3.4.7** Verify with `DAILY_PLAN_LIMIT=2` locally and three generations.
+- [x] **3.4.8** Write down what it does **not** solve: it is per-account, not per-IP.
 
 ### 3.5 Read and write APIs for the frontend
+
+**Blocked on 4.3.1 and 4.4.1** — both are Module 4 decisions about whether the frontend grows
+a history view and a persisted board. Nothing here can be built until those are answered, and
+building it speculatively would be an API surface with no caller.
 
 - [ ] **3.5.1** **Decision:** does plan history ship? (See 4.3.) If not, skip 3.5.
 - [ ] **3.5.2** If yes: prefer a server component reading the database directly over a new
@@ -494,11 +504,11 @@ boundary is not closed.
 
 ### 3.6 Server-side logging
 
-- [ ] **3.6.1** Confirm the existing safe-logging rules still hold: no API key, no full
+- [x] **3.6.1** Confirm the existing safe-logging rules still hold: no API key, no full
       prompt, no user input echoed into logs.
-- [ ] **3.6.2** Decide what a persistence failure logs, and confirm it does not include the
+- [x] **3.6.2** Decide what a persistence failure logs, and confirm it does not include the
       connection string.
-- [ ] **3.6.3** Confirm nothing added in this plan logs a session token or cookie value.
+- [x] **3.6.3** Confirm nothing added in this plan logs a session token or cookie value.
 
 ---
 

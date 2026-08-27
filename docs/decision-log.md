@@ -306,3 +306,45 @@ nonce or hash policy and saying so is more useful than closing the row.
     that owned them. The rate-limit count plans as an **Index Only Scan** on
     `plans_user_created_idx` — it never touches the heap. A constraint nobody has watched
     fire is a constraint nobody knows works.
+
+16. **The endpoint is closed: session at stage 0, quota at stage 4b — 2026-08-27.**
+    `POST /api/scopecraft` is no longer anonymous. This reverses the "no authentication" MVP
+    non-goal in `architecture.md` §4 for the second and final time — the page went first, the
+    endpoint now — and it is recorded here rather than left for an examiner to find as a
+    contradiction between two documents.
+
+    **The ordering is the security property, not a style choice.** The session check runs
+    before the body is read, because there is no reason to read a body from an anonymous
+    caller. The quota query runs *after* every free local check, because a malformed request
+    must not cost a database round trip. That second one is what makes counting attempts fair:
+    a typo cannot consume quota. Both are asserted by tests, and the ordering test was
+    mutation-checked — moving the quota query above validation makes it fail.
+
+    **The quota counts attempts, not successes.** A generation that reached a provider and
+    then failed still spent tokens, so `plans.status` allows `'failed'` and those rows count.
+    Storing only successes would let a caller burn the entire budget on failures for free.
+
+    **A persistence failure never destroys a result.** `recordPlan` swallows its own errors:
+    the user already waited for the plan and the tokens are already spent, so a failed
+    bookkeeping write returns the plan anyway and logs an error name. The cost is honest — a
+    persistence outage under-counts the quota while it lasts.
+
+    **What is still open, and will be asked.** The limit is per account, not per IP; sessions
+    cannot be revoked before they expire under the JWT strategy. Both are named in the README
+    and `architecture.md` §4a rather than implied.
+
+17. **The database client is lazy, because eager initialisation broke the build — 2026-08-27.**
+    `src/lib/db.ts` first read `DATABASE_URL` and threw at module scope, on the reasoning that
+    a missing variable should fail immediately with a stack trace naming the file. That is
+    wrong in a Next.js app and the build said so: `next build` collects page data by evaluating
+    every route module, `/api/auth/[...nextauth]` imports `@/auth` which imports the client,
+    and the build died with "DATABASE_URL is not set".
+
+    The same failure would have hit **the Vercel build**, where `DATABASE_URL` is not
+    configured — so an unrelated-looking improvement would have taken production down on the
+    next deploy. The client is now created on first use behind a Proxy, which keeps the
+    driver's own API (`sql\`…\`` and `sql.json`) intact while deferring the connection. The
+    error message is unchanged; only its timing moved.
+
+    Generalisable, and worth saying at the defense: **build-time module evaluation has no
+    runtime environment.** Anything that requires one must be lazy.

@@ -8,33 +8,57 @@
 // `postgres` driver's tagged templates parameterise every interpolation by
 // construction, which is the one property an ORM would have been bought for.
 //
+// WHY THE CLIENT IS LAZY. This was first written to read DATABASE_URL and throw
+// at module scope, on the theory that a missing variable should surface with a
+// stack trace naming this file. That broke `next build`: page-data collection
+// evaluates every route module, `/api/auth/[...nextauth]` imports `@/auth`
+// which imports this file, and the build died with "DATABASE_URL is not set".
+// The same failure would have hit the Vercel build, where DATABASE_URL is not
+// configured. Build-time module evaluation has no runtime environment, so
+// nothing here may require one until it is actually used.
+//
 // SERVER ONLY. Nothing under a "use client" boundary may import this file; a
 // single accidental import would try to bundle a database driver into the
-// browser. `server-only` is not installed for this — the import graph is small
-// enough to check, and Next already fails the build when a Node built-in
-// reaches the client bundle.
+// browser. Checked across all 21 client components as of 2026-08-27.
 
-import postgres from "postgres";
+import postgres, { type Sql } from "postgres";
 
-const url = process.env.DATABASE_URL;
+let client: Sql | undefined;
 
-if (!url) {
-  // Thrown at import time rather than at first query. A missing DATABASE_URL is
-  // a deployment mistake, and it should surface when the module loads — while
-  // the stack trace still names this file — instead of as a query failure
-  // inside whatever route happened to be hit first.
-  throw new Error(
-    "DATABASE_URL is not set. Copy .env.example to .env.local, and start the " +
-      "database with `npm run db:up`."
-  );
+function connect(): Sql {
+  if (client) return client;
+
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    // Thrown on first query rather than on import — see the header. Still the
+    // message someone can act on, just at the moment the connection is wanted.
+    throw new Error(
+      "DATABASE_URL is not set. Copy .env.example to .env.local, and start the " +
+        "database with `npm run db:up`."
+    );
+  }
+
+  // `max: 1` is not a typo. Serverless multiplies connections by instance
+  // count, and a free-tier Postgres has a low connection ceiling — a pool of 10
+  // across 20 warm lambdas exhausts it. One connection per instance, reused
+  // across requests on that instance, is what fits the deployment shape.
+  client = postgres(url, { max: 1 });
+  return client;
 }
 
 /**
- * One pooled client per process.
+ * The query client, with the same surface as `postgres()` itself.
  *
- * `max: 1` is not a typo. Serverless multiplies connections by instance count,
- * and a free-tier Postgres has a low connection ceiling — a pool of 10 across
- * 20 warm lambdas exhausts it. One connection per instance, reused across
- * requests on that instance, is what actually fits the deployment shape.
+ * A Proxy rather than a plain function because callers use two different
+ * shapes: `sql\`select 1\`` (a call) and `sql.json(x)` / `sql.end()` (property
+ * access). Forwarding both to a lazily-created client is the smallest thing
+ * that keeps the driver's own API intact while deferring the connection.
  */
-export const sql = postgres(url, { max: 1 });
+export const sql = new Proxy(function () {} as unknown as Sql, {
+  apply(_target, _thisArg, args: unknown[]) {
+    return (connect() as unknown as (...a: unknown[]) => unknown)(...args);
+  },
+  get(_target, prop: string | symbol) {
+    return (connect() as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
