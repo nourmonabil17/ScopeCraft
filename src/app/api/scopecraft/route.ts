@@ -148,7 +148,28 @@ export async function POST(req: NextRequest) {
 
   // ---- 4b. Daily budget. The first database round trip, and the last check
   //           before anything costs provider tokens. ----
-  const quota = await checkDailyQuota(userId);
+  //
+  // FAILS CLOSED, deliberately. If the quota store is unreachable the budget
+  // cannot be enforced, and generating anyway would mean "when the database is
+  // down, this endpoint is unmetered" — which is precisely the property the
+  // session check and the budget exist to remove. An outage would become a way
+  // to spend provider quota without limit. Refusing is worse UX for a rare
+  // failure and better behaviour for the thing being protected.
+  let quota;
+  try {
+    quota = await checkDailyQuota(userId);
+  } catch (error) {
+    logFailure("STORAGE_UNAVAILABLE", 503);
+    console.error(
+      `scopecraft.quota_unavailable reason=${error instanceof Error ? error.name : "unknown"}`
+    );
+    return fail(
+      "STORAGE_UNAVAILABLE",
+      "Plans cannot be generated right now. Please try again shortly.",
+      503
+    );
+  }
+
   if (quota.exceeded) {
     return fail(
       "RATE_LIMITED",

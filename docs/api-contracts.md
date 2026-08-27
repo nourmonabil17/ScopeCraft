@@ -128,6 +128,7 @@ client can exhaustively switch on it.
 | `422` | `CLARIFICATION_REQUIRED` | Idea detected as unintelligible; response adds `questions: string[]` | no |
 | `422` | `OUT_OF_DOMAIN` | Request is outside software product planning; the model returned the refusal envelope | yes (one tier only) |
 | `429` | `RATE_LIMITED` | Over the rolling 24-hour budget for this account; response adds `limit` and `used` | no |
+| `503` | `STORAGE_UNAVAILABLE` | The quota store is unreachable, so the daily budget cannot be enforced. Fails **closed** on purpose: generating anyway would leave the endpoint unmetered for the duration of a database outage | no |
 | `404` | `NOT_FOUND` | `PATCH` only. No such plan, **or** it belongs to another account — deliberately the same answer for both, so the endpoint cannot be used to discover real ids | no |
 | `502` | `PLANNING_ERROR` | Deterministic planner rejected the model's estimates (story exceeds capacity, missing dependency, dependency cycle, duplicate story ID) | yes |
 | `502` | `SCHEMA_VIOLATION` | Model output failed `ModelReplySchema` on the initial pass **and** on the single retry | yes |
@@ -293,7 +294,7 @@ zero tokens:
 3.  RequestSchema       → 422 VALIDATION_ERROR
 4.  clarification check → 422 CLARIFICATION_REQUIRED
 ────────────── no database round trip above this line ──────────────
-4b. daily quota         → 429 RATE_LIMITED
+4b. daily quota         → 429 RATE_LIMITED / 503 STORAGE_UNAVAILABLE
 ────────────── no provider module touched above this line ──────────────
 5.  runScopeCraft       → 200 / 422 / 502 / 504
 6.  persist the outcome       (never changes the response)

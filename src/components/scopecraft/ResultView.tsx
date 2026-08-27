@@ -32,6 +32,7 @@ import type { ScopeCraftResponse } from "@/lib/scopecraft/schema";
 import { useLanguage } from "@/context/LanguageContext";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import { InteractiveSprintBoard, type BoardSnapshot } from "./InteractiveSprintBoard";
+import type { BoardEdits } from "@/lib/scopecraft/schema";
 import { EvidencePanel } from "./EvidencePanel";
 import { ExportActions } from "./ExportActions";
 import styles from "./ResultView.module.css";
@@ -44,6 +45,8 @@ export interface ResultViewProps {
   promptVersion?: string;
   /** Live board state, so exports reflect manual edits. */
   board?: BoardSnapshot;
+  /** Previously saved edits, when viewing a plan loaded from the database. */
+  savedEdits?: BoardEdits;
 }
 
 const MOSCOW_LABEL_KEY = {
@@ -97,6 +100,7 @@ export function ResultView({
   providerUsed = "unknown",
   promptVersion = "unknown",
   board,
+  savedEdits,
 }: ResultViewProps) {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
@@ -353,6 +357,7 @@ export function ResultView({
           <p className={styles.prose}>{t("board.intro")}</p>
 
           <InteractiveSprintBoard
+            savedEdits={savedEdits}
             stories={data.user_stories}
             priority={data.priority}
             moscow={data.moscow}

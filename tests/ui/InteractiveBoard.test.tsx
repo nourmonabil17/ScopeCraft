@@ -318,3 +318,47 @@ describe("InteractiveSprintBoard · reports state upward", () => {
     expect(snapshot.capacity.committedPoints).toBe(3); // US-3 only: 8 - 5 (US-1)
   });
 });
+
+// ---------------------------------------------------------------------------
+// Module 5 — a reopened plan.
+//
+// This exists because the first version of saved-board loading shipped points
+// of 13 next to "Score 2.00" — the score for 5 points, not 13. The displayed
+// score contradicted the displayed points, which is exactly the second-source-
+// of-truth failure the storage design was built to avoid.
+// ---------------------------------------------------------------------------
+describe("loading a saved board", () => {
+  function renderSaved() {
+    renderWithProviders(
+      <InteractiveSprintBoard
+        stories={STORIES}
+        priority={PRIORITY}
+        moscow={MOSCOW}
+        sprintPlan={SPRINT_PLAN}
+        savedEdits={{ "US-1": { points: 13, column: "included" } }}
+      />
+    );
+  }
+
+  it("applies saved points and recomputes the score rather than replaying the old one", () => {
+    renderSaved();
+
+    expect(screen.getByDisplayValue("13")).toBeInTheDocument();
+
+    // Scoped to US-1's own row. US-3 legitimately scores 2.00 in this fixture,
+    // so a document-wide assertion would pass or fail for the wrong reason.
+    const row = screen.getByDisplayValue("13").closest("li") as HTMLElement;
+
+    // US-1 is value 5, risk 5. Scored at 13 points that is 0.77 — not the 2.00
+    // the server computed when it was 5 points.
+    expect(within(row).getByText(/0\.77/)).toBeInTheDocument();
+    expect(within(row).queryByText(/Score 2\.00/)).not.toBeInTheDocument();
+  });
+
+  it("leaves an unedited story showing exactly what the API returned", () => {
+    renderSaved();
+
+    // US-2 has no saved edit, so it keeps the server's own score.
+    expect(screen.getByText(new RegExp(PRIORITY["US-2"].toFixed(2)))).toBeInTheDocument();
+  });
+});

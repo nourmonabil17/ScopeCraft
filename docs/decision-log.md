@@ -386,3 +386,36 @@ nonce or hash policy and saying so is more useful than closing the row.
     fetching a full PRD per row to do that would move megabytes to render kilobytes. Capped at
     50 rather than paginated — the daily quota is 20, so a "load more" control would be
     scaffolding for a scale this app does not have.
+
+19. **The quota check fails closed; derived values are rebuilt, never replayed — 2026-08-27.**
+    Two findings from integration testing, both of which only appear when something is
+    actually broken or actually reloaded.
+
+    **A database outage used to return an untyped `500` with an empty body**, bypassing the
+    error contract entirely, and the history page served the framework's crash screen. The
+    route now returns `503 STORAGE_UNAVAILABLE` and the page degrades to an error card with
+    its header and navigation intact.
+
+    The interesting half is *which way to fail*. Generating anyway when the quota store is
+    unreachable is better UX and worse behaviour: it would mean "while the database is down,
+    this endpoint is unmetered" — the exact property the session check and the budget were
+    added to remove, and an outage would become a way to spend provider quota without limit.
+    It fails **closed**. Worse experience for a rare failure, correct behaviour for the thing
+    being protected.
+
+    **Board persistence was write-only.** Edits saved and were never read back, which is not
+    persistence from the user's side and left the round trip unverifiable. Building the load
+    path exposed the real defect: a reopened plan rendered the saved **13 points** next to
+    **"Score 2.00"** — the score computed when that story was 5 points. The displayed score
+    contradicted the displayed number beside it.
+
+    That is the second-source-of-truth failure this codebase's central rule exists to
+    prevent, arriving through the back door: not by storing a derived value, but by
+    *replaying* one. `deriveInitialStories` applied the saved points while `liveScores`
+    stayed empty and fell back to the server's original scoring. Fixed by seeding the live
+    scores from the saved edits, so a reopened plan is scored by **today's** formula. The
+    same story now reads 13 points, Score 0.46, Won't.
+
+    Generalisable, and the reason the storage schema is shaped the way it is: storing only
+    `points` and `column` is not enough on its own. Everything derived from them has to be
+    *recomputed on load*, or the stored two and the displayed rest drift apart.

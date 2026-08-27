@@ -42,16 +42,39 @@ export default async function HistoryPage() {
   const userId = session?.user?.id;
   if (!userId) return null; // unreachable: the layout redirects first
 
-  const plans = await sql<PlanSummary[]>`
-    select id, idea, status, error_code as "errorCode",
-           capacity_points as "capacityPoints", sprint_days as "sprintDays",
-           provider_used as "providerUsed",
-           board is not null as edited,
-           created_at as "createdAt"
-    from plans
-    where user_id = ${userId}
-    order by created_at desc
-    limit ${MAX_ROWS}`;
+  // A database outage should degrade this page, not replace it with the
+  // framework's crash screen. The header, the language toggle and the way back
+  // to /scopecraft all still work; only the list is missing, and it says so.
+  let plans: PlanSummary[];
+  try {
+    plans = await sql<PlanSummary[]>`
+      select id, idea, status, error_code as "errorCode",
+             capacity_points as "capacityPoints", sprint_days as "sprintDays",
+             provider_used as "providerUsed",
+             board is not null as edited,
+             created_at as "createdAt"
+      from plans
+      where user_id = ${userId}
+      order by created_at desc
+      limit ${MAX_ROWS}`;
+  } catch (error) {
+    console.error(
+      `scopecraft.history_unavailable reason=${error instanceof Error ? error.name : "unknown"}`
+    );
+    return (
+      <>
+        <Header />
+        <main id="main-content" className={styles.main} tabIndex={-1}>
+          <HistoryList plans={null} />
+          <p>
+            <Link href="/scopecraft" className={styles.backLink}>
+              ScopeCraft
+            </Link>
+          </p>
+        </main>
+      </>
+    );
+  }
 
   return (
     <>

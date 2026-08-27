@@ -34,6 +34,7 @@ import {
 } from "@/lib/scopecraft/client-recalc";
 import { useLanguage } from "@/context/LanguageContext";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import type { BoardEdits } from "@/lib/scopecraft/schema";
 import styles from "./InteractiveSprintBoard.module.css";
 
 /** What the board reports upward on every change, so a parent (export
@@ -51,6 +52,8 @@ export interface InteractiveSprintBoardProps {
   moscow: Readonly<Record<string, MoscowBucket>>;
   sprintPlan: SprintPlanResult;
   onBoardChange?: (snapshot: BoardSnapshot) => void;
+  /** Previously saved human edits, applied over the generated plan on load. */
+  savedEdits?: BoardEdits;
 }
 
 const MOSCOW_LABEL_KEY: Record<MoscowBucket, TranslationKey> = {
@@ -67,22 +70,64 @@ const MOSCOW_BADGE_CLASS: Record<MoscowBucket, string> = {
   wont: styles.badgeWont,
 };
 
+/**
+ * The generated plan, with the human's saved edits laid over it.
+ *
+ * Only `points` and `column` come from `savedEdits`, because they are the only
+ * two things ever stored — everything else is re-derived from the model's own
+ * output on every load. That is what makes a saved board safe: the AI's answer
+ * is the base layer and cannot be overwritten, and the scores and buckets are
+ * recomputed by today's formula rather than replayed from whatever the formula
+ * said when the board was saved.
+ *
+ * A saved edit for a story id that is no longer in the plan is ignored, and a
+ * story with no saved edit keeps its generated values.
+ */
 function deriveInitialStories(
   stories: readonly UserStory[],
-  sprintPlan: SprintPlanResult
+  sprintPlan: SprintPlanResult,
+  savedEdits?: BoardEdits
 ): BoardStory[] {
   const includedIds = new Set(sprintPlan.included);
-  return stories.map((story) => ({
-    storyId: story.id,
-    asA: story.as_a,
-    iWant: story.i_want,
-    soThat: story.so_that,
-    value: story.value,
-    risk: story.risk,
-    points: story.points,
-    dependencies: story.dependencies ?? [],
-    column: includedIds.has(story.id) ? "included" : "deferred",
-  }));
+  return stories.map((story) => {
+    const saved = savedEdits?.[story.id];
+    return {
+      storyId: story.id,
+      asA: story.as_a,
+      iWant: story.i_want,
+      soThat: story.so_that,
+      value: story.value,
+      risk: story.risk,
+      points: saved?.points ?? story.points,
+      dependencies: story.dependencies ?? [],
+      column: saved?.column ?? (includedIds.has(story.id) ? "included" : "deferred"),
+    };
+  });
+}
+
+/**
+ * Recomputes score and bucket for every story whose saved points differ from
+ * the ones the server scored. Stories with no saved edit are left out, so they
+ * keep showing exactly what the API returned.
+ */
+function seedLiveScores(
+  stories: readonly UserStory[],
+  savedEdits?: BoardEdits
+): Record<string, { score: number; moscow: MoscowBucket }> {
+  if (!savedEdits) return {};
+
+  const seeded: Record<string, { score: number; moscow: MoscowBucket }> = {};
+  for (const story of stories) {
+    const saved = savedEdits[story.id];
+    if (!saved || saved.points === story.points) continue;
+    const recomputed = recalcScore({
+      value: story.value,
+      risk: story.risk,
+      points: saved.points,
+    });
+    if (recomputed) seeded[story.id] = recomputed;
+  }
+  return seeded;
 }
 
 export function InteractiveSprintBoard({
@@ -91,17 +136,25 @@ export function InteractiveSprintBoard({
   moscow,
   sprintPlan,
   onBoardChange,
+  savedEdits,
 }: InteractiveSprintBoardProps) {
   const { t } = useLanguage();
   const [board, setBoard] = useState<BoardStory[]>(() =>
-    deriveInitialStories(stories, sprintPlan)
+    deriveInitialStories(stories, sprintPlan, savedEdits)
   );
   // Live score/bucket per story, recomputed after any points edit. Falls back
   // to the server-supplied values until an edit invalidates them, so a story
   // nobody touched keeps showing exactly what the API returned.
+  //
+  // SEEDED FROM SAVED EDITS. A reopened plan arrives with points that already
+  // differ from the ones the server scored, so an empty map here would fall
+  // back to a score that contradicts the number in the field beside it —
+  // "13 points, Score 2.00", which was scored at 3. Seeding recomputes those
+  // stories with today's formula, which is also why only `points` and `column`
+  // are ever stored: derived values are rebuilt, never replayed.
   const [liveScores, setLiveScores] = useState<
     Record<string, { score: number; moscow: MoscowBucket }>
-  >({});
+  >(() => seedLiveScores(stories, savedEdits));
 
   // Memoized, not recomputed inline: recalcCapacity returns a fresh object
   // literal on every call. Without memoization, `capacity` gets a new object

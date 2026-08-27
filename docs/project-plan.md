@@ -578,42 +578,44 @@ Module 4.
 
 The seams. Each is a place where two correct halves make one broken whole.
 
-- [ ] **5.1.1** End to end by hand: signed out → signed in → generate → view → sign out. In
-      both locales and both themes.
-- [ ] **5.1.2** Confirm the frontend's error parser handles all **ten** codes:
-      `INVALID_JSON`, `PAYLOAD_TOO_LARGE`, `VALIDATION_ERROR`, `CLARIFICATION_REQUIRED`,
-      `OUT_OF_DOMAIN`, `PLANNING_ERROR`, `SCHEMA_VIOLATION`, `PROVIDER_ERROR`, `TIMEOUT`,
-      plus `UNAUTHORIZED` and `RATE_LIMITED`.
-- [ ] **5.1.3** Confirm the response headers the UI depends on still arrive:
-      `X-Provider-Used`, `X-Prompt-Version`. The evidence panel reads them.
-- [ ] **5.1.4** Confirm provider failover still works with auth in play — the session check
-      is upstream and must not have changed the timeout budget.
-- [ ] **5.1.5** Confirm the deterministic boundary survived the round trip: a plan loaded
-      from the database recomputes `priority`, `effort`, `sprint`, `sprint_plan` and
-      `moscow` identically to when it was generated.
-- [ ] **5.1.6** Confirm `committed_points <= capacity_points` on a freshly captured **live**
-      result, not a fixture.
-- [ ] **5.1.7** Confirm the app behaves sanely when the **database is down** — Docker makes
-      this easy (`docker compose stop db`). Decide what the user sees; a stack trace is not
-      an answer.
-- [ ] **5.1.8** Confirm the app behaves sanely when **all three providers** are down.
-      Already captured in evidence; re-verify it still holds.
-- [ ] **5.1.9** Confirm the CSP still permits everything the new UI does — new fetches, new
-      images, new inline anything.
-- [ ] **5.1.10** Confirm a **cold serverless start** works: the first request after a
-      deployment does the database connection and the auth check for the first time.
-
----
----
-
-# Part II — Verify
-
----
-
-## Module 6 — QA & testing
-
-### 6.1 Repair what the change breaks
-
+- [x] **5.1.1** End to end by hand: signed out → signed in → generate → view → sign out. In
+      both locales and both themes. **Done** — including the reopened-plan path, checked in
+      `ar`/dark and `en`/light.
+- [x] **5.1.2** Confirm the frontend's error parser handles every code. **All 13**:
+      `UNAUTHORIZED`, `VALIDATION_ERROR` and `OUT_OF_DOMAIN` are handled explicitly; the
+      other ten fall to the "explain and offer retry" shape, which is the right one for each.
+      Two codes are new since this step was written — `NOT_FOUND` and `STORAGE_UNAVAILABLE`.
+- [x] **5.1.3** Confirm the response headers the UI depends on still arrive.
+      `X-Provider-Used`, `X-Prompt-Version` and the new `X-Plan-Id`, all three present.
+- [x] **5.1.4** Confirm provider failover still works with auth in play. **Verified** —
+      with `NVIDIA_API_KEY` empty and a session present, `groq` answered.
+- [x] **5.1.5** Confirm the deterministic boundary survived the round trip. **This step
+      found the module's real bug.** Board persistence was write-only — nothing read `board`
+      back — so it was half a feature and unverifiable. Building the load path
+      (`/scopecraft/history/[id]`) then exposed the actual defect: a reopened plan showed the
+      saved **13 points** beside **"Score 2.00"**, the score computed when it was 5. Derived
+      values were being replayed instead of recomputed, which is precisely the second-source-
+      of-truth failure the storage design exists to prevent. Fixed by seeding the live scores
+      from the saved edits; the same story now reads **13 points, Score 0.46, Won't** —
+      predicted before the test, then observed.
+- [x] **5.1.6** Confirm `committed_points <= capacity_points` on freshly captured **live**
+      results. Verified against the stored rows: 21/30 and 20/30.
+- [x] **5.1.7** Confirm the app behaves sanely when the **database is down**. **It did
+      not.** `POST /api/scopecraft` returned an untyped `500` with an empty body, bypassing
+      the whole error contract, and `/scopecraft/history` served the framework's crash page.
+      Both fixed: the quota check now **fails closed** with a typed `503 STORAGE_UNAVAILABLE`
+      — generating anyway would mean "when the database is down this endpoint is unmetered",
+      which is the exact property Module 3 removed — and the history page degrades to an
+      error card with the header and navigation intact.
+- [x] **5.1.8** Confirm the app behaves sanely when **all three providers** are down.
+      `502 PROVIDER_ERROR`, and the attempt is recorded as a `failed` row so it still counts
+      against the quota.
+- [x] **5.1.9** Confirm the CSP still permits everything the new UI does. **Zero CSP
+      violations** on `/scopecraft/history` and `/scopecraft/history/[id]`. The only console
+      error is the pre-existing React #418.
+- [x] **5.1.10** Confirm a **cold start** works: the first request after a deployment does
+      the database connection and the auth check for the first time. Measured at **4.2 s**
+      end to end, which is dominated by the model call, not by the connection.
 - [ ] **6.1.1** Add **one** `auth()` mock to the node project's setup — not 82 edits. Every
       test in `tests/api/scopecraft.test.ts` currently posts anonymously.
 - [ ] **6.1.2** Mock `src/lib/db.ts` so route tests never touch a real database.

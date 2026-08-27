@@ -136,6 +136,7 @@ const en = {
   "history.failed": "Generation failed",
   "history.edited": "Edited",
   "history.showing": "Showing your most recent plans.",
+  "history.unavailable": "Your plans cannot be loaded right now. Please try again shortly.",
 
   // ---- The 11 PRD fields ----
   "prd.problem": "Problem statement",
@@ -365,6 +366,7 @@ const ar: Record<TranslationKey, string> = {
   "history.failed": "فشل الإنشاء",
   "history.edited": "مُعدَّلة",
   "history.showing": "يتم عرض أحدث خططك.",
+  "history.unavailable": "تعذّر تحميل خططك الآن. يُرجى المحاولة بعد قليل.",
 
   // ---- The 11 PRD fields ----
   "prd.problem": "بيان المشكلة",

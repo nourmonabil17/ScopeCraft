@@ -291,6 +291,9 @@ export const ERROR_CODES = [
   // 404 — no such plan, or it belongs to someone else. Deliberately the same
   // answer for both, so the endpoint cannot be used to discover real ids.
   "NOT_FOUND",
+  // 503 — the quota store is unreachable, so the budget cannot be enforced.
+  // Deliberately fails *closed*: see the comment on the check in route.ts.
+  "STORAGE_UNAVAILABLE",
   // 429 — over the daily generation budget. Checked after the free local
   // validation, so a malformed request never costs a database round trip.
   "RATE_LIMITED",

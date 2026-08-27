@@ -1,0 +1,26 @@
+.head {
+  border-bottom: 1px solid var(--sc-border);
+  padding-block-end: 1rem;
+}
+
+.idea {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  margin-block: 0 0.5rem;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin-block: 0;
+  font-size: 0.8125rem;
+  color: var(--sc-text-muted);
+}
+
+/* Reserves its line so the header does not shift when a save starts. */
+.saveState {
+  min-height: 1.25rem;
+  margin-inline-start: auto;
+}
