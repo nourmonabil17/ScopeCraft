@@ -253,3 +253,30 @@ nonce or hash policy and saying so is more useful than closing the row.
 
     The generalisable lesson, and the one worth saying at the defense: a direction-blind test
     on a bilingual app is not a passing test, it is an untested direction.
+
+14. **Docker: the database is containerised, the application is not — 2026-08-27.**
+    Docker was adopted by the owner's decision after being argued against. The honest
+    accounting, because it will be asked at the defense: **Vercel does not build from the
+    Dockerfile.** Production still ships with `git push fork dev:main`, and the image is not
+    on the deploy path at all.
+
+    What it actually buys: a real Postgres in one command with no signup, a local
+    environment that behaves the same on every machine, and integration tests that can touch
+    a real database rather than a mock. What it costs: a second build definition to keep in
+    sync with the Vercel build, which is why `output: "standalone"` was verified against the
+    production build immediately rather than at the end — the route table is byte-identical
+    before and after.
+
+    **The application stays on the host.** `docker compose up` starts only the database; the
+    `web` service sits behind a `profiles: ["app"]` gate. A bind-mounted rebuild on macOS is
+    slower than `next dev`, and this app has no native dependency that needs containerising,
+    so containerising it would cost iteration speed and buy nothing day to day. The service
+    still exists, because an image nobody runs is an image that quietly stops working.
+
+    One thing had to be given up for that split. The auth variables were written as
+    `${AUTH_SECRET:?message}` so a missing secret would fail loudly with instructions.
+    Compose interpolates the entire file **before** it applies profiles, so a required
+    variable on the profiled-out service made a plain `docker compose up` fail — breaking the
+    normal case to improve the rare one. They are empty defaults now, with the reason written
+    at the point of the compromise. No fallback value: a committed secret is a secret that
+    ships.

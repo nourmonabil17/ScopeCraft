@@ -4,6 +4,9 @@ node_modules
 .env
 .env.*
 !.env.example
+# Compose's own template. Matches `.env.*` above, so it needs its own negation
+# or the file silently never commits — which is how a template stops existing.
+!.env.docker.example
 *.log
 # ...except captured provider evidence, which is a graded artifact. Without this
 # negation `*.log` silently swallows docs/evidence/raw/provider-fallback.log and

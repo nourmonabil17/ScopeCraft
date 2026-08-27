@@ -230,17 +230,25 @@ Start here. This half pays for itself immediately.
 
 ### 1.3 Developer experience
 
-- [ ] **1.3.1** Add `.env.docker.example` — compose-specific values, where `DATABASE_URL`
+- [x] **1.3.1** Add `.env.docker.example` — compose-specific values, where `DATABASE_URL`
       points at the `db` service hostname rather than `localhost`.
-- [ ] **1.3.2** Add npm scripts: `docker:up`, `docker:down`, `docker:logs`, `docker:psql`.
+- [x] **1.3.2** Add npm scripts: `docker:up`, `docker:down`, `docker:logs`, `docker:psql`.
       Nobody should have to remember compose flags to read a log.
-- [ ] **1.3.3** **Decision:** does `docker compose up` run the app in dev mode with hot
-      reload, or production mode? Recommendation: **database in Docker, app on the host**
-      for daily work — bind-mount hot reload is slow on macOS and the app has no native
-      dependencies needing containerisation. Keep `web` for verifying the image and for a
-      portable demo.
-- [ ] **1.3.4** Document the one-command start in `docs/local-development.md` (11.4.1).
-- [ ] **1.3.5** Verify a genuinely cold start: `docker compose down -v`, then
+- [x] **1.3.3** **Decision — ANSWERED 2026-08-27: database in Docker, application on the
+      host.** `docker compose up` starts only `db`; the `web` service is gated behind
+      `profiles: ["app"]`. Recorded as decision-log entry 14.
+
+      One consequence worth knowing: the auth variables had to drop `${VAR:?message}` for
+      empty defaults. Compose interpolates the whole file *before* applying profiles, so a
+      required variable on the profiled-out service broke a plain `docker compose up` —
+      the normal case — to improve the rare one. No fallback value was added; a committed
+      secret is a secret that ships.
+
+      Scripts are named `db:*` rather than the `docker:*` this plan originally said, because
+      with the app on the host that is what they actually do: `db:up`, `db:down`, `db:logs`,
+      `db:psql`, `db:reset`.
+- [x] **1.3.4** Document the one-command start in `docs/local-development.md` (11.4.1).
+- [x] **1.3.5** Verify a genuinely cold start: `docker compose down -v`, then
       `docker compose up`. That is what a teammate's first run looks like.
 
 ### 1.4 Interaction with what already exists
@@ -813,7 +821,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 
 | # | Category | Document | Proposed path | Why it is needed |
 |---|---|---|---|---|
-| 26 | Environment | **Local development guide** | `docs/local-development.md` | Docker arrives in Module 1 and nothing tells anyone how to start it |
+| 26 | Environment | ~~**Local development guide**~~ **WRITTEN 2026-08-27** | `docs/local-development.md` | ✅ Done in 1.3.4 — setup, the host/container split, evidence captures, five troubleshooting entries |
 | 27 | Environment | **Deployment guide** | `docs/deployment.md` | The fork-deploy trap lives only in `HANDOFF.md` and `CLAUDE.md`, neither team-facing |
 | 28 | Environment | **Environment variables reference** | `docs/environment-variables.md` | Eleven variables across three concerns; the README table is outgrowing itself |
 | 29 | Frontend | **Frontend architecture** | `docs/frontend-architecture.md` | **The biggest gap.** No component map, no state model, nothing on the seven-state union or the pre-paint theme/locale scripts. Backend has three documents; frontend has zero |
@@ -861,9 +869,9 @@ happen. Revisit if the team grows.)*
 Ordered by value. Not all thirteen have to ship — but skipping one should be a decision, not
 the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest as optional.**
 
-- [ ] **11.4.1** `docs/local-development.md` — prerequisites, `docker compose up`, the host
+- [x] **11.4.1** `docs/local-development.md` — prerequisites, `docker compose up`, the host
       vs container decision from 1.3.3, how to run the evidence captures (and why the UI one
-      must run on the host), common failures.
+      must run on the host), common failures. **Done 2026-08-27** (1.3.4).
 - [ ] **11.4.2** `docs/frontend-architecture.md` — **the highest-value missing document.**
       Component tree; the seven-state discriminated union and why it is a union; the
       theme/locale pre-paint scripts and why they are blocking; the CSS Modules + custom
@@ -906,7 +914,8 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
       built — no ORM, no sessions table, no Redis, response as JSONB rather than eleven
       normalised tables.
 - [ ] **11.6.3** Decision-log entry for **every** step marked *decision* that got answered:
-      0.3.1, 1.3.3, 2.1.4, 2.3.7, 3.1.5, 3.3.4, 4.3.1, 4.4.1, 6.3.1, 6.6.3, 12.2.1. An
+      0.3.1, ~~1.3.3~~ (logged as entry 14), 2.1.4, 2.3.7, 3.1.5, 3.3.4, 4.3.1, 4.4.1, 6.3.1,
+      6.6.3, 12.2.1. An
       answered decision with no record is an argument that will be had again.
 - [ ] **11.6.4** **The truthfulness sweep.** Re-read `README.md`, `architecture.md` and
       every checklist in `docs/` against the running app. Untick anything no longer true.
