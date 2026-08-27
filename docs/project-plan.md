@@ -184,18 +184,18 @@ the decision log — see 11.6.2.
 
 Start here. This half pays for itself immediately.
 
-- [ ] **1.1.1** Write `docker-compose.yml` with a `db` service: `postgres:16-alpine`,
+- [x] **1.1.1** Write `docker-compose.yml` with a `db` service: `postgres:16-alpine`,
       `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`, port `5432` published.
-- [ ] **1.1.2** Add a named volume so data survives `docker compose down`. Without it every
+- [x] **1.1.2** Add a named volume so data survives `docker compose down`. Without it every
       restart wipes the database, which is confusing rather than clean.
-- [ ] **1.1.3** Mount `db/schema.sql` into `/docker-entrypoint-initdb.d/` so a fresh
+- [x] **1.1.3** Mount `db/schema.sql` into `/docker-entrypoint-initdb.d/` so a fresh
       container applies the schema automatically. This is why the schema is idempotent.
-- [ ] **1.1.4** Add a `healthcheck` using `pg_isready`. Without it, anything depending on
+- [x] **1.1.4** Add a `healthcheck` using `pg_isready`. Without it, anything depending on
       the database races container startup and fails on the first run only — the worst kind
       of flake.
-- [ ] **1.1.5** Verify: `docker compose up -d db`, then `psql` in and confirm `users` and
+- [x] **1.1.5** Verify: `docker compose up -d db`, then `psql` in and confirm `users` and
       `plans` exist with their constraints and index.
-- [ ] **1.1.6** Verify the volume: insert a row, `docker compose restart db`, confirm it
+- [x] **1.1.6** Verify the volume: insert a row, `docker compose restart db`, confirm it
       survived.
 
 ### 1.2 The application image

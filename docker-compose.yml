@@ -1,0 +1,58 @@
+# ScopeCraft — local development services (owner: Yousef).
+#
+# WHAT THIS IS FOR
+# A real Postgres with no signup, in one command, plus a database that
+# integration tests can actually touch. It is NOT the production deploy path:
+# Vercel does not build from this file or from the Dockerfile. Production still
+# deploys with `git push fork dev:main` and still needs a hosted Postgres.
+#
+#   docker compose up -d db     start the database
+#   docker compose down         stop it, keep the data
+#   docker compose down -v      stop it and destroy the data
+#
+# There is deliberately no `version:` key — Compose v2 ignores it and warns.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: scopecraft-db
+
+    # Local-only credentials for a database published on localhost. They are
+    # readable defaults on purpose: there is no secret here worth protecting,
+    # and a developer who cannot guess the password cannot open a psql shell.
+    # Overridable through a compose `.env` file (gitignored) if anyone needs to.
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-scopecraft}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scopecraft}
+      POSTGRES_DB: ${POSTGRES_DB:-scopecraft}
+
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+    volumes:
+      # Named volume, so `docker compose down` keeps the data. Without this,
+      # every restart silently wipes the database, which reads as a bug rather
+      # than as cleanliness. `down -v` is the deliberate way to reset.
+      - db-data:/var/lib/postgresql/data
+
+      # Postgres runs everything in this directory ONCE, on first start, and
+      # only when the data directory is empty. Editing schema.sql afterwards
+      # does nothing until `docker compose down -v` — this is the single most
+      # common confusion with a containerised Postgres, so it is written down
+      # rather than rediscovered.
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+
+    # Without a healthcheck, anything with `depends_on` races the container's
+    # startup and fails on the first run only — the worst kind of flake,
+    # because the retry passes and hides it.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scopecraft} -d ${POSTGRES_DB:-scopecraft}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    restart: unless-stopped
+
+volumes:
+  db-data:
