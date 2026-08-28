@@ -13,15 +13,6 @@
   gap: 1.5rem;
 }
 
-.backLink {
-  font-size: 0.875rem;
-  color: var(--sc-text-muted);
-}
-
-.backLink:hover {
-  color: var(--sc-text);
-}
-
 .title {
   font-size: 1.5rem;
   margin-block: 0 0.25rem;

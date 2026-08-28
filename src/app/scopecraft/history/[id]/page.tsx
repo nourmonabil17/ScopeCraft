@@ -17,10 +17,10 @@
 // other.
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
 import { Header } from "@/components/common/Header";
+import { BackLink } from "@/components/common/BackLink";
 import {
   BoardSchema,
   ScopeCraftResponseSchema,
@@ -91,11 +91,7 @@ export default async function SavedPlanPage({
           promptVersion={row.promptVersion}
           createdAt={new Date(row.createdAt).toISOString()}
         />
-        <p>
-          <Link href="/scopecraft/history" className={styles.backLink}>
-            ScopeCraft
-          </Link>
-        </p>
+        <BackLink href="/scopecraft/history" labelKey="history.detail.backToHistory" />
       </main>
     </>
   );

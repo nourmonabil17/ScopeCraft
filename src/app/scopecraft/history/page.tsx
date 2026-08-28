@@ -12,10 +12,10 @@
 // query parameter or a path segment. This page and the board PATCH are the two
 // places an IDOR could enter this codebase, and both take the id the same way.
 
-import Link from "next/link";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
 import { Header } from "@/components/common/Header";
+import { BackLink } from "@/components/common/BackLink";
 import { HistoryList, type PlanSummary } from "./HistoryList";
 import styles from "./HistoryList.module.css";
 
@@ -66,11 +66,7 @@ export default async function HistoryPage() {
         <Header />
         <main id="main-content" className={styles.main} tabIndex={-1}>
           <HistoryList plans={null} />
-          <p>
-            <Link href="/scopecraft" className={styles.backLink}>
-              ScopeCraft
-            </Link>
-          </p>
+          <BackLink href="/scopecraft" labelKey="history.backToForm" />
         </main>
       </>
     );
@@ -85,14 +81,7 @@ export default async function HistoryPage() {
             one they chose — and a server-formatted date is the classic source
             of a hydration mismatch. */}
         <HistoryList plans={plans.map(serialize)} />
-        <p>
-          {/* No arrow glyph. A literal "←" points the wrong way in RTL, where
-              "back" is to the right, and swapping it per direction is more CSS
-              than a back link is worth. The word alone is correct in both. */}
-          <Link href="/scopecraft" className={styles.backLink}>
-            ScopeCraft
-          </Link>
-        </p>
+        <BackLink href="/scopecraft" labelKey="history.backToForm" />
       </main>
     </>
   );
