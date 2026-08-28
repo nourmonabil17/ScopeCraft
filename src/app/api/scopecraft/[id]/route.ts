@@ -1,6 +1,6 @@
 // src/app/api/scopecraft/[id]/route.ts
 //
-// Board persistence (owner: Yousef).
+// Board persistence and plan deletion (owner: Yousef).
 //
 // THE TRUST BOUNDARY THIS ROUTE EXISTS TO PROTECT. `plans.response` holds what
 // the AI produced. `plans.board` holds what the human decided afterwards. This
@@ -78,6 +78,35 @@ export async function PATCH(
   // endpoint cannot be used to discover which ids are real.
   const rows = await sql`
     update plans set board = ${sql.json(parsed.data)}
+    where id = ${id} and user_id = ${userId}
+    returning id`;
+
+  if (rows.length === 0) {
+    return fail("NOT_FOUND", "Unknown plan.", 404);
+  }
+
+  return new NextResponse(null, { status: 204 });
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return fail("UNAUTHORIZED", "Please sign in to delete a plan.", 401);
+  }
+
+  const { id } = await params;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return fail("NOT_FOUND", "Unknown plan.", 404);
+  }
+
+  // Scoped by user_id from the session, exactly like PATCH above — the same
+  // IDOR boundary applies to a delete as it does to an edit.
+  const rows = await sql`
+    delete from plans
     where id = ${id} and user_id = ${userId}
     returning id`;
 

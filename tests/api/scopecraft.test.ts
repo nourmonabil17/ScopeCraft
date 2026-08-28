@@ -27,7 +27,7 @@ import {
 import { POST } from "@/app/api/scopecraft/route";
 import { buildPrompt, fenceUserText } from "@/lib/scopecraft/service";
 import { NextRequest } from "next/server";
-import { PATCH } from "@/app/api/scopecraft/[id]/route";
+import { PATCH, DELETE } from "@/app/api/scopecraft/[id]/route";
 import { dbMock, queueDbResult, signOut, TEST_USER_ID } from "./setup";
 
 /** Module-level request builder for the Module 3 suites below. */
@@ -1894,5 +1894,57 @@ describe("board persistence", () => {
       expect(response.status).toBe(422);
     }
     expect(dbMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("plan deletion", () => {
+  const PLAN_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+
+  function del(id: string) {
+    return DELETE(
+      new NextRequest(`http://localhost/api/scopecraft/${id}`, { method: "DELETE" }),
+      { params: Promise.resolve({ id }) }
+    );
+  }
+
+  it("rejects an anonymous caller without querying the database", async () => {
+    signOut();
+    const response = await del(PLAN_ID);
+
+    expect(response.status).toBe(401);
+    expect(dbMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed id as 404 rather than reaching Postgres", async () => {
+    const response = await del("not-a-uuid");
+
+    expect(response.status).toBe(404);
+    expect(dbMock).not.toHaveBeenCalled();
+  });
+
+  it("answers 404 for another user's plan, indistinguishably from a missing one", async () => {
+    queueDbResult([]); // the user_id predicate matched nothing
+    const response = await del(PLAN_ID);
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.code).toBe("NOT_FOUND");
+  });
+
+  it("deletes the row and returns 204 for the owner", async () => {
+    queueDbResult([{ id: PLAN_ID }]);
+    const response = await del(PLAN_ID);
+
+    expect(response.status).toBe(204);
+  });
+
+  it("scopes the delete by the session user, not by anything in the request", async () => {
+    queueDbResult([{ id: PLAN_ID }]);
+    await del(PLAN_ID);
+
+    const call = dbMock.mock.calls.at(-1) ?? [];
+    const fragments = (call[0] as string[]).join("?");
+    expect(fragments).toContain("user_id =");
+    expect(call.slice(1)).toContain(TEST_USER_ID);
   });
 });
