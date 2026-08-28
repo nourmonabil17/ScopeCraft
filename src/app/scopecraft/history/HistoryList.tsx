@@ -2,23 +2,29 @@
 //
 // The rendering half of "Your plans" (owner: Yousef).
 //
-// A client component only because it needs two things the server cannot supply:
-// the reader's chosen language, and their timezone. Dates are formatted here
-// for that second reason — the server renders in its own locale and timezone,
-// which is neither the reader's nor the one they picked, and a server-formatted
-// date is a classic hydration mismatch.
+// A client component only because it needs three things the server cannot
+// supply: the reader's chosen language, their timezone, and the ability to
+// call fetch() and the router directly for delete/duplicate. Dates are
+// formatted here for the timezone reason — the server renders in its own
+// locale and timezone, which is neither the reader's nor the one they
+// picked, and a server-formatted date is a classic hydration mismatch.
 
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/LanguageContext";
+import { useToast } from "@/context/ToastContext";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
+import { DUPLICATE_PREFILL_STORAGE_KEY } from "@/components/scopecraft/presets";
 import styles from "./HistoryList.module.css";
 
 export interface PlanSummary {
   id: string;
   idea: string;
+  constraints: string | null;
   status: "ok" | "failed";
   errorCode: string | null;
   capacityPoints: number;
@@ -33,13 +39,48 @@ export interface PlanSummary {
  *  work had vanished during a database outage. */
 export function HistoryList({ plans }: { plans: PlanSummary[] | null }) {
   const { t, locale } = useLanguage();
+  const router = useRouter();
+  const { showToast } = useToast();
+  const [visiblePlans, setVisiblePlans] = useState<PlanSummary[] | null>(plans);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
-  if (plans === null) {
+  if (visiblePlans === null) {
     return <ErrorState message={t("history.unavailable")} />;
   }
 
-  if (plans.length === 0) {
+  if (visiblePlans.length === 0) {
     return <EmptyState headingKey="history.empty" bodyKey="history.emptyAction" />;
+  }
+
+  const totalCapacity = visiblePlans.reduce((sum, plan) => sum + plan.capacityPoints, 0);
+  const averageCapacity = Math.round(totalCapacity / visiblePlans.length);
+
+  function duplicate(plan: PlanSummary) {
+    sessionStorage.setItem(
+      DUPLICATE_PREFILL_STORAGE_KEY,
+      JSON.stringify({
+        idea: plan.idea,
+        constraints: plan.constraints ?? "",
+        team_capacity_points: String(plan.capacityPoints),
+        sprint_length_days: String(plan.sprintDays),
+      })
+    );
+    router.push("/scopecraft");
+  }
+
+  async function deletePlan(id: string) {
+    setConfirmingId(null);
+    try {
+      const response = await fetch(`/api/scopecraft/${id}`, { method: "DELETE" });
+      if (!response.ok) {
+        showToast(t("history.deleteFailed"), "error");
+        return;
+      }
+      setVisiblePlans((current) => (current ?? []).filter((plan) => plan.id !== id));
+      router.refresh();
+    } catch {
+      showToast(t("history.deleteFailed"), "error");
+    }
   }
 
   return (
@@ -49,8 +90,21 @@ export function HistoryList({ plans }: { plans: PlanSummary[] | null }) {
       </h1>
       <p className={styles.subtitle}>{t("history.showing")}</p>
 
+      <p className={styles.stats}>
+        {/* The count sits in its own span so it's an isolated text node —
+            otherwise "1 plan" and " · Average capacity: ..." merge into one
+            run of text and neither half is independently queryable. */}
+        <span>
+          {visiblePlans.length === 1
+            ? t("history.stats.plans.one")
+            : t("history.stats.plans.many", { count: visiblePlans.length })}
+        </span>
+        {" · "}
+        {t("history.stats.avgCapacity", { avg: averageCapacity })}
+      </p>
+
       <ul className={styles.list}>
-        {plans.map((plan) => (
+        {visiblePlans.map((plan) => (
           <li key={plan.id} className={styles.item}>
             {/* dir="auto" because this is the user's own text and may be in
                 either language regardless of the interface language. Without
@@ -103,6 +157,36 @@ export function HistoryList({ plans }: { plans: PlanSummary[] | null }) {
                 <span className={styles.badgeProvider}>{plan.providerUsed}</span>
               )}
             </p>
+
+            <div className={styles.cardActions}>
+              <button
+                type="button"
+                className={styles.duplicateButton}
+                onClick={() => duplicate(plan)}
+                title={t("history.duplicate.description")}
+              >
+                {t("history.duplicate")}
+              </button>
+              {confirmingId === plan.id ? (
+                <button
+                  type="button"
+                  className={styles.deleteButtonConfirming}
+                  onClick={() => deletePlan(plan.id)}
+                  onBlur={() => setConfirmingId(null)}
+                >
+                  {t("history.delete.confirm")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.deleteButton}
+                  onClick={() => setConfirmingId(plan.id)}
+                  title={t("history.delete.description")}
+                >
+                  {t("history.delete")}
+                </button>
+              )}
+            </div>
           </li>
         ))}
       </ul>

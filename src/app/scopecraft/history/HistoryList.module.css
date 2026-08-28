@@ -108,3 +108,56 @@
   background: var(--sc-surface-subtle);
   border-color: var(--sc-border);
 }
+
+.stats {
+  margin-block: 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--sc-text-muted);
+}
+
+.cardActions {
+  margin-block-start: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.duplicateButton,
+.deleteButton,
+.deleteButtonConfirming {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  min-height: 2rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.duplicateButton {
+  color: var(--sc-text);
+  background: var(--sc-surface-raised);
+  border: 1px solid var(--sc-border);
+}
+
+.duplicateButton:hover {
+  border-color: var(--sc-border-strong);
+  background: var(--sc-surface-subtle);
+}
+
+.deleteButton {
+  color: var(--sc-danger);
+  background: var(--sc-surface-raised);
+  border: 1px solid var(--sc-border);
+}
+
+.deleteButton:hover {
+  border-color: var(--sc-danger);
+  background: var(--sc-danger-surface);
+}
+
+.deleteButtonConfirming {
+  color: var(--sc-accent-contrast);
+  background: var(--sc-danger);
+  border: 1px solid var(--sc-danger);
+}

@@ -48,7 +48,7 @@ export default async function HistoryPage() {
   let plans: PlanSummary[];
   try {
     plans = await sql<PlanSummary[]>`
-      select id, idea, status, error_code as "errorCode",
+      select id, idea, constraints, status, error_code as "errorCode",
              capacity_points as "capacityPoints", sprint_days as "sprintDays",
              provider_used as "providerUsed",
              board is not null as edited,

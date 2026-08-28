@@ -19,18 +19,30 @@ overflows horizontally in either text direction.
 | Distinct text/background pairs measured | 19 | 19 |
 | Below WCAG AA threshold | **0** | **0** |
 | Lowest ratio observed | 4.87:1 (11px "Live" badge, needs 4.5) | 4.87:1 |
-| Interactive controls without an accessible name | **0** of 15 | **0** of 15 |
-| Keyboard-reachable elements | 15 | 15 |
+| Interactive controls without an accessible name | **0** of 16 | **0** of 16 |
+| Keyboard-reachable elements | 16 | 16 |
 | Skipped heading levels | 0 (`h1`, `h2`) | 0 |
 | Landmarks | `banner` + `main`, exactly one `h1` | same |
 | Horizontal overflow at 1280 / 768 / 390px, **`en/ltr` and `ar/rtl`** | none in all six | — |
 
 The 14th and 15th controls, and the extra contrast pairs, are the header's sign-out button,
-the signed-in name and the "Your plans" history link — all added with authentication. Each
-clears AA.
+the signed-in name and the "Your plans" history link — all added with authentication. The
+16th control is the header's Home button (added after this table was last measured — see
+below). Each clears AA.
 
 Re-measured 2026-08-28 against the current build. The success screenshots took **1**
 generation attempt, down from up to four before the `PLANNING_ERROR` fix.
+
+**Superseded note, re-measured 2026-08-28 (history: duplicate/delete buttons):** this table
+previously read 15 controls / 15 keyboard-reachable, carried over unchanged since before the
+header gained a Home button (`155b74f`). Re-running `npm run capture:ui` for this change
+caught the drift: the actual count on `/scopecraft` was already 16, not 15. That table is
+fixed above. Separately: `/scopecraft/history` — where this change added a Duplicate and a
+Delete button to every card — is **not** a page this script visits at all; the measured audit
+above has only ever covered `/scopecraft`. The new history buttons are unmeasured by the
+automated audit and are not reflected in this table; they are asserted instead by
+`tests/ui/HistoryList.test.tsx` (both render with an accessible name from visible text, no
+`aria-label` needed) and were checked by hand for the two-click delete confirm behavior.
 
 ## Perceivable
 
