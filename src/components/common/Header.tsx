@@ -10,12 +10,41 @@
 
 "use client";
 
+import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
 import { LanguageToggle } from "./LanguageToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
 import { HistoryLink } from "./HistoryLink";
 import styles from "./Header.module.css";
+import toggleStyles from "./ToggleControls.module.css";
+
+function HomeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={toggleStyles.icon}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M3.5 11.5 12 4l8.5 7.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6 10.5V19a1 1 0 0 0 1 1h3v-4.5h4V20h3a1 1 0 0 0 1-1v-8.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 export interface HeaderProps {
   /** Omitted when there is nothing to reset — the button hides rather than
@@ -35,6 +64,10 @@ export function Header({ onReset }: HeaderProps) {
         {t("header.skipToContent")}
       </a>
       <div className={styles.inner}>
+        <Link href="/" className={toggleStyles.linkButton}>
+          <HomeIcon />
+          <span className={toggleStyles.buttonText}>{t("nav.home")}</span>
+        </Link>
         <div className={styles.brand}>
           <span className={styles.mark} aria-hidden="true">
             SC

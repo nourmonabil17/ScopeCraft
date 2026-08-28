@@ -168,6 +168,12 @@ describe("Header", () => {
 
     expect(screen.getByText("ScopeCraft")).toHaveAttribute("translate", "no");
   });
+
+  it("links Home to the root path, unconditionally", () => {
+    renderWithProviders(<Header />);
+
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
+  });
 });
 
 // ---------------------------------------------------------------------------
