@@ -12,6 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "./render-helpers";
 import ScopeCraftPage from "@/app/scopecraft/page";
 import type { ScopeCraftResponse } from "@/lib/scopecraft/schema";
+import { DUPLICATE_PREFILL_STORAGE_KEY } from "@/components/scopecraft/presets";
 
 const VALID_IDEA =
   "A collaborative tool that helps student teams turn a rough idea into a sprint-ready backlog.";
@@ -544,5 +545,39 @@ describe("State 7 · provider error and retry", () => {
 
     const error = await screen.findByTestId("error-state");
     expect(error).toHaveTextContent(/network error/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Duplicate prefill (Task 7) — see HistoryList's "Duplicate" action (Task 9),
+// which writes to the same sessionStorage key this page reads on mount.
+// ---------------------------------------------------------------------------
+
+describe("ScopeCraftPage duplicate prefill", () => {
+  afterEach(() => {
+    sessionStorage.clear();
+  });
+
+  it("prefills the form from sessionStorage and clears the key", () => {
+    sessionStorage.setItem(
+      DUPLICATE_PREFILL_STORAGE_KEY,
+      JSON.stringify({
+        idea: "A duplicated idea",
+        constraints: "Some constraints",
+        team_capacity_points: "25",
+        sprint_length_days: "7",
+      })
+    );
+
+    renderWithProviders(<ScopeCraftPage />);
+
+    expect(screen.getByLabelText(/product idea/i)).toHaveValue("A duplicated idea");
+    expect(sessionStorage.getItem(DUPLICATE_PREFILL_STORAGE_KEY)).toBeNull();
+  });
+
+  it("renders the normal empty form when there is nothing to prefill", () => {
+    renderWithProviders(<ScopeCraftPage />);
+
+    expect(screen.getByLabelText(/product idea/i)).toHaveValue("");
   });
 });

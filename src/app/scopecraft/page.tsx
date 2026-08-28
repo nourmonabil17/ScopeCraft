@@ -27,6 +27,10 @@ import { ValidationErrorState } from "@/components/common/ValidationErrorState";
 import { DomainRefusalState } from "@/components/common/DomainRefusalState";
 import { useLanguage } from "@/context/LanguageContext";
 import type { ScopeCraftResponse, ValidationIssue } from "@/lib/scopecraft/schema";
+import {
+  DUPLICATE_PREFILL_STORAGE_KEY,
+  type IntakeFormValues,
+} from "@/components/scopecraft/presets";
 import styles from "./page.module.css";
 
 /** Matches the X-Provider-Used header the API sets. NVIDIA is the primary
@@ -76,6 +80,9 @@ interface ApiErrorBody {
 export default function ScopeCraftPage() {
   const { t } = useLanguage();
   const [state, setState] = useState<UiState>({ status: "idle" });
+  const [duplicateValues, setDuplicateValues] = useState<IntakeFormValues | undefined>(
+    undefined
+  );
   const [lastRequest, setLastRequest] = useState<IntakeSubmitPayload | null>(null);
   const [board, setBoard] = useState<BoardSnapshot | undefined>(undefined);
   const [planId, setPlanId] = useState<string | null>(null);
@@ -132,6 +139,35 @@ export default function ScopeCraftPage() {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
+  }, []);
+
+  // Reads a prefill payload written by a history card's "Duplicate" button
+  // (see HistoryList). This MUST run in an effect, not a lazy useState
+  // initializer: sessionStorage does not exist during SSR, so a lazy
+  // initializer would return `undefined` on the server and a real value on
+  // the client's first (hydrating) render whenever a prefill genuinely
+  // exists — a hydration mismatch identical in kind to the one already
+  // tracked elsewhere in this project. Running it in an effect means both
+  // the server render AND the client's hydrating render see the same
+  // `undefined` state; the real value only appears in a later, ordinary
+  // re-render, well after hydration has already succeeded.
+  //
+  // react-hooks/set-state-in-effect flags the setState call below as
+  // "derived state that could be computed during render" — its usual,
+  // correct heuristic. It does not apply here: the value cannot be computed
+  // during render without the SSR/hydration mismatch above, and reading a
+  // one-shot external source once on mount is exactly the "synchronizing
+  // with an external system" case the rule's own message text carves out.
+  useEffect(() => {
+    const raw = sessionStorage.getItem(DUPLICATE_PREFILL_STORAGE_KEY);
+    if (!raw) return;
+    sessionStorage.removeItem(DUPLICATE_PREFILL_STORAGE_KEY);
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDuplicateValues(JSON.parse(raw) as IntakeFormValues);
+    } catch {
+      // Corrupted value — treated exactly like "nothing to prefill".
+    }
   }, []);
 
   function scrollToForm() {
@@ -231,7 +267,16 @@ export default function ScopeCraftPage() {
           <p className={styles.subtitle}>{t("app.tagline")}</p>
         </div>
 
-        <InputForm onSubmit={submit} isLoading={state.status === "loading"} />
+        {/* `key` forces a remount when duplicateValues arrives after the
+            initial render — InputForm's lazy useState initializer only runs
+            once per mount, so a plain prop change would be silently
+            ignored. */}
+        <InputForm
+          key={duplicateValues ? "duplicate" : "empty"}
+          initialValues={duplicateValues}
+          onSubmit={submit}
+          isLoading={state.status === "loading"}
+        />
 
         {state.status === "loading" && <LoadingState />}
 
