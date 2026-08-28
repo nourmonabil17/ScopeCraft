@@ -40,6 +40,7 @@ const en = {
   "header.language.toggle": "Change language",
   "header.language.en": "English",
   "header.language.ar": "العربية",
+  "nav.home": "Home",
 
   // ---- Sign-in ----
   "login.heading": "Sign in to ScopeCraft",
@@ -141,6 +142,22 @@ const en = {
   "history.edited": "Edited",
   "history.showing": "Showing your most recent plans.",
   "history.unavailable": "Your plans cannot be loaded right now. Please try again shortly.",
+  "history.backToForm": "Back to the plan form",
+  "history.detail.backToHistory": "Back to your plans",
+  "history.duplicate": "Duplicate",
+  "history.duplicate.description": "Fill the form with this plan's idea and constraints",
+  "history.delete": "Delete",
+  "history.delete.confirm": "Confirm delete?",
+  "history.delete.description": "Permanently delete this plan",
+  "history.deleteFailed": "This plan could not be deleted. Please try again.",
+  "history.stats.plans.one": "1 plan",
+  "history.stats.plans.many": "{count} plans",
+  "history.stats.avgCapacity": "Average capacity: {avg} pts",
+  "landing.heading": "Turn a product idea into a sprint-ready plan.",
+  "landing.exampleHeading": "Example output",
+  "landing.examplePrd":
+    "\"As a student, I want to filter potential study partners by course and availability, so that I can form a compatible group quickly.\" — one of seven user stories generated for a study-group planning app.",
+  "landing.cta": "Get started",
 
   // ---- The 11 PRD fields ----
   "prd.problem": "Problem statement",
@@ -275,6 +292,7 @@ const ar: Record<TranslationKey, string> = {
   "header.language.toggle": "تغيير اللغة",
   "header.language.en": "English",
   "header.language.ar": "العربية",
+  "nav.home": "الرئيسية",
 
   // ---- Sign-in ----
   "login.heading": "تسجيل الدخول إلى ScopeCraft",
@@ -372,6 +390,22 @@ const ar: Record<TranslationKey, string> = {
   "history.edited": "مُعدَّلة",
   "history.showing": "يتم عرض أحدث خططك.",
   "history.unavailable": "تعذّر تحميل خططك الآن. يُرجى المحاولة بعد قليل.",
+  "history.backToForm": "العودة إلى نموذج الخطة",
+  "history.detail.backToHistory": "العودة إلى خططك",
+  "history.duplicate": "نسخ",
+  "history.duplicate.description": "املأ النموذج بفكرة هذه الخطة وقيودها",
+  "history.delete": "حذف",
+  "history.delete.confirm": "تأكيد الحذف؟",
+  "history.delete.description": "حذف هذه الخطة نهائيًا",
+  "history.deleteFailed": "تعذّر حذف هذه الخطة. يُرجى المحاولة مرة أخرى.",
+  "history.stats.plans.one": "خطة واحدة",
+  "history.stats.plans.many": "{count} خطة",
+  "history.stats.avgCapacity": "متوسط السعة: {avg} نقطة",
+  "landing.heading": "حوّل فكرة منتجك إلى خطة جاهزة للسبرنت.",
+  "landing.exampleHeading": "مثال على الناتج",
+  "landing.examplePrd":
+    "«بصفتي طالبًا، أريد تصفية شركاء الدراسة المحتملين حسب المقرر والتوافر، لأتمكن من تكوين مجموعة متوافقة بسرعة.» — إحدى سبع قصص مستخدم أُنشئت لتطبيق لتخطيط مجموعات الدراسة.",
+  "landing.cta": "ابدأ الآن",
 
   // ---- The 11 PRD fields ----
   "prd.problem": "بيان المشكلة",
