@@ -27,6 +27,14 @@ export interface IntakeFormValues {
   sprint_length_days: string;
 }
 
+/**
+ * sessionStorage key used to hand a plan's fields from a history card's
+ * "Duplicate" action to the generator page. Exported so the writer
+ * (HistoryList) and the reader (ScopeCraftPage) can never drift apart on
+ * the literal string.
+ */
+export const DUPLICATE_PREFILL_STORAGE_KEY = "scopecraft.duplicatePrefill";
+
 export interface PresetOption {
   /** Stable key — used for React keys and test lookups, never displayed. */
   id: string;

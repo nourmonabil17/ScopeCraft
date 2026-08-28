@@ -57,6 +57,13 @@ export interface InputFormProps {
   onSubmit: (payload: IntakeSubmitPayload) => void;
   /** True while a plan is being generated. Disables the form and marks it busy. */
   isLoading?: boolean;
+  /**
+   * Prefills the form once, on mount. Read by a lazy `useState` initializer,
+   * so a prop update on an already-mounted instance has no effect — the
+   * caller must change this component's `key` to force a fresh mount if the
+   * value becomes available after the initial render (see ScopeCraftPage).
+   */
+  initialValues?: IntakeFormValues;
 }
 
 type FieldName = keyof IntakeFormValues;
@@ -173,9 +180,11 @@ function ProgressRing({ ratio, tone }: { ratio: number; tone: "short" | "ok" | "
   );
 }
 
-export function InputForm({ onSubmit, isLoading = false }: InputFormProps) {
+export function InputForm({ onSubmit, isLoading = false, initialValues }: InputFormProps) {
   const { t } = useLanguage();
-  const [values, setValues] = useState<IntakeFormValues>(emptyFormValues);
+  const [values, setValues] = useState<IntakeFormValues>(
+    () => initialValues ?? emptyFormValues()
+  );
   const [blurred, setBlurred] = useState<Partial<Record<FieldName, boolean>>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [announcement, setAnnouncement] = useState("");

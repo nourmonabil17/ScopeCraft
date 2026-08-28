@@ -456,6 +456,37 @@ describe("Test 6 · keyboard order and aria-invalid toggling", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Test 7 — initialValues prefill
+// ---------------------------------------------------------------------------
+
+describe("InputForm initialValues", () => {
+  it("prefills every field from initialValues on first render", () => {
+    renderWithProviders(
+      <InputForm
+        onSubmit={jest.fn()}
+        initialValues={{
+          idea: "A duplicate of an existing plan",
+          constraints: "Team of two",
+          team_capacity_points: "25",
+          sprint_length_days: "7",
+        }}
+      />
+    );
+
+    expect(screen.getByLabelText(/product idea/i)).toHaveValue(
+      "A duplicate of an existing plan"
+    );
+    expect(screen.getByLabelText(/constraints/i)).toHaveValue("Team of two");
+  });
+
+  it("falls back to the empty defaults when initialValues is omitted", () => {
+    renderWithProviders(<InputForm onSubmit={jest.fn()} />);
+
+    expect(screen.getByLabelText(/product idea/i)).toHaveValue("");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // The validation rules on their own, with no DOM in the way.
 // ---------------------------------------------------------------------------
 
