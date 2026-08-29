@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { InputForm, type IntakeSubmitPayload } from "@/components/scopecraft/InputForm";
+import { WelcomeModal } from "@/components/scopecraft/WelcomeModal";
 import { ResultView } from "@/components/scopecraft/ResultView";
 import type { BoardSnapshot } from "@/components/scopecraft/InteractiveSprintBoard";
 import { Header } from "@/components/common/Header";
@@ -263,6 +264,8 @@ export default function ScopeCraftPage() {
 
   return (
     <>
+      <WelcomeModal />
+
       <Header
         onReset={
           canReset

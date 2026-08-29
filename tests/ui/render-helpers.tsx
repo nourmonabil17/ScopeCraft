@@ -105,3 +105,25 @@ export function installMatchMedia(initialDark = false): (dark: boolean) => void 
     }
   };
 }
+
+/**
+ * jsdom implements the <dialog> element's `open` attribute but not the
+ * imperative modal API — `showModal`/`close` are simply absent at runtime
+ * (TypeScript's DOM lib still declares them, since real browsers have them),
+ * so any component that calls them throws under Jest with no polyfill. Only
+ * ever imported from test setup, never from application code, so this
+ * unconditionally overwrites rather than feature-detecting first — there is
+ * no real-browser case here to protect. Side-effect-free to call more than
+ * once, unlike `installMatchMedia`: there is no per-test state to reset, so
+ * this runs once at module load from setup.ts rather than per-test.
+ */
+export function installDialogPolyfill(): void {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  };
+
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+    this.dispatchEvent(new Event("close"));
+  };
+}

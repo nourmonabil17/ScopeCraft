@@ -43,12 +43,14 @@ above has only ever covered `/scopecraft`. The new history buttons are unmeasure
 automated audit and are not reflected in this table; they are asserted instead by
 `tests/ui/HistoryList.test.tsx` (both render with an accessible name from visible text, no
 `aria-label` needed) and were checked by hand for the two-click delete confirm behavior.
-The same gap applies to `/` — this plan's new landing page, and the only new *public* page,
-the one a signed-out visitor lands on first. `scripts/capture-ui-evidence.mjs`'s route list is
-`/login` and `/scopecraft` only; it does not visit `/` any more than it visits
-`/scopecraft/history`. `/` is therefore also uncaptured and unmeasured by the automated audit
-— not contrast-checked, not checked for accessible names or heading order, not screenshotted —
-and nothing in this document should be read as covering it.
+**Superseded the same day.** The paragraph above described `/` as a new public landing page
+with its own unmeasured content. That page was retired hours later: `/` is a plain redirect
+into `/scopecraft` again, with no rendered content of its own to have a coverage gap about.
+The explanatory content that page carried moved into `WelcomeModal`, a one-time popup shown
+on `/scopecraft` itself — also not visited by `scripts/capture-ui-evidence.mjs` (its route
+list is still `/login` and `/scopecraft` only, unchanged), but asserted instead by
+`tests/ui/WelcomeModal.test.tsx` (heading, example text, and both locales render correctly;
+Escape and the button both record dismissal).
 
 ## Perceivable
 

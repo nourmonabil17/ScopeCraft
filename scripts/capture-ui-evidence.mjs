@@ -205,6 +205,11 @@ async function seed({ theme = "system", locale = "en" } = {}) {
   await evaluate(`
     localStorage.setItem('scopecraft.theme', ${JSON.stringify(theme)});
     localStorage.setItem('scopecraft.locale', ${JSON.stringify(locale)});
+    // Otherwise the very first navigation below opens WelcomeModal, which
+    // this script never dismisses — every subsequent screenshot would carry
+    // an unrelated popup on top of the state it's actually trying to show.
+    // The modal has its own dedicated coverage in WelcomeModal.test.tsx.
+    localStorage.setItem('scopecraft.welcomeSeen', '1');
     true
   `);
 }

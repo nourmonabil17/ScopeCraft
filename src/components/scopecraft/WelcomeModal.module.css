@@ -1,0 +1,79 @@
+/* src/components/scopecraft/WelcomeModal.module.css
+ *
+ * The UA stylesheet centers a showModal()'d <dialog> and gives it a default
+ * border/padding/background — reset those explicitly rather than inherit
+ * whatever the browser happens to ship, so this looks the same everywhere.
+ */
+
+.dialog {
+  max-width: 32rem;
+  width: calc(100% - 2rem);
+  margin: auto;
+  padding: 1.75rem;
+  border: 1px solid var(--sc-border);
+  border-radius: 0.75rem;
+  background: var(--sc-surface-raised);
+  color: var(--sc-text);
+  box-shadow: var(--sc-shadow-lg);
+}
+
+.dialog::backdrop {
+  background: rgba(20, 22, 30, 0.5);
+}
+
+.heading {
+  font-size: 1.375rem;
+  line-height: 1.25;
+  margin: 0 0 0.5rem;
+}
+
+.tagline {
+  font-size: 1rem;
+  color: var(--sc-text-muted);
+  margin: 0 0 1.25rem;
+}
+
+.example {
+  border: 1px solid var(--sc-border);
+  border-radius: 0.625rem;
+  padding: 1rem;
+  background: var(--sc-surface-subtle);
+  margin-block-end: 1.5rem;
+}
+
+.exampleHeading {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--sc-text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.examplePrd {
+  margin: 0;
+  font-style: italic;
+  font-size: 0.9375rem;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-weight: 600;
+  color: var(--sc-accent-contrast);
+  background: var(--sc-accent);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+
+.cta:hover {
+  opacity: 0.92;
+}
+
+.cta:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 2px;
+}

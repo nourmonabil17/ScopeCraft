@@ -776,3 +776,59 @@ nonce or hash policy and saying so is more useful than closing the row.
     **Nothing was promoted to verified.** The "not verified" section still lists the same
     five gaps: no screen-reader run, no axe/Lighthouse scan, contrast on rendered text only,
     no zoom test, no colour-blind simulation. The screen-reader gap remains the biggest one.
+
+30. **The separate landing page at `/` was retired the same day it shipped — 2026-08-28.**
+    Module-navigation redesign added `/` as a distinct public marketing page: its own
+    heading, tagline, and example, gated behind a "Get started" click before a signed-in
+    visitor ever saw the intake form. Deployed to production, then reversed hours later
+    on Yousef's own call after seeing it live — the intake form should **be** the main
+    page, not something a click leads to.
+
+    **What changed.** `src/app/page.tsx` is a bare `redirect("/scopecraft")` again, exactly
+    what it was before this whole redesign. The explanatory content the landing page
+    carried — heading, tagline, the example PRD excerpt — moved into `WelcomeModal`, a
+    one-time popup shown on `/scopecraft` itself: native `<dialog>` with `showModal()`,
+    dismissed by its own button or by Escape, tracked with one `localStorage` flag so it
+    never shows twice on the same browser. `/scopecraft/layout.tsx`'s existing auth gate
+    (`if (!session?.user) redirect("/login")`) was not touched and needed no change — it
+    already does the "sign in before you reach the form" job on its own, so `/` needs no
+    session check of its own to keep that property.
+
+    **Kept from the retired page:** the four `landing.*` translation keys (heading, example
+    heading, example PRD, CTA) — reused verbatim in the modal, not reworded, since the copy
+    itself was never the problem. **Discarded:** the separate route's own metadata, its
+    dedicated CSS module, and its render test — none of it describes anything that exists
+    anymore.
+
+    **A real jsdom gap, found and worked around, not ignored.** jsdom implements `<dialog>`'s
+    `open` attribute but not `showModal()`/`close()` at all — calling either throws under
+    Jest with no shim. Added `installDialogPolyfill()` next to the codebase's existing
+    `installMatchMedia()` shim in `tests/ui/render-helpers.tsx`, run once at module load
+    rather than per-test since there's no per-test state to reset. A second, subtler gap
+    surfaced once that was in place: a *closed* `<dialog>`'s children are still real DOM
+    nodes in jsdom (the `dialog:not([open]) { display: none }` UA rule that hides them in a
+    real browser isn't something jsdom's limited CSS engine reliably applies), so an
+    always-rendered-but-closed modal polluted every unrelated test that happened to query
+    for text the modal's own heading also contained ("product idea," verbatim, in "Turn a
+    product idea into a sprint-ready plan."). Fixed at the component level, not by tuning
+    the test query: `WelcomeModal` now renders `null` until its own effect decides to show
+    it, so there is nothing in the DOM to collide with, in either environment — a more
+    correct component design, not merely a test workaround. Every other test in the suite
+    now defaults to "already seen the welcome" via one line in `tests/ui/setup.ts`'s shared
+    `beforeEach`, mirroring exactly how signed-out is already this suite's default session
+    state — `WelcomeModal.test.tsx` is the one file that opts back out, in its own
+    `beforeEach`, to test the first-visit behavior it exists to cover.
+
+    **Verified live**, not just by test: started the app against the real local database
+    with a real minted session, confirmed the popup appears on first visit with the correct
+    content in both languages, dismisses on click with the form fully usable underneath,
+    does not reappear on reload, and that a signed-out visitor hitting `/` still lands on
+    `/login` — through the existing gate, unchanged.
+
+    **What was deliberately not touched:** the design spec and implementation plan under
+    `docs/superpowers/` that designed and built the original landing page. Those are
+    historical records of what shipped that day; this decision doesn't retroactively make
+    them wrong, it supersedes what they describe. `docs/evidence/ui/accessibility-checklist.md`
+    — a living evidence artifact, not a historical record — got its `/`-coverage disclosure
+    corrected instead, since that page no longer has distinct content for a coverage gap to
+    be about.
