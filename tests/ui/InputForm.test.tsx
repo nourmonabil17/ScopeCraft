@@ -484,6 +484,19 @@ describe("InputForm initialValues", () => {
 
     expect(screen.getByLabelText(/product idea/i)).toHaveValue("");
   });
+
+  it("fills in missing fields from the defaults when initialValues is only partial", () => {
+    // initialValues is `Partial<IntakeFormValues>` — a real caller (a
+    // duplicate-plan payload read back from sessionStorage) may be missing
+    // fields entirely, not just have them empty.
+    renderWithProviders(
+      <InputForm onSubmit={jest.fn()} initialValues={{ idea: "Only the idea is set" }} />
+    );
+
+    expect(screen.getByLabelText(/product idea/i)).toHaveValue("Only the idea is set");
+    expect(screen.getByLabelText(/team capacity/i)).toHaveValue(DEFAULT_TEAM_CAPACITY_POINTS);
+    expect(screen.getByLabelText(/sprint length/i)).toHaveValue(DEFAULT_SPRINT_LENGTH_DAYS);
+  });
 });
 
 // ---------------------------------------------------------------------------

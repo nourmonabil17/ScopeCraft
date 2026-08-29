@@ -29,6 +29,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import type { ScopeCraftResponse, ValidationIssue } from "@/lib/scopecraft/schema";
 import {
   DUPLICATE_PREFILL_STORAGE_KEY,
+  emptyFormValues,
   type IntakeFormValues,
 } from "@/components/scopecraft/presets";
 import styles from "./page.module.css";
@@ -80,9 +81,11 @@ interface ApiErrorBody {
 export default function ScopeCraftPage() {
   const { t } = useLanguage();
   const [state, setState] = useState<UiState>({ status: "idle" });
-  const [duplicateValues, setDuplicateValues] = useState<IntakeFormValues | undefined>(
-    undefined
-  );
+  const [duplicateValues, setDuplicateValues] = useState<IntakeFormValues>(emptyFormValues());
+  // Separate from `duplicateValues` itself: that state is always a fully-formed
+  // `IntakeFormValues` (defaults merged in), so it can no longer double as the
+  // "did a real duplicate payload arrive" signal the way `undefined` once did.
+  const [hasDuplicate, setHasDuplicate] = useState(false);
   const [lastRequest, setLastRequest] = useState<IntakeSubmitPayload | null>(null);
   const [board, setBoard] = useState<BoardSnapshot | undefined>(undefined);
   const [planId, setPlanId] = useState<string | null>(null);
@@ -163,10 +166,20 @@ export default function ScopeCraftPage() {
     if (!raw) return;
     sessionStorage.removeItem(DUPLICATE_PREFILL_STORAGE_KEY);
     try {
+      // Merged over the defaults rather than cast and trusted directly: `raw`
+      // is untrusted sessionStorage content, not a value this code produced.
+      // JSON.parse only guarantees valid JSON, not the right shape — a stale
+      // key from a future field rename would otherwise flow straight into
+      // InputForm's state as e.g. a missing string field, and a string
+      // method called on it during render would crash the page.
+      const parsed = JSON.parse(raw) as Partial<IntakeFormValues>;
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDuplicateValues(JSON.parse(raw) as IntakeFormValues);
+      setDuplicateValues({ ...emptyFormValues(), ...parsed });
+      setHasDuplicate(true);
     } catch {
-      // Corrupted value — treated exactly like "nothing to prefill".
+      // Corrupted value (bad JSON syntax) — treated exactly like "nothing to
+      // prefill". A corrupted *shape* (valid JSON, wrong fields) is handled
+      // above by merging over defaults instead of throwing here.
     }
   }, []);
 
@@ -270,9 +283,11 @@ export default function ScopeCraftPage() {
         {/* `key` forces a remount when duplicateValues arrives after the
             initial render — InputForm's lazy useState initializer only runs
             once per mount, so a plain prop change would be silently
-            ignored. */}
+            ignored. `hasDuplicate` (not `duplicateValues` itself) is the
+            remount signal: duplicateValues is always fully-formed now, so it
+            can't double as "was a real duplicate payload found". */}
         <InputForm
-          key={duplicateValues ? "duplicate" : "empty"}
+          key={hasDuplicate ? "duplicate" : "empty"}
           initialValues={duplicateValues}
           onSubmit={submit}
           isLoading={state.status === "loading"}

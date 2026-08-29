@@ -19,6 +19,12 @@
   gap: 1rem;
 }
 
+.leftGroup {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .brand {
   display: flex;
   align-items: center;

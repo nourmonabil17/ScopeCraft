@@ -12,6 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "./render-helpers";
 import ScopeCraftPage from "@/app/scopecraft/page";
 import type { ScopeCraftResponse } from "@/lib/scopecraft/schema";
+import { DEFAULT_TEAM_CAPACITY_POINTS } from "@/lib/scopecraft/schema";
 import { DUPLICATE_PREFILL_STORAGE_KEY } from "@/components/scopecraft/presets";
 
 const VALID_IDEA =
@@ -579,5 +580,26 @@ describe("ScopeCraftPage duplicate prefill", () => {
     renderWithProviders(<ScopeCraftPage />);
 
     expect(screen.getByLabelText(/product idea/i)).toHaveValue("");
+  });
+
+  it("falls back to sensible defaults instead of crashing on a corrupted-shape payload", () => {
+    // Valid JSON, wrong shape — e.g. a stale sessionStorage entry written
+    // before a field rename, so none of today's `IntakeFormValues` keys are
+    // present. The old `JSON.parse(...) as IntakeFormValues` cast would have
+    // handed this straight to InputForm's state with `idea` missing (i.e.
+    // `undefined`), and `values.idea.trim()` — called unconditionally during
+    // render — would throw on the very first paint.
+    sessionStorage.setItem(
+      DUPLICATE_PREFILL_STORAGE_KEY,
+      JSON.stringify({ productIdea: "stale field name", teamSize: 5 })
+    );
+
+    expect(() => renderWithProviders(<ScopeCraftPage />)).not.toThrow();
+
+    // None of the corrupted payload's keys match IntakeFormValues, so every
+    // field falls back to emptyFormValues()'s real defaults.
+    expect(screen.getByLabelText(/product idea/i)).toHaveValue("");
+    expect(screen.getByLabelText(/team capacity/i)).toHaveValue(DEFAULT_TEAM_CAPACITY_POINTS);
+    expect(sessionStorage.getItem(DUPLICATE_PREFILL_STORAGE_KEY)).toBeNull();
   });
 });

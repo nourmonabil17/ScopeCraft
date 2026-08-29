@@ -64,25 +64,27 @@ export function Header({ onReset }: HeaderProps) {
         {t("header.skipToContent")}
       </a>
       <div className={styles.inner}>
-        <Link href="/" className={toggleStyles.linkButton}>
-          <HomeIcon />
-          <span className={toggleStyles.buttonText}>{t("nav.home")}</span>
-        </Link>
-        <div className={styles.brand}>
-          <span className={styles.mark} aria-hidden="true">
-            SC
-          </span>
-          <span className={styles.brandText}>
-            {/* translate="no": "ScopeCraft" is a product name, not a phrase.
-                Machine translation renders it as "craft of scope" in Arabic. */}
-            <span className={styles.brandName} translate="no">
-              {t("app.name")}
+        <div className={styles.leftGroup}>
+          <Link href="/" className={toggleStyles.linkButton}>
+            <HomeIcon />
+            <span className={toggleStyles.buttonText}>{t("nav.home")}</span>
+          </Link>
+          <div className={styles.brand}>
+            <span className={styles.mark} aria-hidden="true">
+              SC
             </span>
-            <span className={styles.status} title={t("header.status.description")}>
-              <span className={styles.statusDot} aria-hidden="true" />
-              {t("header.status.live")}
+            <span className={styles.brandText}>
+              {/* translate="no": "ScopeCraft" is a product name, not a phrase.
+                  Machine translation renders it as "craft of scope" in Arabic. */}
+              <span className={styles.brandName} translate="no">
+                {t("app.name")}
+              </span>
+              <span className={styles.status} title={t("header.status.description")}>
+                <span className={styles.statusDot} aria-hidden="true" />
+                {t("header.status.live")}
+              </span>
             </span>
-          </span>
+          </div>
         </div>
 
         <div className={styles.actions}>

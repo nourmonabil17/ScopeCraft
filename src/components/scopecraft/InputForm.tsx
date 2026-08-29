@@ -62,8 +62,13 @@ export interface InputFormProps {
    * so a prop update on an already-mounted instance has no effect — the
    * caller must change this component's `key` to force a fresh mount if the
    * value becomes available after the initial render (see ScopeCraftPage).
+   *
+   * `Partial` because the only real caller (a "duplicate this plan" payload
+   * read back out of sessionStorage) is untrusted, possibly-stale JSON — it
+   * may be missing fields entirely. Any field it omits falls back to
+   * `emptyFormValues()` below, same as if the whole prop were omitted.
    */
-  initialValues?: IntakeFormValues;
+  initialValues?: Partial<IntakeFormValues>;
 }
 
 type FieldName = keyof IntakeFormValues;
@@ -182,9 +187,10 @@ function ProgressRing({ ratio, tone }: { ratio: number; tone: "short" | "ok" | "
 
 export function InputForm({ onSubmit, isLoading = false, initialValues }: InputFormProps) {
   const { t } = useLanguage();
-  const [values, setValues] = useState<IntakeFormValues>(
-    () => initialValues ?? emptyFormValues()
-  );
+  const [values, setValues] = useState<IntakeFormValues>(() => ({
+    ...emptyFormValues(),
+    ...initialValues,
+  }));
   const [blurred, setBlurred] = useState<Partial<Record<FieldName, boolean>>>({});
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [announcement, setAnnouncement] = useState("");
