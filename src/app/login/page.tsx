@@ -16,5 +16,17 @@ export const metadata: Metadata = {
 export default async function LoginPage() {
   const session = await auth();
   if (session?.user) redirect("/scopecraft");
-  return <LoginCard />;
+
+  // Read here, not in the client card: these are plain (non-NEXT_PUBLIC_)
+  // env vars, so a client component cannot see them at all, and a dead
+  // button for an unconfigured provider is worse than no button — it fails
+  // only after a redirect and a confusing error page, not at a glance.
+  return (
+    <LoginCard
+      providers={{
+        github: Boolean(process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET),
+        google: Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
+      }}
+    />
+  );
 }

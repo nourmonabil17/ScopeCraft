@@ -44,6 +44,11 @@
 // which builds a Blob and hands it to a download link.
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
+  // 'unsafe-eval' is added only in development, and only here — see
+  // `headers()` below. Next's dev server (Turbopack/Webpack HMR, and React's
+  // dev-mode stack-trace reconstruction) calls eval() to do it; production
+  // builds never do. Shipping 'unsafe-eval' to production would reopen a real
+  // hole for no reason, so it must not leak in from a shared constant.
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
@@ -56,8 +61,20 @@ const CONTENT_SECURITY_POLICY = [
   "upgrade-insecure-requests",
 ].join("; ");
 
+// Dev-only variant: same policy, but `script-src` also allows 'unsafe-eval'.
+// Built by patching the single script-src line rather than duplicating the
+// whole array, so the two policies cannot silently drift apart on every other
+// directive.
+const CONTENT_SECURITY_POLICY_DEV = CONTENT_SECURITY_POLICY.replace(
+  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+);
+
 const SECURITY_HEADERS = [
-  { key: "Content-Security-Policy", value: CONTENT_SECURITY_POLICY },
+  {
+    key: "Content-Security-Policy",
+    value: process.env.NODE_ENV === "development" ? CONTENT_SECURITY_POLICY_DEV : CONTENT_SECURITY_POLICY,
+  },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

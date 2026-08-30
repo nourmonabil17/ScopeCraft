@@ -9,12 +9,13 @@
 // `jwt` callback below carries that id in the token so no *request* needs a
 // user lookup — only the first sign-in touches the database.
 //
-// NO PASSWORDS, deliberately. Sign-in is GitHub OAuth, so this app never
-// sees, hashes, stores, resets or leaks a password. That removes a class of
-// vulnerability rather than mitigating it.
+// NO PASSWORDS, deliberately. Sign-in is GitHub or Google OAuth, so this app
+// never sees, hashes, stores, resets or leaks a password. That removes a
+// class of vulnerability rather than mitigating it.
 
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
+import Google from "next-auth/providers/google";
 import { sql } from "@/lib/db";
 
 // Auth.js ships `session.user` without an `id`. Widening it here rather than in
@@ -38,7 +39,13 @@ declare module "next-auth" {
 // fragile import that a lint rule or a refactor eventually removes.
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [GitHub],
+  // Both are always in the array — Auth.js's env-var convention
+  // (AUTH_<PROVIDER>_ID/SECRET) wires each one's credentials automatically,
+  // and a provider with no credentials configured is simply one the sign-in
+  // page never links to (see providers.github/providers.google in
+  // src/app/login/page.tsx) rather than one that needs conditional removal
+  // here.
+  providers: [GitHub, Google],
 
   // No session table. See the header comment.
   session: { strategy: "jwt" },
@@ -54,13 +61,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       // Every real sign-in has an email: the GitHub provider requests the
       // `user:email` scope and falls back to /user/emails for the primary
-      // address when the public one is null. What is left is genuinely rare —
-      // a revoked scope, a GitHub API failure mid-flow, an account with no
-      // address at all. Fail the sign-in rather than inventing a placeholder:
-      // `users.email` is the unique key, so a fabricated value would either
-      // collide with another user or create an unreachable orphan row.
+      // address when the public one is null, and Google's default scopes
+      // (`openid email profile`) always include one. What is left is
+      // genuinely rare — a revoked scope, a provider API failure mid-flow, an
+      // account with no address at all. Fail the sign-in rather than
+      // inventing a placeholder: `users.email` is the unique key, so a
+      // fabricated value would either collide with another user or create an
+      // unreachable orphan row.
       if (!token.email) {
-        throw new Error("GitHub did not return an email address for this account.");
+        throw new Error("The identity provider did not return an email address for this account.");
       }
 
       // Idempotent by email. `do update` rather than `do nothing` so a renamed
