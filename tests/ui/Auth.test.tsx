@@ -28,6 +28,15 @@ describe("Login card", () => {
     expect(signIn).toHaveBeenCalledWith("github", { callbackUrl: "/scopecraft" });
   });
 
+  it("signs in with Google and comes back to /scopecraft", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LoginCard />);
+
+    await user.click(screen.getByTestId("login-google"));
+
+    expect(signIn).toHaveBeenCalledWith("google", { callbackUrl: "/scopecraft" });
+  });
+
   it("is translated rather than English-only", () => {
     renderWithProviders(<LoginCard />, { locale: "ar" });
 
@@ -35,6 +44,7 @@ describe("Login card", () => {
       "تسجيل الدخول إلى ScopeCraft"
     );
     expect(screen.getByTestId("login-github")).toHaveTextContent("المتابعة عبر GitHub");
+    expect(screen.getByTestId("login-google")).toHaveTextContent("المتابعة عبر Google");
   });
 
   it("keeps the language and theme toggles reachable before sign-in", () => {

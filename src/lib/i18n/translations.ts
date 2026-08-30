@@ -47,9 +47,11 @@ const en = {
   "login.subtitle":
     "ScopeCraft turns a product idea into a PRD, user stories, risks, and a capacity-bounded sprint plan. Sign in to get started.",
   "login.github": "Continue with GitHub",
+  "login.google": "Continue with Google",
   "login.redirecting": "Redirecting to GitHub…",
+  "login.redirecting.google": "Redirecting to Google…",
   "login.note":
-    "ScopeCraft never sees your GitHub password. It receives only your name, email address, and avatar.",
+    "ScopeCraft never sees your GitHub or Google password. It receives only your name, email address, and avatar.",
 
   // ---- Intake wizard ----
   "form.heading": "Describe your product",
@@ -299,9 +301,11 @@ const ar: Record<TranslationKey, string> = {
   "login.subtitle":
     "يحوّل ScopeCraft فكرة المنتج إلى وثيقة متطلبات وقصص مستخدم ومخاطر وخطة سبرنت مقيّدة بالسعة. سجّل الدخول للبدء.",
   "login.github": "المتابعة عبر GitHub",
+  "login.google": "المتابعة عبر Google",
   "login.redirecting": "جارٍ التحويل إلى GitHub…",
+  "login.redirecting.google": "جارٍ التحويل إلى Google…",
   "login.note":
-    "لا يطّلع ScopeCraft على كلمة مرور GitHub الخاصة بك، بل يستقبل اسمك وبريدك الإلكتروني وصورتك الرمزية فقط.",
+    "لا يطّلع ScopeCraft على كلمة مرور GitHub أو Google الخاصة بك، بل يستقبل اسمك وبريدك الإلكتروني وصورتك الرمزية فقط.",
 
   // ---- Intake wizard ----
   "form.heading": "صف منتجك",

@@ -41,7 +41,8 @@ leaks the key to every visitor.
 | Variable | Purpose | Default |
 |---|---|---|
 | `AUTH_SECRET` | Signs the session cookie. `npx auth secret` | — (required) |
-| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth app; callback `<origin>/api/auth/callback/github` | — (required) |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth app; callback `<origin>/api/auth/callback/github` | — (required, unless `AUTH_GOOGLE_*` is set) |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client; redirect `<origin>/api/auth/callback/google` | — (required, unless `AUTH_GITHUB_*` is set) |
 | `AUTH_URL` | Production origin. Pins the OAuth callback host behind a proxy | derived from the request |
 | `NVIDIA_API_KEY` | Primary provider (NVIDIA NIM) | — |
 | `GROQ_API_KEY` | Fallback 1 (Groq) | — |
@@ -51,18 +52,25 @@ leaks the key to every visitor.
 | `AI_TOTAL_BUDGET_MS` | Ceiling for the whole failover chain | `50000` |
 | `NVIDIA_MODEL` / `GROQ_MODEL` / `GEMINI_MODEL` | Model ID overrides | see `.env.example` |
 
-**At least one provider key is required.** A provider with no credential is skipped rather
+**At least one AI provider key is required.** A provider with no credential is skipped rather
 than treated as a failure, so a single key still gives a working endpoint — you simply lose
-the failover tiers behind it. The three `AUTH_*` variables are not optional in the same way:
-without them nothing behind the login page loads at all.
+the failover tiers behind it. `AUTH_SECRET` and at least one OAuth app's credentials
+(`AUTH_GITHUB_*` and/or `AUTH_GOOGLE_*`) are not optional in the same way: without them
+nothing behind the login page loads at all. Both OAuth providers can be configured
+simultaneously — the login page then shows both buttons — or just one, in which case only
+its button appears functional (the other still renders but will fail without credentials, so
+set only the provider(s) you intend to use, or configure both).
 
 ## Authentication
 
-`/scopecraft` is behind a GitHub sign-in. `/login` is the only way in.
+`/scopecraft` is behind sign-in with GitHub or Google. `/login` is the only way in.
 
 **There is no password anywhere in this system, by design.** Sign-in is OAuth, so ScopeCraft
 never sees, hashes, stores, resets or leaks a password — a class of vulnerability removed
-rather than mitigated. GitHub returns only a name, email address and avatar.
+rather than mitigated. Each provider returns only a name, email address and avatar. Signing
+in with a different provider under the same email address (e.g. GitHub first, Google later)
+resolves to the same ScopeCraft account, since `users.email` — not the provider — is the
+identity key.
 
 **There is also no database.** Auth.js runs with the JWT session strategy, so the session
 lives entirely in a signed cookie: no `sessions` table, no adapter, no per-request DB round

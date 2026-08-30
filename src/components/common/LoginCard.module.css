@@ -85,6 +85,47 @@
   flex: 0 0 auto;
 }
 
+/* Google's brand guidelines call for a neutral (not brand-colored) button —
+ * the mark itself carries the color, the button chrome does not — so this is
+ * deliberately NOT .githubButton with a different background. Sharing the
+ * shape (size, radius, spacing) keeps the two buttons reading as one group. */
+.googleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.5rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--sc-text);
+  background: var(--sc-surface-raised);
+  border: 1px solid var(--sc-border);
+  border-radius: 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.625rem 1rem;
+  cursor: pointer;
+  transition: opacity 140ms ease, background-color 140ms ease;
+}
+
+.googleButton:hover:not(:disabled) {
+  background: var(--sc-surface);
+}
+
+.googleButton:focus-visible {
+  outline: 2px solid var(--sc-accent);
+  outline-offset: 2px;
+}
+
+.googleButton:disabled {
+  opacity: 0.65;
+  cursor: progress;
+}
+
+.googleMark {
+  flex: 0 0 auto;
+}
+
 .note {
   margin: 0.25rem 0 0;
   font-size: 0.8125rem;
