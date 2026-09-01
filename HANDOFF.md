@@ -113,7 +113,7 @@ Router), React 19, TypeScript strict, Zod 4. Team 10, four members.
 
 ### Verified green
 
-- **251 tests**, 9 suites (131 node: API · tools · evaluation — 120 UI)
+- **293 tests**, 12 suites (151 node: API · tools · evaluation — 142 UI)
 - `npm run lint` (`--max-warnings=0`), `npx tsc --noEmit`, `npm run build` all clean
 - Client-bundle secret scan clean; git history scan clean (0 hits, all branches)
 - All three providers reachable (`npm run smoke`)
@@ -275,7 +275,7 @@ Four of the five need a human decision or a human visit, not code.
 ```bash
 cd ~/Downloads/ScopeCraft
 
-npm test                 # 251 tests, 9 suites
+npm test                 # 293 tests, 12 suites
 npm run lint             # --max-warnings=0
 npx tsc --noEmit
 npm run build
