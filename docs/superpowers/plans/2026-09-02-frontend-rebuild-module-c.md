@@ -1067,7 +1067,11 @@ Same six steps as Task 4. What differs:
 
 Module C is complete when all of these are true, each verified rather than assumed:
 
-- [ ] `npm test` green, and the new test count recorded (baseline: 292 across 12 suites).
+- [ ] `npm test` green, and the new test count recorded.
+      **Baseline: 293 tests across 12 suites**, measured at `8ea895c`. An earlier
+      figure of 292 circulated in this session and is wrong — it was taken before
+      the Google OAuth merge (`ca6f3e7`), which added one test. Corrected during
+      Task 1 after the reviewer flagged the arithmetic not reconciling.
 - [ ] `npm run typecheck`, `npm run lint`, `npm run build` all green.
 - [ ] The token contrast test passes for every pair in both themes.
 - [ ] The breakpoint audit passes, with exactly four exempt pre-rebuild files.
