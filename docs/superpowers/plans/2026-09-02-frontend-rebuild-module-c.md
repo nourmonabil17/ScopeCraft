@@ -714,21 +714,30 @@ git log -1 --format=%B | grep -i co-authored && echo "TRAILER PRESENT - FIX IT" 
 
 ## Point C4 — Primitives
 
-Six tasks, one per primitive. Each follows the same shape, so Task 4 is written
-in full and Tasks 5–9 state only what differs. **Read Task 4 before any other.**
+Six tasks, one per primitive. Each is written in full and stands on its own.
+**Read Task 4 before any other** — Button establishes the pattern the rest
+follow: token usage, the 44px target, the focus treatment, logical properties,
+and what is and is not testable in jsdom.
 
-**A deliberate deviation from the plan-writing standard, declared rather than
-hidden:** that standard says never write "same as Task N" — repeat the code,
-because an implementer may read tasks out of order. Tasks 5–9 below give exact
-interfaces, exact test cases and exact styling rules, but not literal code.
+**On the staged expansion, recorded so the history reads honestly:** Tasks 5–9
+were originally written as interfaces, test lists and styling rules without
+literal code, deliberately and with the reason stated. C2 and C3 were reviewed
+and accepted before C4 began, and either review could have changed what the
+primitives should look like; writing five components in full beforehand would
+have been writing code against decisions not yet made.
 
-The reason is the owner's acceptance protocol: C2 and C3 are reviewed and
-accepted before C4 begins, and either review can change what the primitives
-should look like. Writing five components in full now would be writing code
-against decisions that have not been made yet. **Tasks 5–9 are expanded to full
-code when point C4 is proposed** — that expansion is the first step of C4, not
-an omission from this plan. Task 4 is complete because Button is needed to prove
-the token layer works at all.
+**They were expanded to full code on 2026-09-02**, after C2 and C3 were
+accepted and Button was built and verified in the browser. Expanding them
+against a real, working example rather than an imagined one caught two things
+that the sketch had wrong, both in Task 9 — the toast tone count, and a second
+live region that would have made every toast announce twice.
+
+A note on testing that applies to all six: `jest.config.js` maps `*.module.css`
+to `identity-obj-proxy`, so `styles.foo` returns the string `"foo"` and **no
+computed style is available in jsdom.** Do not write tests that assert colours,
+spacing or media-query behaviour — they cannot work. Test roles, accessible
+names, attributes, and behaviour. Visual and responsive verification happens in
+the browser, and is recorded as evidence, not as a unit test.
 
 A note on testing that applies to all six: `jest.config.js` maps `*.module.css`
 to `identity-obj-proxy`, so `styles.foo` returns the string `"foo"` and **no
@@ -977,87 +986,1045 @@ git log -1 --format=%B | grep -i co-authored && echo "TRAILER PRESENT - FIX IT" 
 
 ### Task 5: Card
 
-Same six steps as Task 4. What differs:
+**Files:**
+- Create: `src/components/ui/Card.tsx`, `src/components/ui/Card.module.css`
+- Test: `tests/ui/primitives/Card.test.tsx`
 
-**Files:** `src/components/ui/Card.tsx`, `Card.module.css`, `tests/ui/primitives/Card.test.tsx`
+**Interfaces:**
+- Consumes: token custom properties from Task 2.
+- Produces: `Card` — props `{ as?: "div" | "article" | "li"; recessed?: boolean; muted?: boolean; className?: string; children: ReactNode }`.
 
-**Interfaces:** `Card` — props `{ as?: "div" | "article" | "li"; recessed?: boolean; muted?: boolean; children: ReactNode }`.
+- [ ] **Step 1: Write the failing test**
 
-**Tests to write:**
-- Renders its children.
-- Renders a `<div>` by default and the given element when `as` is passed (`article` → `screen.getByRole("article")`).
-- `recessed` applies the `recessed` class; default does not.
-- A card is not interactive: it must render no `button` or `link` role of its own.
+Create `tests/ui/primitives/Card.test.tsx`:
 
-**Styling notes:** light uses `background: var(--c-panel)` with `border: 1px solid var(--c-rule)`; dark inherits the fill difference from the tokens automatically — **the stylesheet must not special-case dark.** `recessed` swaps to `var(--c-panel-recessed)`. `muted` uses a dashed rule, which is how the deferred column is expressed.
+```tsx
+// tests/ui/primitives/Card.test.tsx
+//
+// A Card carries no behaviour, so what is worth testing is the shape of the
+// element it produces and the promise that it stays inert. The visual half —
+// that a light card is lifted by its rule and a dark one by its fill — cannot
+// be tested in jsdom and is verified in the browser instead.
+
+import { render, screen } from "@testing-library/react";
+import { Card } from "@/components/ui/Card";
+
+describe("Card", () => {
+  it("renders its children", () => {
+    render(<Card>Sprint 1</Card>);
+    expect(screen.getByText("Sprint 1")).toBeInTheDocument();
+  });
+
+  it("renders a div by default", () => {
+    const { container } = render(<Card>plain</Card>);
+    expect(container.firstElementChild?.tagName).toBe("DIV");
+  });
+
+  it("renders the element named by `as`", () => {
+    render(<Card as="article">a story</Card>);
+    expect(screen.getByRole("article")).toBeInTheDocument();
+  });
+
+  it("renders an li when asked, for use inside a real list", () => {
+    render(
+      <ul>
+        <Card as="li">a plan</Card>
+      </ul>
+    );
+    expect(screen.getByRole("listitem")).toBeInTheDocument();
+  });
+
+  it("applies the recessed class only when asked", () => {
+    const { container, rerender } = render(<Card>default</Card>);
+    expect(container.firstElementChild).not.toHaveClass("recessed");
+
+    rerender(<Card recessed>deferred</Card>);
+    expect(container.firstElementChild).toHaveClass("recessed");
+  });
+
+  it("applies the muted class only when asked", () => {
+    const { container } = render(<Card muted>deferred</Card>);
+    expect(container.firstElementChild).toHaveClass("muted");
+  });
+
+  // A card is a surface, not a control. If one ever needs to be clickable, the
+  // button goes inside it — a clickable div is the accessibility bug this
+  // primitive exists to make hard to write.
+  it("is inert: it contributes no button or link of its own", () => {
+    render(<Card>just content</Card>);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("keeps a caller's own className alongside its own", () => {
+    const { container } = render(<Card className="wide">x</Card>);
+    expect(container.firstElementChild).toHaveClass("wide");
+    expect(container.firstElementChild).toHaveClass("card");
+  });
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+npm test -- tests/ui/primitives/Card.test.tsx
+```
+
+Expected: FAIL — cannot resolve `@/components/ui/Card`.
+
+- [ ] **Step 3: Write the component**
+
+Create `src/components/ui/Card.tsx`:
+
+```tsx
+// src/components/ui/Card.tsx
+//
+// Card primitive (owner: Yousef) — Module C.
+//
+// A surface, never a control. There is deliberately no `onClick` prop: a
+// clickable div is invisible to the keyboard and unnamed to a screen reader,
+// and every codebase acquires them one convenience at a time. If a card needs
+// an action, the action is a real <button> inside it.
+//
+// `as` exists because the right element depends on context — an article in a
+// list of plans, an li inside a real <ul>, a div when it is only a container.
+// Getting that wrong is a semantics bug, so the choice is explicit at the call
+// site rather than guessed here.
+
+import type { ReactNode } from "react";
+import styles from "./Card.module.css";
+
+export interface CardProps {
+  as?: "div" | "article" | "li";
+  /** The deferred column's surface: a step back rather than forward. */
+  recessed?: boolean;
+  /** Dashed rule — content that is present but not committed to. */
+  muted?: boolean;
+  className?: string;
+  children: ReactNode;
+}
+
+export function Card({
+  as: Element = "div",
+  recessed = false,
+  muted = false,
+  className,
+  children,
+}: CardProps) {
+  return (
+    <Element
+      className={[
+        styles.card,
+        recessed ? styles.recessed : null,
+        muted ? styles.muted : null,
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {children}
+    </Element>
+  );
+}
+```
+
+Create `src/components/ui/Card.module.css`:
+
+```css
+/* src/components/ui/Card.module.css
+ *
+ * Elevation is expressed differently per theme, and that asymmetry is the
+ * point rather than an oversight: on white a panel is the same colour as the
+ * page and is lifted by its hairline rule; on black it is lifted by a lighter
+ * fill. Both come from the tokens, so THIS FILE MUST NOT SPECIAL-CASE DARK.
+ * A `:root.dark` block here would be the first crack in that arrangement.
+ */
+
+.card {
+  background: var(--c-panel);
+  border: 1px solid var(--c-rule);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+
+  /* Lists of cards are the common case, and a list that carries its own
+     bullets and indentation is never what is wanted. */
+  list-style: none;
+  margin: 0;
+}
+
+.recessed {
+  background: var(--c-panel-recessed);
+}
+
+/* Dashed, not faded: opacity would drag the text below its contrast floor,
+   and the text inside a deferred card still has to be readable. */
+.muted {
+  border-style: dashed;
+}
+```
+
+- [ ] **Step 4: Run the test and watch it pass**
+
+```bash
+npm test -- tests/ui/primitives/Card.test.tsx
+```
+
+Expected: PASS, eight cases.
+
+- [ ] **Step 5: Run all four gates**
+
+```bash
+npm run typecheck && npm run lint && npm test && npm run build
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/components/ui/Card.tsx src/components/ui/Card.module.css tests/ui/primitives/Card.test.tsx
+git -c user.name="Yousef mohmed hasabo" -c user.email="yousefhasabo94@gmail.com" \
+  commit -m "feat(ui): Card primitive"
+git log -1 --format=%B | grep -i co-authored && echo "TRAILER PRESENT - FIX IT" || echo "clean"
+```
 
 ---
 
 ### Task 6: Chip
 
-**Files:** `src/components/ui/Chip.tsx`, `Chip.module.css`, `tests/ui/primitives/Chip.test.tsx`
+**Files:**
+- Create: `src/components/ui/Chip.tsx`, `src/components/ui/Chip.module.css`
+- Test: `tests/ui/primitives/Chip.test.tsx`
 
-**Interfaces:** `Chip` — props `{ weight?: "solid" | "outline" | "dashed"; children: ReactNode }`.
+**Interfaces:**
+- Consumes: token custom properties from Task 2.
+- Produces: `Chip` — props `{ weight?: "solid" | "outline" | "dashed"; className?: string; children: ReactNode }`.
 
-**The rule this primitive exists to enforce:** MoSCoW is encoded by **fill weight, not hue** — MUST solid, SHOULD outline, COULD dashed. Direction C's coloured chips made colour the information, which fails WCAG 1.4.1. The `weight` prop has no colour variants and must not gain any.
+**The rule this primitive exists to enforce:** MoSCoW is encoded by **fill weight, not hue** — MUST solid, SHOULD outline, COULD dashed. Direction C's coloured chips made colour the information, which fails WCAG 1.4.1. The `weight` prop has no colour variants and **must not gain any**.
 
-**Tests to write:**
-- Renders its text content.
-- Each weight applies its own class.
-- Default weight is `outline`.
-- The chip's meaning survives without colour: assert the visible text is the bucket name, so the label carries the information on its own.
+- [ ] **Step 1: Write the failing test**
+
+Create `tests/ui/primitives/Chip.test.tsx`:
+
+```tsx
+// tests/ui/primitives/Chip.test.tsx
+//
+// The test that matters here is the last one. A chip's bucket must be legible
+// without colour — that is a WCAG 1.4.1 obligation, not a stylistic choice —
+// and the way this component keeps that promise is by having no colour props
+// at all and always rendering its label as text.
+
+import { render, screen } from "@testing-library/react";
+import { Chip } from "@/components/ui/Chip";
+
+describe("Chip", () => {
+  it("renders its text content", () => {
+    render(<Chip>MUST</Chip>);
+    expect(screen.getByText("MUST")).toBeInTheDocument();
+  });
+
+  it("defaults to the outline weight", () => {
+    const { container } = render(<Chip>SHOULD</Chip>);
+    expect(container.firstElementChild).toHaveClass("outline");
+  });
+
+  it.each(["solid", "outline", "dashed"] as const)("applies the %s weight class", (weight) => {
+    const { container } = render(<Chip weight={weight}>bucket</Chip>);
+    expect(container.firstElementChild).toHaveClass(weight);
+  });
+
+  // The guarantee, stated as a test: the bucket is readable text, so it
+  // survives greyscale, colour blindness and a screen reader alike. If someone
+  // later adds a `tone` or `colour` prop, this is the test that should stop
+  // them — the information may never live in the fill alone.
+  it("carries its meaning as text, not as colour", () => {
+    render(<Chip weight="dashed">COULD</Chip>);
+    expect(screen.getByText("COULD")).toBeInTheDocument();
+  });
+
+  it("keeps a caller's own className alongside its own", () => {
+    const { container } = render(<Chip className="inline">WON'T</Chip>);
+    expect(container.firstElementChild).toHaveClass("inline");
+    expect(container.firstElementChild).toHaveClass("chip");
+  });
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+npm test -- tests/ui/primitives/Chip.test.tsx
+```
+
+Expected: FAIL — cannot resolve `@/components/ui/Chip`.
+
+- [ ] **Step 3: Write the component**
+
+Create `src/components/ui/Chip.tsx`:
+
+```tsx
+// src/components/ui/Chip.tsx
+//
+// Chip primitive (owner: Yousef) — Module C.
+//
+// MoSCoW is encoded by fill weight, not hue: MUST solid, SHOULD outline,
+// COULD dashed. This is a WCAG 1.4.1 obligation — the rejected direction used
+// red and teal chips, which makes colour the information and leaves anyone who
+// cannot distinguish them with nothing.
+//
+// So there is no `tone`, no `colour` and no `variant` prop here, and adding one
+// would undo the reason the component exists. The bucket name is always
+// rendered as text, which is what actually carries the meaning; the weight only
+// reinforces it.
+
+import type { ReactNode } from "react";
+import styles from "./Chip.module.css";
+
+export interface ChipProps {
+  weight?: "solid" | "outline" | "dashed";
+  className?: string;
+  children: ReactNode;
+}
+
+export function Chip({ weight = "outline", className, children }: ChipProps) {
+  return (
+    <span className={[styles.chip, styles[weight], className].filter(Boolean).join(" ")}>
+      {children}
+    </span>
+  );
+}
+```
+
+Create `src/components/ui/Chip.module.css`:
+
+```css
+/* src/components/ui/Chip.module.css
+ *
+ * Three weights, one colour. The fill carries emphasis; the text carries the
+ * meaning. Nothing in this file may introduce a hue that encodes a bucket —
+ * see the component header for why.
+ */
+
+.chip {
+  display: inline-block;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+
+  border: 1px solid var(--c-text);
+  border-radius: var(--radius-none);
+  white-space: nowrap;
+}
+
+.solid {
+  background: var(--c-text);
+  color: var(--c-ground);
+}
+
+.outline {
+  background: transparent;
+  color: var(--c-text);
+}
+
+.dashed {
+  background: transparent;
+  color: var(--c-text-muted);
+  border-color: var(--c-text-muted);
+  border-style: dashed;
+}
+```
+
+- [ ] **Step 4: Run the test and watch it pass**
+
+```bash
+npm test -- tests/ui/primitives/Chip.test.tsx
+```
+
+Expected: PASS, seven cases.
+
+- [ ] **Step 5: Run all four gates**
+
+```bash
+npm run typecheck && npm run lint && npm test && npm run build
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/components/ui/Chip.tsx src/components/ui/Chip.module.css tests/ui/primitives/Chip.test.tsx
+git -c user.name="Yousef mohmed hasabo" -c user.email="yousefhasabo94@gmail.com" \
+  commit -m "feat(ui): Chip primitive, weight not hue"
+git log -1 --format=%B | grep -i co-authored && echo "TRAILER PRESENT - FIX IT" || echo "clean"
+```
 
 ---
 
 ### Task 7: Field
 
-**Files:** `src/components/ui/Field.tsx`, `Field.module.css`, `tests/ui/primitives/Field.test.tsx`
+**Files:**
+- Create: `src/components/ui/Field.tsx`, `src/components/ui/Field.module.css`
+- Test: `tests/ui/primitives/Field.test.tsx`
 
-**Interfaces:** `Field` — props `{ id: string; label: string; hint?: string; error?: string; children: ReactElement }`. It renders the `<label>`, wires `htmlFor`/`id`, and links hint and error text via `aria-describedby`.
+**Interfaces:**
+- Consumes: token custom properties from Task 2.
+- Produces: `Field` — props `{ id: string; label: string; hint?: string; error?: string; children: ReactElement<FieldControlProps> }`, where `FieldControlProps = { id?: string; "aria-describedby"?: string; "aria-invalid"?: true }`.
 
-**Tests to write:**
-- `screen.getByLabelText(label)` finds the control — this is the whole point of the primitive.
-- A hint is linked: the control's `aria-describedby` contains the hint element's id.
-- An error is linked the same way **and** sets `aria-invalid="true"` on the control.
-- With both hint and error present, `aria-describedby` references both ids.
-- No error means no `aria-invalid` attribute at all, not `aria-invalid="false"`.
+**Why this primitive exists:** every accessible-name and description failure in a form is the same bug — a label that is near a control rather than attached to it. Doing that wiring by hand at each call site is where it goes wrong, so it is done exactly once here.
 
-**Implementation note:** use `cloneElement` to add the wiring attributes to the child control. The child keeps ownership of its own `value`/`onChange`; this primitive only supplies identity and description.
+- [ ] **Step 1: Write the failing test**
+
+Create `tests/ui/primitives/Field.test.tsx`:
+
+```tsx
+// tests/ui/primitives/Field.test.tsx
+//
+// getByLabelText is the assertion that matters most in this file: it only
+// succeeds when the label is genuinely associated with the control, so it
+// fails for the exact bug this primitive exists to prevent — a label that
+// merely sits next to an input.
+
+import { render, screen } from "@testing-library/react";
+import { Field } from "@/components/ui/Field";
+
+describe("Field", () => {
+  it("associates the label with the control", () => {
+    render(
+      <Field id="idea" label="Product idea">
+        <textarea />
+      </Field>
+    );
+    expect(screen.getByLabelText("Product idea")).toBeInTheDocument();
+  });
+
+  it("links a hint through aria-describedby", () => {
+    render(
+      <Field id="idea" label="Product idea" hint="One or two sentences.">
+        <textarea />
+      </Field>
+    );
+
+    const control = screen.getByLabelText("Product idea");
+    const hint = screen.getByText("One or two sentences.");
+
+    expect(hint.id).toBeTruthy();
+    expect(control.getAttribute("aria-describedby")).toContain(hint.id);
+  });
+
+  it("links an error and marks the control invalid", () => {
+    render(
+      <Field id="idea" label="Product idea" error="Required.">
+        <textarea />
+      </Field>
+    );
+
+    const control = screen.getByLabelText("Product idea");
+    const error = screen.getByText("Required.");
+
+    expect(control.getAttribute("aria-describedby")).toContain(error.id);
+    expect(control).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("references both hint and error when both are present", () => {
+    render(
+      <Field id="idea" label="Product idea" hint="One or two sentences." error="Required.">
+        <textarea />
+      </Field>
+    );
+
+    const control = screen.getByLabelText("Product idea");
+    const describedBy = control.getAttribute("aria-describedby") ?? "";
+
+    expect(describedBy).toContain(screen.getByText("One or two sentences.").id);
+    expect(describedBy).toContain(screen.getByText("Required.").id);
+  });
+
+  // aria-invalid="false" is a valid value that some assistive tech announces.
+  // A field that is simply not yet filled in is not invalid, and saying so out
+  // loud on every control in a form is noise.
+  it("sets no aria-invalid attribute at all when there is no error", () => {
+    render(
+      <Field id="idea" label="Product idea">
+        <textarea />
+      </Field>
+    );
+    expect(screen.getByLabelText("Product idea")).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("sets no aria-describedby when there is neither hint nor error", () => {
+    render(
+      <Field id="idea" label="Product idea">
+        <textarea />
+      </Field>
+    );
+    expect(screen.getByLabelText("Product idea")).not.toHaveAttribute("aria-describedby");
+  });
+
+  // The control keeps ownership of its own value and handlers; this primitive
+  // supplies identity and description only.
+  it("leaves the control's own props untouched", () => {
+    render(
+      <Field id="capacity" label="Capacity">
+        <input type="number" defaultValue={40} />
+      </Field>
+    );
+
+    const control = screen.getByLabelText("Capacity");
+    expect(control).toHaveAttribute("type", "number");
+    expect(control).toHaveValue(40);
+  });
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+npm test -- tests/ui/primitives/Field.test.tsx
+```
+
+Expected: FAIL — cannot resolve `@/components/ui/Field`.
+
+- [ ] **Step 3: Write the component**
+
+Create `src/components/ui/Field.tsx`:
+
+```tsx
+// src/components/ui/Field.tsx
+//
+// Field primitive (owner: Yousef) — Module C.
+//
+// Every accessible-name failure in a form is the same bug: a label that is
+// near a control instead of attached to it. It looks correct on screen and is
+// invisible to a screen reader, and it happens because the wiring is repeated
+// by hand at each call site. It is done exactly once here instead.
+//
+// cloneElement supplies only identity and description — id, aria-describedby,
+// aria-invalid. The control keeps its own value, handlers and type, because a
+// primitive that took ownership of those would have to grow a prop for every
+// kind of input this app will ever have.
+
+import { cloneElement, type ReactElement } from "react";
+import styles from "./Field.module.css";
+
+/** The subset of props this primitive injects into its child control. */
+export interface FieldControlProps {
+  id?: string;
+  "aria-describedby"?: string;
+  "aria-invalid"?: true;
+}
+
+export interface FieldProps {
+  id: string;
+  label: string;
+  hint?: string;
+  error?: string;
+  children: ReactElement<FieldControlProps>;
+}
+
+export function Field({ id, label, hint, error, children }: FieldProps) {
+  const hintId = hint ? `${id}-hint` : undefined;
+  const errorId = error ? `${id}-error` : undefined;
+
+  // Order matters to a screen reader: the hint describes what to enter, the
+  // error says what went wrong with what was entered.
+  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
+
+  return (
+    <div className={styles.field}>
+      <label className={styles.label} htmlFor={id}>
+        {label}
+      </label>
+
+      {cloneElement(children, {
+        id,
+        "aria-describedby": describedBy,
+        // Never `false`. aria-invalid="false" is announced by some assistive
+        // tech, and an empty field is not an invalid one.
+        "aria-invalid": error ? true : undefined,
+      })}
+
+      {hint ? (
+        <p className={styles.hint} id={hintId}>
+          {hint}
+        </p>
+      ) : null}
+
+      {error ? (
+        <p className={styles.error} id={errorId}>
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+```
+
+Create `src/components/ui/Field.module.css`:
+
+```css
+/* src/components/ui/Field.module.css
+ *
+ * The error text is not red-only. Colour alone would fail WCAG 1.4.1, and the
+ * message itself is what carries the fault — the weight and the rule beside it
+ * are reinforcement, not the signal.
+ */
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--c-text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--c-text);
+  border-inline-start: 2px solid var(--c-text);
+  padding-inline-start: var(--space-2);
+}
+```
+
+- [ ] **Step 4: Run the test and watch it pass**
+
+```bash
+npm test -- tests/ui/primitives/Field.test.tsx
+```
+
+Expected: PASS, seven cases.
+
+**If `cloneElement` fails to typecheck:** the child is typed `ReactElement<FieldControlProps>` precisely so the injected props are known to TypeScript. Do not reach for `any` or a cast — if it errors, the child's own prop type is the thing to look at, and the fix belongs in `FieldControlProps`.
+
+- [ ] **Step 5: Run all four gates**
+
+```bash
+npm run typecheck && npm run lint && npm test && npm run build
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/components/ui/Field.tsx src/components/ui/Field.module.css tests/ui/primitives/Field.test.tsx
+git -c user.name="Yousef mohmed hasabo" -c user.email="yousefhasabo94@gmail.com" \
+  commit -m "feat(ui): Field primitive, label wiring done once"
+git log -1 --format=%B | grep -i co-authored && echo "TRAILER PRESENT - FIX IT" || echo "clean"
+```
 
 ---
 
 ### Task 8: Dialog
 
-**Files:** `src/components/ui/Dialog.tsx`, `Dialog.module.css`, `tests/ui/primitives/Dialog.test.tsx`
+**Files:**
+- Create: `src/components/ui/Dialog.tsx`, `src/components/ui/Dialog.module.css`
+- Test: `tests/ui/primitives/Dialog.test.tsx`
 
-**Interfaces:** `Dialog` — props `{ open: boolean; onClose: () => void; labelledBy: string; children: ReactNode }`.
+**Interfaces:**
+- Consumes: token custom properties from Task 2; `installDialogPolyfill` already wired into `tests/ui/setup.ts`.
+- Produces: `Dialog` — props `{ open: boolean; onClose: () => void; labelledBy: string; children: ReactNode }`.
 
-**Use the native `<dialog>` element with `showModal()`.** It gives focus trapping, Escape-to-close and a real top-layer backdrop with no library. This is already proven in this codebase by `WelcomeModal`.
+**Use the native `<dialog>` element with `showModal()`.** It gives focus trapping, Escape-to-close and a real top-layer backdrop with no library. Already proven in this codebase by `WelcomeModal`.
 
 **Two jsdom limitations that are already solved — do not re-solve them differently:**
-1. jsdom implements no `showModal`/`close` at all. `installDialogPolyfill()` in `tests/ui/render-helpers.tsx` supplies both and is already called from `tests/ui/setup.ts`. It is available to your test for free.
-2. jsdom does not apply the UA rule that hides a closed dialog's content, so a closed dialog's children are still findable by queries. The existing answer is to render `null` until the component decides to show — follow that, do not rely on the closed state hiding anything.
+1. jsdom implements no `showModal`/`close` at all. `installDialogPolyfill()` in `tests/ui/render-helpers.tsx` supplies both and is already called from `tests/ui/setup.ts`. Your test gets it for free.
+2. jsdom does not apply the UA rule that hides a closed dialog's content, so a closed dialog's children remain findable by queries. The answer already used here is to render `null` until the component decides to show. Follow that; do not rely on the closed state hiding anything.
 
-**Tests to write:**
-- Renders nothing at all when `open` is false — `expect(screen.queryByRole("dialog")).not.toBeInTheDocument()`.
-- Renders its children when `open` is true.
-- Calls `onClose` when the dialog fires its `close` event.
-- Is labelled by the element named in `labelledBy`.
+**Difference from `WelcomeModal`:** that component owns its own open state and its own "seen" flag. This primitive is **controlled** — the parent owns `open`. Do not copy the localStorage logic into it.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `tests/ui/primitives/Dialog.test.tsx`:
+
+```tsx
+// tests/ui/primitives/Dialog.test.tsx
+//
+// The first test is the load-bearing one, and it is not obvious why. jsdom
+// does not apply the UA stylesheet rule that hides a closed <dialog>'s
+// children, so a component that merely rendered a closed dialog would still
+// leak its content into every query on the page — which is exactly the bug
+// that was found and fixed in WelcomeModal. Rendering null is the fix, and
+// this asserts it.
+
+import { render, screen } from "@testing-library/react";
+import { Dialog } from "@/components/ui/Dialog";
+
+describe("Dialog", () => {
+  it("renders nothing at all when closed", () => {
+    render(
+      <Dialog open={false} onClose={jest.fn()} labelledBy="t">
+        <h2 id="t">Welcome</h2>
+      </Dialog>
+    );
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText("Welcome")).not.toBeInTheDocument();
+  });
+
+  it("renders its children when open", () => {
+    render(
+      <Dialog open onClose={jest.fn()} labelledBy="t">
+        <h2 id="t">Welcome</h2>
+      </Dialog>
+    );
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Welcome")).toBeInTheDocument();
+  });
+
+  it("opens modally rather than merely being present", () => {
+    render(
+      <Dialog open onClose={jest.fn()} labelledBy="t">
+        <h2 id="t">Welcome</h2>
+      </Dialog>
+    );
+
+    // The polyfill records showModal() by setting the open attribute.
+    expect(screen.getByRole("dialog")).toHaveAttribute("open");
+  });
+
+  it("takes its accessible name from the element named by labelledBy", () => {
+    render(
+      <Dialog open onClose={jest.fn()} labelledBy="dialog-title">
+        <h2 id="dialog-title">Welcome to ScopeCraft</h2>
+      </Dialog>
+    );
+
+    expect(screen.getByRole("dialog", { name: "Welcome to ScopeCraft" })).toBeInTheDocument();
+  });
+
+  // Escape closes a native dialog without any handler of ours running, so
+  // onClose must be driven by the element's own close event or a dismissal
+  // that did not come from our button would go unrecorded.
+  it("calls onClose when the dialog fires its close event", () => {
+    const onClose = jest.fn();
+    render(
+      <Dialog open onClose={onClose} labelledBy="t">
+        <h2 id="t">Welcome</h2>
+      </Dialog>
+    );
+
+    (screen.getByRole("dialog") as HTMLDialogElement).close();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+npm test -- tests/ui/primitives/Dialog.test.tsx
+```
+
+Expected: FAIL — cannot resolve `@/components/ui/Dialog`.
+
+- [ ] **Step 3: Write the component**
+
+Create `src/components/ui/Dialog.tsx`:
+
+```tsx
+// src/components/ui/Dialog.tsx
+//
+// Dialog primitive (owner: Yousef) — Module C.
+//
+// Native <dialog> with showModal(), not a hand-rolled overlay: focus trapping,
+// Escape-to-close, inert background and a real top-layer backdrop all come for
+// free, and each one is a thing a div-based modal gets subtly wrong.
+//
+// Not rendered at all until open, rather than rendered closed and hidden by
+// the UA's `dialog:not([open])` rule. A closed dialog's children are still
+// real DOM nodes, that rule is not applied by every environment — jsdom does
+// not apply it — and content leaking out of a closed modal was a real bug here
+// once already.
+//
+// Controlled: the parent owns `open`. WelcomeModal owns its own state and its
+// own seen-flag; that logic stays there and does not belong in a primitive.
+
+"use client";
+
+import { useEffect, useRef, type ReactNode } from "react";
+import styles from "./Dialog.module.css";
+
+export interface DialogProps {
+  open: boolean;
+  onClose: () => void;
+  /** id of the heading that names this dialog. */
+  labelledBy: string;
+  children: ReactNode;
+}
+
+export function Dialog({ open, onClose, labelledBy, children }: DialogProps) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  // showModal() only works once the element exists, which is after the render
+  // that `open` turned on — hence an effect rather than a call during render.
+  useEffect(() => {
+    if (open) ref.current?.showModal();
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <dialog
+      ref={ref}
+      className={styles.dialog}
+      aria-labelledby={labelledBy}
+      // The element's own close event, not the button's click: Escape closes a
+      // native dialog without any handler of ours running, and a dismissal
+      // that goes unrecorded is how a modal comes back after you closed it.
+      onClose={onClose}
+    >
+      {children}
+    </dialog>
+  );
+}
+```
+
+Create `src/components/ui/Dialog.module.css`:
+
+```css
+/* src/components/ui/Dialog.module.css
+ *
+ * The UA gives <dialog> its own margin, border and padding; all three are
+ * reset here so the panel is the token system's, not the browser's.
+ */
+
+.dialog {
+  margin: auto;
+  inline-size: min(32rem, calc(100vw - var(--space-6)));
+
+  background: var(--c-panel);
+  color: var(--c-text);
+  border: 1px solid var(--c-rule);
+  border-radius: var(--radius-sm);
+  padding: var(--space-6);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+```
+
+- [ ] **Step 4: Run the test and watch it pass**
+
+```bash
+npm test -- tests/ui/primitives/Dialog.test.tsx
+```
+
+Expected: PASS, five cases.
+
+- [ ] **Step 5: Run all four gates**
+
+```bash
+npm run typecheck && npm run lint && npm test && npm run build
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/components/ui/Dialog.tsx src/components/ui/Dialog.module.css tests/ui/primitives/Dialog.test.tsx
+git -c user.name="Yousef mohmed hasabo" -c user.email="yousefhasabo94@gmail.com" \
+  commit -m "feat(ui): Dialog primitive on native <dialog>"
+git log -1 --format=%B | grep -i co-authored && echo "TRAILER PRESENT - FIX IT" || echo "clean"
+```
 
 ---
 
 ### Task 9: Toast
 
-**Files:** `src/components/ui/Toast.tsx`, `Toast.module.css`, `tests/ui/primitives/Toast.test.tsx`
+**Files:**
+- Create: `src/components/ui/Toast.tsx`, `src/components/ui/Toast.module.css`
+- Test: `tests/ui/primitives/Toast.test.tsx`
 
-**Interfaces:** `Toast` — props `{ tone?: "info" | "error"; children: ReactNode }`, plus `ToastViewport` for positioning.
+**Interfaces:**
+- Consumes: token custom properties from Task 2.
+- Produces: `Toast` — props `{ tone?: "success" | "error" | "info"; className?: string; children: ReactNode }`.
 
-**Scope boundary:** this is the *presentation* only. `src/context/ToastContext.tsx` is untouched by this plan — the queue, timing and dismissal logic already exist and are not part of the visual layer.
+**Two corrections to this task as originally sketched, found by reading `src/components/common/Toast.tsx` before writing it:**
 
-**Tests to write:**
-- Renders with `role="status"` for `info` and `role="alert"` for `error`. The tone changes the politeness of the announcement, not only the colour — an error that is announced politely may never be heard.
-- Renders its message text.
-- The viewport uses logical positioning: assert the class, and verify the actual placement in the browser rather than in jsdom.
+1. **Three tones, not two.** The existing viewport supports `success`, `error` and `info`, and `ToastContext` emits all three. A two-tone primitive could not absorb the existing component in Module D without dropping `success`.
+
+2. **No `ToastViewport` in this primitive.** The sketch called for one. The existing `ToastViewport` is already a live region (`role="status" aria-live="polite"`) rendered once from `providers.tsx`, and adding a second live region would mean **every toast is announced twice** for as long as both exist. The primitive is therefore a single toast's presentation only, and Module D re-implements the existing viewport's *insides* using it, leaving exactly one live region in the tree.
+
+**A real accessibility finding, recorded rather than fixed here:** the existing viewport wraps *all* tones — errors included — in one `aria-live="polite"` region, so an error waits for a pause in speech before it is announced. This primitive gives an error `role="alert"` (assertive) instead. That is only half a fix: while the outer polite region still exists, Module D must resolve the nesting when it migrates the viewport. **Do not change `common/Toast.tsx` in this task** — it is a live component and its migration is Module D's, with its own review.
+
+**Scope boundary:** presentation only. `src/context/ToastContext.tsx` is untouched — the queue, timing and dismissal logic already exist and are not part of the visual layer.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `tests/ui/primitives/Toast.test.tsx`:
+
+```tsx
+// tests/ui/primitives/Toast.test.tsx
+//
+// Tone changes how the message is announced, not just how it looks. An error
+// routed through a polite live region waits for a pause in speech, which for a
+// failed generation can mean the user acts on a plan that was never produced.
+// That is why role is asserted per tone here and not treated as styling.
+
+import { render, screen } from "@testing-library/react";
+import { Toast } from "@/components/ui/Toast";
+
+describe("Toast", () => {
+  it("renders its message", () => {
+    render(<Toast>Plan saved.</Toast>);
+    expect(screen.getByText("Plan saved.")).toBeInTheDocument();
+  });
+
+  it("announces an error assertively", () => {
+    render(<Toast tone="error">Generation failed.</Toast>);
+    expect(screen.getByRole("alert")).toHaveTextContent("Generation failed.");
+  });
+
+  it.each(["success", "info"] as const)("announces %s politely", (tone) => {
+    render(<Toast tone={tone}>Saved.</Toast>);
+    expect(screen.getByRole("status")).toHaveTextContent("Saved.");
+  });
+
+  it("defaults to the info tone", () => {
+    const { container } = render(<Toast>Heads up.</Toast>);
+    expect(container.firstElementChild).toHaveClass("info");
+    expect(screen.getByRole("status")).toBeInTheDocument();
+  });
+
+  it.each(["success", "error", "info"] as const)("applies the %s tone class", (tone) => {
+    const { container } = render(<Toast tone={tone}>message</Toast>);
+    expect(container.firstElementChild).toHaveClass(tone);
+  });
+
+  // The tone must survive greyscale: the message text is the information, and
+  // the colour only reinforces it. A toast whose meaning is carried by its
+  // background alone fails WCAG 1.4.1 the same way a coloured chip would.
+  it("carries its meaning as text rather than colour", () => {
+    render(<Toast tone="error">Could not reach the planner.</Toast>);
+    expect(screen.getByText("Could not reach the planner.")).toBeInTheDocument();
+  });
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+npm test -- tests/ui/primitives/Toast.test.tsx
+```
+
+Expected: FAIL — cannot resolve `@/components/ui/Toast`.
+
+- [ ] **Step 3: Write the component**
+
+Create `src/components/ui/Toast.tsx`:
+
+```tsx
+// src/components/ui/Toast.tsx
+//
+// Toast primitive (owner: Yousef) — Module C.
+//
+// Tone decides how the message is announced, not only how it looks. An error
+// sent through a polite live region waits for a pause in speech; for a failed
+// generation that can mean acting on a plan that was never produced. So error
+// is role="alert" and everything else is role="status".
+//
+// There is deliberately no viewport here. src/components/common/Toast.tsx is
+// already a live region rendered once from providers.tsx, and a second one
+// would announce every toast twice. Module D re-implements that component's
+// insides with this primitive, leaving exactly one live region in the tree.
+
+import type { ReactNode } from "react";
+import styles from "./Toast.module.css";
+
+export interface ToastProps {
+  tone?: "success" | "error" | "info";
+  className?: string;
+  children: ReactNode;
+}
+
+export function Toast({ tone = "info", className, children }: ToastProps) {
+  return (
+    <div
+      className={[styles.toast, styles[tone], className].filter(Boolean).join(" ")}
+      role={tone === "error" ? "alert" : "status"}
+    >
+      {children}
+    </div>
+  );
+}
+```
+
+Create `src/components/ui/Toast.module.css`:
+
+```css
+/* src/components/ui/Toast.module.css
+ *
+ * Tone is reinforced by a rule on the inline start edge rather than by a
+ * coloured fill. The message text is what carries the meaning — the same rule
+ * that governs Chip — and a border-inline-start flips correctly under RTL
+ * where a border-left would strand it on the wrong edge.
+ */
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  padding-block: var(--space-3);
+  padding-inline: var(--space-4);
+
+  background: var(--c-panel);
+  color: var(--c-text);
+  border: 1px solid var(--c-rule);
+  border-inline-start-width: 3px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.info {
+  border-inline-start-color: var(--c-rule-strong);
+}
+
+.success {
+  border-inline-start-color: var(--c-accent);
+}
+
+/* Deliberately the strongest edge available in the token set rather than a red
+   that is not in it. Adding a semantic red would mean adding a colour whose
+   contrast is unasserted, and the alert role already carries the urgency. */
+.error {
+  border-inline-start-color: var(--c-text);
+}
+```
+
+- [ ] **Step 4: Run the test and watch it pass**
+
+```bash
+npm test -- tests/ui/primitives/Toast.test.tsx
+```
+
+Expected: PASS, nine cases.
+
+- [ ] **Step 5: Run all four gates**
+
+```bash
+npm run typecheck && npm run lint && npm test && npm run build
+```
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/components/ui/Toast.tsx src/components/ui/Toast.module.css tests/ui/primitives/Toast.test.tsx
+git -c user.name="Yousef mohmed hasabo" -c user.email="yousefhasabo94@gmail.com" \
+  commit -m "feat(ui): Toast primitive, tone drives politeness"
+git log -1 --format=%B | grep -i co-authored && echo "TRAILER PRESENT - FIX IT" || echo "clean"
+```
 
 **Point C4 ends here.** Full review, then stop.
 
