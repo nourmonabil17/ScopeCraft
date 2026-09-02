@@ -259,6 +259,40 @@ describe("State 2 · loading timing", () => {
     });
     expect(elapsed).toHaveTextContent("1:32");
   });
+
+  it("keeps announcing past the fourth step instead of falling silent", () => {
+    renderWithProviders(<LoadingState />);
+
+    const loading = screen.getByTestId("loading-state");
+    const status = within(loading).getByRole("status");
+    expect(status).toHaveTextContent(/validating your request/i);
+
+    // Four transitions at 1400 ms lands on the fifth and final step at 5.6 s.
+    // Ticked one interval per act() rather than a single 5_600 ms jump:
+    // each step's setTimeout is only registered once React flushes the
+    // effect after the previous one fires, and that flush happens when
+    // act()'s callback returns — not mid-advance. A single big jump under
+    // fake timers only ever fires the one timer that already existed when
+    // it started, silently advancing one step instead of four (confirmed by
+    // hand). Ticking per-interval lets each step's effect register the next
+    // timer before the clock moves again.
+    for (let i = 0; i < 4; i++) {
+      act(() => {
+        jest.advanceTimersByTime(1_400);
+      });
+    }
+    expect(status).toHaveTextContent(/still working/i);
+
+    // Terminal, not looping: a 50 s wait must not cycle back to "Validating
+    // your request", which would be an outright lie about what is happening.
+    act(() => {
+      jest.advanceTimersByTime(45_000);
+    });
+    expect(status).toHaveTextContent(/still working/i);
+
+    // And exactly one line is live — not the accumulated list.
+    expect(status.textContent).not.toMatch(/validating/i);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -9,9 +9,9 @@
 //  - A step list announces real progress through `role="status"` +
 //    `aria-live="polite"`, updated on an interval. This is honest progress
 //    reporting for a chain we know the general shape of (validate → contact
-//    provider → structure → compute), not a fabricated progress percentage —
-//    the actual request either completes or fails; these steps describe what
-//    is happening, not how close to done it is.
+//    provider → structure → compute → still working), not a fabricated progress
+//    percentage — the actual request either completes or fails; these steps
+//    describe what is happening, not how close to done it is.
 //
 // The interval exists only to give a screen-reader user something better than
 // silence during a multi-second wait; it does not reflect real server-side
@@ -30,6 +30,11 @@ const STEP_KEYS: readonly TranslationKey[] = [
   "state.loading.step2",
   "state.loading.step3",
   "state.loading.step4",
+  // Terminal, and the only step that is honest about not knowing. Steps 1-4
+  // describe a chain whose shape is known; this one exists because the chain
+  // finishes describing itself at 4.2 s while the request can run to 60 s, and
+  // silence for the remaining 50 s told a screen-reader user nothing.
+  "state.loading.step5",
 ];
 
 /** How long each step is shown before advancing to the next. Tuned so a fast
