@@ -7,10 +7,11 @@
 // `global.fetch` is mocked per scenario to return the exact response shape
 // the backend contract promises for that state.
 
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "./render-helpers";
 import ScopeCraftPage from "@/app/scopecraft/page";
+import { LoadingState } from "@/components/common/LoadingState";
 import type { ScopeCraftResponse } from "@/lib/scopecraft/schema";
 import { DEFAULT_TEAM_CAPACITY_POINTS } from "@/lib/scopecraft/schema";
 import { DUPLICATE_PREFILL_STORAGE_KEY } from "@/components/scopecraft/presets";
@@ -207,6 +208,45 @@ describe("State 2 · loading", () => {
     );
     // Exactly one line is live — not the whole step list.
     expect(status.textContent).not.toMatch(/validating.*contacting/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// State 2 — Loading, in isolation
+// ---------------------------------------------------------------------------
+//
+// Rendered directly rather than through the page. The page-flow tests above are
+// locked to real timers because fake timers deadlock against userEvent — see
+// the note on "advances the announced step over time". Nothing here touches
+// userEvent, so fake timers are safe, and driving the clock directly is the
+// only way to reach the 5.6 s mark without a six-second test.
+
+describe("State 2 · loading timing", () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it("counts the wait up in m:ss without announcing it", () => {
+    renderWithProviders(<LoadingState />);
+
+    const elapsed = screen.getByTestId("elapsed-time");
+    expect(elapsed).toHaveTextContent("0:00");
+    // A per-second live region is the character-counter mistake in another
+    // costume. The steps announce; the counter is for eyes only.
+    expect(elapsed).toHaveAttribute("aria-hidden", "true");
+    expect(within(screen.getByTestId("loading-state")).getByRole("status"))
+      .not.toContainElement(elapsed);
+
+    act(() => {
+      jest.advanceTimersByTime(9_000);
+    });
+    expect(elapsed).toHaveTextContent("0:09");
+
+    // Past a minute, because m:ss is the whole reason it is not a raw second
+    // count — a 60 s ceiling means the user can see 1:00.
+    act(() => {
+      jest.advanceTimersByTime(52_000);
+    });
+    expect(elapsed).toHaveTextContent("1:01");
   });
 });
 

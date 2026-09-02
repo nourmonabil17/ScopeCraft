@@ -37,6 +37,16 @@ const STEP_KEYS: readonly TranslationKey[] = [
  *  one reaches the final, most-accurate step rather than looking stuck. */
 const STEP_INTERVAL_MS = 1400;
 
+/** Elapsed time as `m:ss`. Western digits in both locales, matching every other
+ *  count in this codebase — the character counters and form.presets.meta all
+ *  render String(n), and Intl is reserved for dates. */
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 export interface LoadingStateProps {
   label?: string;
 }
@@ -44,6 +54,18 @@ export interface LoadingStateProps {
 export function LoadingState({ label }: LoadingStateProps) {
   const { t } = useLanguage();
   const [stepIndex, setStepIndex] = useState(0);
+
+  // Measured from a timestamp, not accumulated by an incrementing counter: a
+  // backgrounded tab has its timers throttled, and a counter that ticks once
+  // per throttled fire under-reports the wait by however long the user was
+  // away. The subtraction is right regardless of how often the timer runs.
+  const [startedAt] = useState(() => Date.now());
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setElapsedMs(Date.now() - startedAt), 1000);
+    return () => clearInterval(timer);
+  }, [startedAt]);
 
   useEffect(() => {
     if (stepIndex >= STEP_KEYS.length - 1) return;
@@ -53,7 +75,16 @@ export function LoadingState({ label }: LoadingStateProps) {
 
   return (
     <div className={styles.loadingCard} data-testid="loading-state">
-      <p className={styles.heading}>{label ?? t("state.loading.label")}…</p>
+      <p className={styles.heading}>
+        {label ?? t("state.loading.label")}…{" "}
+        <span
+          className={styles.elapsed}
+          aria-hidden="true"
+          data-testid="elapsed-time"
+        >
+          {formatElapsed(elapsedMs)}
+        </span>
+      </p>
 
       <div className={styles.skeletonStack} aria-hidden="true">
         <div className={styles.skeletonRow} />
