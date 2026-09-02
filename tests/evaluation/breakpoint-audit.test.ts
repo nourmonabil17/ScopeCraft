@@ -48,7 +48,6 @@ const WIDTH_QUERY = /@media[^{]*?\((min|max)-width:\s*([^)]+)\)/g;
 // not an exemption list — it is a way of never fixing anything.
 const PRE_REBUILD_EXEMPT = [
   "src/components/common/ToggleControls.module.css",
-  "src/components/scopecraft/InputForm.module.css",
   "src/components/scopecraft/InteractiveSprintBoard.module.css",
 ];
 
@@ -73,9 +72,9 @@ describe("breakpoint audit", () => {
   });
 
   it("the pre-rebuild exemption list has not grown", () => {
-    // Measured at 4 on 2026-09-02; Header came off in D1. Module D shrinks
-    // this to zero.
-    expect(PRE_REBUILD_EXEMPT).toHaveLength(3);
+    // Measured at 4 on 2026-09-02. Header came off in D1, InputForm in D2.
+    // Module D shrinks this to zero.
+    expect(PRE_REBUILD_EXEMPT).toHaveLength(2);
   });
 
   it("every exempt file still exists", () => {
