@@ -338,7 +338,12 @@ and replace the skeleton stack (lines 58-62) with:
 npm run typecheck && npm run lint && npm test && npm run build
 ```
 
-Expected: all pass, 398 tests across 20 suites. No test asserts computed style —
+Expected: all pass, **399** tests across 20 suites — up one from the 398
+baseline even though this task writes no test.
+`tests/evaluation/breakpoint-audit.test.ts` is an `it.each` over every
+stylesheet under `src`, so a new stylesheet adds a case. That case is a real
+check: it proves `LoadingState.module.css` uses only approved breakpoints and
+no `max-width`. No test asserts computed style —
 `*.module.css` maps to `identity-obj-proxy`, so `styles.foo === "foo"` and this
 task changes no class name the component uses. If a test fails, a class name was
 renamed or dropped; compare against the `styles.` names listed under
@@ -350,14 +355,19 @@ renamed or dropped; compare against the `styles.` names listed under
 grep -ro -- '--sc-' src | wc -l
 ```
 
-Expected: `261`, down from 271. The 10 removed are 7 loading rules moved to the
-new file and 3 in the dead `.warningCard`.
+Expected: `263`, down from 271. Ten `var(--sc-*)` uses are removed (7 loading
+rules moved to the new file, 3 in the dead `.warningCard`), but the two header
+comments this plan mandates each contain the literal string `--sc-*`, and this
+grep counts substrings rather than uses. To count real uses instead:
+`grep -ro -- 'var(--sc-' src | wc -l`.
 
 ```bash
 grep -c -- '--sc-' src/components/common/StateViews.module.css
 ```
 
-Expected: `13`, down from 23.
+Expected: `14` by substring — 13 real `var(--sc-*)` uses plus one mention in
+the rewritten header comment. Confirm the 13 with
+`grep -o -- 'var(--sc-' src/components/common/StateViews.module.css | wc -l`.
 
 If either number differs, do not adjust the expectation — find out why. A count
 that fell further means something still in use was deleted.
@@ -568,7 +578,8 @@ Expected: PASS.
 npm run typecheck && npm run lint && npm test && npm run build
 ```
 
-Expected: all pass, 399 tests across 20 suites (one more `it` than before).
+Expected: all pass, **400** tests across 20 suites — 399 after Task 1, plus the
+one `it` this task adds.
 
 - [ ] **Step 8: Commit**
 
@@ -728,7 +739,7 @@ Expected: PASS.
 npm run typecheck && npm run lint && npm test && npm run build
 ```
 
-Expected: all pass, 400 tests across 20 suites.
+Expected: all pass, **401** tests across 20 suites.
 
 - [ ] **Step 8: Commit**
 
@@ -898,10 +909,10 @@ replace with what the audit actually printed:
 Check each against reality:
 
 ```bash
-npm test 2>&1 | tail -5                          # test count → expect 400 / 20 suites
+npm test 2>&1 | tail -5                          # test count → expect 401 / 20 suites
 ls docs/evidence/ui/shots/*.png | wc -l          # screenshot count → expect 17
 node -p "Object.keys(require('./package.json').dependencies).length"  # dependency count
-grep -ro -- '--sc-' src | wc -l                  # legacy refs → expect 261
+grep -ro -- 'var(--sc-' src | wc -l              # legacy refs in use → expect 204
 git log --oneline -1                              # branch head
 ```
 
