@@ -1,0 +1,75 @@
+/* src/components/ui/Button.module.css
+ *
+ * Direction A: sharp edges, hairline rules, no shadow. The primary variant is
+ * the only filled one — that scarcity is what makes it read as the primary
+ * action, without size or colour having to shout.
+ *
+ * Logical properties throughout: padding-inline / padding-block, never
+ * padding-left. This is the single rule that lets one stylesheet serve both
+ * text directions, and it has been broken in this codebase before with
+ * visible consequences.
+ */
+
+.button {
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 580;
+  line-height: 1.2;
+
+  padding-block: var(--space-2);
+  padding-inline: var(--space-4);
+
+  /* 44px comfort target. The history action buttons this replaces are 32px,
+     which clears the 24px floor of SC 2.5.8 but is not comfortable on a
+     phone — a target you have to aim at is a target you mis-hit. */
+  min-block-size: 2.75rem;
+
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+
+  /* Colour only. Transitioning size or position here would move a control
+     under a pointer that is already travelling toward it. */
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.button[aria-busy="true"] {
+  cursor: progress;
+}
+
+/* Focus is restyled, never removed. The offset keeps the ring clear of the
+   border so it stays legible against both the button and the page behind it. */
+.button:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.primary {
+  background: var(--c-accent);
+  color: var(--c-accent-contrast);
+}
+
+.secondary {
+  background: transparent;
+  color: var(--c-text);
+  border-color: var(--c-rule-strong);
+}
+
+.quiet {
+  background: transparent;
+  color: var(--c-text-muted);
+}
+
+.quiet:hover:not(:disabled),
+.secondary:hover:not(:disabled) {
+  background: var(--c-panel-recessed);
+  color: var(--c-text);
+}
