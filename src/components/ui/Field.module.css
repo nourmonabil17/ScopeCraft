@@ -1,0 +1,32 @@
+/* src/components/ui/Field.module.css
+ *
+ * The error text is not red-only. Colour alone would fail WCAG 1.4.1, and the
+ * message itself is what carries the fault — the weight and the rule beside it
+ * are reinforcement, not the signal.
+ */
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--c-text);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--c-text-muted);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--c-text);
+  border-inline-start: 2px solid var(--c-text);
+  padding-inline-start: var(--space-2);
+}
