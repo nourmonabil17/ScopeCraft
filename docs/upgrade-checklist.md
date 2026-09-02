@@ -277,22 +277,25 @@ One point per view. Each is rebuilt, then reviewed against
 
       Verified by `npm run capture:ui`, exit 0: 19 contrast pairs light / 20
       dark, none below AA; 0 unnamed controls; 0 heading skips; no
-      horizontal overflow at 1280/768/390 px in both LTR and RTL.
+      horizontal overflow on the idle page at 1280/768/390 px in both LTR and
+      RTL.
 
       **Not covered by this point.** `StateViews.module.css` keeps its four D9
       consumers on the legacy tokens, along with the hand-rolled `.retryButton`
       and `.startOverButton` that D9 replaces with the `Button` primitive —
-      porting them now would be work D9 throws away. `.srOnly` is now duplicated
-      in six stylesheets; consolidating it touches four separate points and is
-      its own, like the global `box-sizing` reset. Reduced motion is still a
-      per-file `@media` block rather than a token-level rule, which is E1. The
-      automated audit measures the idle `/scopecraft` page only — it never
-      renders `LoadingState`, so the two pairs new to this point,
+      porting them now would be work D9 throws away. `.srOnly` remains
+      duplicated across five stylesheets — this point moved the copy that used
+      to live in `StateViews.module.css` rather than adding a sixth, so the
+      duplication is unchanged; consolidating it touches four separate points
+      and is its own, like the global `box-sizing` reset. Reduced motion is
+      still a per-file `@media` block rather than a token-level rule, which is
+      E1. The automated audit measures the idle `/scopecraft` page only — it
+      never renders `LoadingState`, so the two pairs new to this point,
       `--c-text-muted` on `--c-panel` and `--c-accent` on `--c-panel`, are not
-      in the captured numbers above. Checked by hand with the codebase's own
-      `contrastRatio()` against `tokens.ts`: 6.39:1 and 5.47:1 in light, 6.98:1
-      and 12.01:1 in dark — all clear of the 4.5:1 floor, but not part of the
-      regenerated evidence file.
+      in the captured numbers above. Both are asserted in
+      `tests/evaluation/design-tokens.test.ts`: 6.39:1 and 5.47:1 in light,
+      6.98:1 and 12.01:1 in dark — all clear of the 4.5:1 floor, but not part
+      of the regenerated evidence file.
 - [ ] **D4 — Result view.** The peak moment of the whole product. Largest single
       point in this module.
 - [ ] **D5 — Interactive sprint board.** Rebuilt visual, **preserved decisions**:

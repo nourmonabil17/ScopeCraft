@@ -4,12 +4,16 @@
  * D9 states (empty, error, validation error, domain refusal) on the legacy
  * --sc-* tokens.
  *
- * The two files share nothing token-shaped. The .card and .heading rules they
- * both carry are pure literals, so the ~13 duplicated lines cost nothing and
- * disappear when D9 deletes the old file. The alternative — migrating all five
- * states here — would have meant restyling the retry and start-over buttons
- * that D9 replaces with the Button primitive, exactly as D1 did with
- * .resetButton.
+ * The .card and .heading rules the two files both carry hold no token
+ * references in the old file, which is why the split cost nothing
+ * token-shaped — the ~13 duplicated lines disappear when D9 deletes the old
+ * file. This file's versions of the same two rules are on the token scales
+ * (--radius-md is 4px against the old rule's 0.625rem; --space-4 is 1rem
+ * against the old padding's 1.25rem), so they resolve to different values
+ * until D9 brings the other four states across. That divergence is expected
+ * mid-migration, not a bug. The alternative — migrating all five states here
+ * — would have meant restyling the retry and start-over buttons that D9
+ * replaces with the Button primitive, exactly as D1 did with .resetButton.
  */
 
 .card {
@@ -130,13 +134,14 @@
   color: var(--c-text-muted);
 }
 
-/* Visible only to screen readers. This is the sixth copy of this rule in the
-   codebase (Field, InputForm, ExportActions, InteractiveSprintBoard,
-   StateViews and here). Consolidating them into one utility touches five
-   stylesheets across four separate points, so it is its own point — like the
-   global box-sizing reset — rather than smuggled into a view rebuild.
-   Copied from the D2 version, which uses logical properties and clip-path
-   rather than the deprecated clip: rect() the StateViews copy still has. */
+/* Visible only to screen readers. One of five copies of this rule in the
+   codebase (Field, InputForm, ExportActions, InteractiveSprintBoard, and
+   here) — this point moved the copy that used to live in StateViews rather
+   than adding a new one, so the count is unchanged. Consolidating them into
+   one utility touches five stylesheets across four separate points, so it is
+   its own point — like the global box-sizing reset — rather than smuggled
+   into a view rebuild. Copied from the D2 version, which uses logical
+   properties and clip-path rather than the deprecated clip: rect(). */
 .srOnly {
   position: absolute;
   inline-size: 1px;

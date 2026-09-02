@@ -898,8 +898,8 @@ nonce or hash policy and saying so is more useful than closing the row.
     more than one consumer, and neither contains a single token reference — the
     shared surface had nothing token-shaped in it at all.
 
-    **Traded:** roughly 13 duplicated lines of literals, and a sixth copy of
-    `.srOnly`, for one module-cycle. **Against:** migrating `.retryButton` and
+    **Traded:** roughly 13 duplicated lines of literals, for one
+    module-cycle. **Against:** migrating `.retryButton` and
     `.startOverButton` onto `--c-*` now, when D9 replaces both with the `Button`
     primitive — the same disposal D1 performed on `.resetButton`. Work thrown
     away is worse than a duplicated literal with a known deletion date.
