@@ -132,14 +132,35 @@ correctness, and test coverage. These are graded rows, not nice-to-haves.
       including the two decisions taken inside the owner's instruction: the teal
       accent is shared across both themes rather than dark-only, and MoSCoW is
       encoded by fill weight rather than hue so it does not depend on colour.
-- [ ] **C2 — Design tokens.** One token layer — colour, type scale, spacing,
-      radius, elevation, motion durations — defined once, in both themes, with
-      contrast measured rather than assumed.
-- [ ] **C3 — Responsive system.** The real gap: **nine CSS modules currently
-      have zero media queries**, including `ResultView`, `HistoryList` and the
-      main `page.module.css`. Only three breakpoints exist in the entire app
-      (30 / 34 / 42 rem), all narrow-phone patches. Define a real scale and
-      apply it everywhere. Logical properties only — never `left`/`right`.
+- [x] **C2 — Design tokens.** *Done 2026-09-02, commits `9c42999` and
+      `75aa4d8`.* Tokens live as typed data in `src/lib/design/tokens.ts` and are
+      generated into CSS custom properties by `src/lib/design/css.ts`, so the
+      values the contrast test asserts against are provably the values that ship.
+      Contrast is executable: 18 tests assert every light/dark pair against its
+      WCAG floor, and writing them moved four values that had been chosen by eye
+      and did not actually pass. Verified in a browser in both themes.
+      **No elevation scale**, deliberately — direction A expresses elevation as a
+      hairline rule in light and a lighter fill in dark, never a shadow, so a
+      shadow token would exist only to be reached for. The checklist asked for
+      one; the direction answers it differently.
+      The new `--c-*` block coexists with the old `--sc-*` one, which is still
+      referenced 250+ times by views Module D rebuilds. `grep -r "--sc-" src`
+      returning nothing is now an exact measure of migration progress.
+- [x] **C3 — Responsive scale defined and enforced.** *Done 2026-09-02, commit
+      `f5c5061`.* Four breakpoints — 30/48/64/80rem — in
+      `src/lib/design/breakpoints.ts`, enforced by
+      `tests/evaluation/breakpoint-audit.test.ts`.
+      **Scope corrected from what this line originally said.** It read "define a
+      real scale and apply it everywhere"; applying it to views is Module D's
+      work, one view at a time, and this point covers only defining and enforcing
+      the scale. Ticking it for the applied half would have been a false tick.
+      A custom property cannot appear in a media-query condition and
+      `@custom-media` needs a PostCSS plugin, so the scale cannot be enforced by
+      CSS. The test is the enforcement instead, and it audits direction as well
+      as value: every media query in the app today is a max-width phone patch, so
+      max-width fails even with an approved number. Both halves were proven to
+      fire, not assumed. Four stylesheets are exempt, frozen at four by their own
+      test; that list reaching zero is a Module D exit condition.
 - [ ] **C4 — Primitives.** Button, card, chip, field, dialog, toast — built once
       as the vocabulary every view is then written in.
 
