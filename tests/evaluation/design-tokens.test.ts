@@ -66,6 +66,27 @@ describe("design tokens meet WCAG 2.2 AA", () => {
     const t = tokens.color[theme];
     expect(contrastRatio(t.accentContrast, t.accent)).toBeGreaterThanOrEqual(4.5);
   });
+
+  // The error role is reinforcement for a message that already carries the
+  // fault in words — but reinforcement nobody can read is not reinforcement,
+  // so it takes the same 4.5:1 floor as body text.
+  it.each(themes)("%s: danger text on ground clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.danger, t.ground)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(themes)("%s: danger text on a panel clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.danger, t.panel)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // The error banner puts danger text on the danger surface. That pair is the
+  // one a reader actually meets, and it is the one most easily got wrong by
+  // picking a tint that looks right beside the text rather than under it.
+  it.each(themes)("%s: danger text on the danger surface clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.danger, t.dangerSurface)).toBeGreaterThanOrEqual(4.5);
+  });
 });
 
 describe("token completeness", () => {
