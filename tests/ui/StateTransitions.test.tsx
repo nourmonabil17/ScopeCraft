@@ -169,8 +169,17 @@ describe("State 2 · loading", () => {
     expect(status).toHaveAttribute("aria-live", "polite");
     expect(status).toHaveTextContent(/validating your request/i);
 
-    // The form is disabled while a request is in flight.
-    expect(screen.getByRole("button", { name: /generating plan/i })).toBeDisabled();
+    // Busy, not disabled: a disabled control would leave the tab order
+    // mid-request and tell a screen-reader user nothing about why.
+    const submit = screen.getByRole("button", { name: /generating plan/i });
+    expect(submit).toHaveAttribute("aria-busy", "true");
+    expect(submit).not.toBeDisabled();
+
+    // Reachable by Tab is not the same as clickable: a second click here
+    // must not start a second, paid generation while the first is in
+    // flight. One fetch call, not two, is what actually proves that.
+    await user.click(submit);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
 
     resolveFetch!(jsonResponse(FIXTURE, { headers: { "X-Provider-Used": "nvidia" } }));
     await screen.findByTestId("result-view");

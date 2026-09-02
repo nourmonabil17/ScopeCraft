@@ -23,7 +23,9 @@ export type ColorRole =
   | "textMuted"
   | "textFaint"
   | "accent"
-  | "accentContrast";
+  | "accentContrast"
+  | "danger"
+  | "dangerSurface";
 
 export interface DesignTokens {
   color: Record<"light" | "dark", Record<ColorRole, string>>;
@@ -50,6 +52,18 @@ export const tokens: DesignTokens = {
       textFaint: "#767676",
       accent: "#0f766e",
       accentContrast: "#ffffff",
+
+      // Not in the original ten. The spec never discussed status colour, and
+      // the omission only became visible at D2, where a validation form needs
+      // to say "this is wrong" — see docs/decision-log.md entry 32.
+      danger: "#b91c1c",
+      // dangerSurface measures ~1.09:1 against ground — the tint is barely
+      // distinguishable on its own. The error banner's non-text contrast
+      // (WCAG 1.4.11) is carried entirely by the 2px --c-danger border drawn
+      // on top of it (InputForm.module.css .errorBanner), not by this fill.
+      // Do not drop that border as a "simplification" — it is the only thing
+      // making the banner's boundary visible.
+      dangerSurface: "#fef2f2",
     },
     dark: {
       ground: "#0f1115",
@@ -62,6 +76,11 @@ export const tokens: DesignTokens = {
       textFaint: "#8b95a6",
       accent: "#5eead4",
       accentContrast: "#0f1115",
+
+      danger: "#fca5a5",
+      // Same ~1.09:1-against-ground story as light above — the border, not
+      // this fill, carries the banner's non-text contrast.
+      dangerSurface: "#2a1416",
     },
   },
 

@@ -217,7 +217,46 @@ One point per view. Each is rebuilt, then reviewed against
       buttons sit behind the auth gate, so the browser pass covered `/login`,
       whose row contains only the toggles this work never touched. Ticked on the
       owner's instruction with that gap open.
-- [ ] **D2 — Intake form.** The main page. Presets, validation, submit states.
+- [x] **D2 — Intake form.** *Done 2026-09-02, commits `d3f2183`, `3171431`,
+      `7ef9adf`, `d7723d5`, `861c5f9`, `c0e7f09`, `b466db0`.* The form is on the
+      `--c-*` tokens with zero legacy references, both `max-width` queries are
+      inverted to phone-first, and the preset grid moved from `34rem` — a width
+      that was not on the approved scale — to `48rem`. The exemption list drops
+      from three entries to two. All four fields delegate their label, hint,
+      error and describedby wiring to the `Field` primitive, and the submit and
+      clear actions come from `Button`.
+
+      **Two gaps in Module C surfaced here and were closed rather than worked
+      around.** The ten colour roles had no way to say "this is wrong", so
+      `danger` and `dangerSurface` were added with contrast assertions — see
+      [`decision-log.md`](decision-log.md) entry 32. And `Field`, which had no
+      consumer until now, could not express a required marker, an
+      `aria-errormessage`, or a character counter in `aria-describedby`;
+      adopting it unchanged would have silently dropped the counter out of the
+      description, undoing a decision this form makes deliberately for
+      screen-reader users.
+
+      **Verified by `npm run capture:ui`**, which mints its own session and so
+      reaches the gated form: 17 screenshots and the accessibility audit
+      regenerated, 19 contrast pairs in light and 20 in dark with none below AA,
+      zero unnamed controls, zero heading skips, and no horizontal overflow at
+      1280, 768 or 390px in either direction.
+
+      **The final review caught a real regression that the task reviews did
+      not.** Moving the submit button from `disabled` to `busy` left its action
+      unsuppressed: `busy` nulled the click handler, but a `type="submit"`
+      button submits on click regardless, so a second click during a generation
+      started a second paid request. Fixed in the primitive rather than at the
+      call site, and the test that should have caught it was passing vacuously
+      on an empty field. Reverting the fix now fails three tests.
+
+      **Not covered by this point.** The preset cards keep their own markup — a
+      three-line card is not a label in a box, and dressing it as `Button` would
+      mean overriding most of the primitive. The global `box-sizing` reset stays
+      deferred to its own point, so `.control` keeps the local declaration whose
+      comment records the horizontal-scrollbar bug it prevents. The language and
+      theme toggles are still on the legacy tokens and still exempt, so the
+      header row remains 8px uneven per entry 31.
 - [ ] **D3 — Loading state.** Must keep the honest step reporting that exists
       today, and add what is missing: elapsed time. The current component stops
       advancing at step 4 and then sits still for up to 50 s.

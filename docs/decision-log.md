@@ -863,3 +863,31 @@ nonce or hash policy and saying so is more useful than closing the row.
     `/login`, whose row contains only the two 36px toggles. Both 44px controls sit behind
     the auth gate and were never seen rendered. The unit suite proves they use the primitive;
     nothing has yet confirmed how the mismatch actually looks.
+
+32. **The token set gained an error colour it never had — 2026-09-02, Module D2.**
+    The ten roles approved in Module C carry no way to say "this is wrong".
+    That went unnoticed because nothing had used them yet; D2 put a
+    validation-heavy form in front of them and the hole was immediate — the
+    intake form referenced `--sc-danger` eight times.
+
+    **This fills a gap rather than reversing a decision.** The spec never
+    discusses status colour at all: it calls the existing colour layer "sound"
+    and frames the real gap as the missing spacing, type, radius and motion
+    scales. The omission was an oversight of the reduction from ~30 legacy
+    properties down to ten structural roles, not a considered exclusion — unlike
+    the shadow scale, which `tokens.ts` explicitly argues against.
+
+    **Two roles, not four.** `warning` and `success` were not added. The only
+    place they were used is the capacity ring, which is `aria-hidden` with the
+    number input as its accessible source of truth, and only over-capacity is
+    actually a fault: the ring's "ok" state takes `--c-accent` and its "short"
+    state takes `--c-text-faint`, because under-filled is not-yet-full rather
+    than wrong.
+
+    **Colour stays reinforcement, not the signal.** `Field.module.css` says the
+    error text is deliberately not red-only, because colour alone fails WCAG
+    1.4.1 and the message is what carries the fault. That is unchanged: the
+    error keeps its weight and its `border-inline-start` rule, and `--c-danger`
+    is added on top of both. Every new pair is asserted against the 4.5:1 floor
+    in `tests/evaluation/design-tokens.test.ts`, including danger-on-danger-
+    surface, which is the pair a reader actually meets in the error banner.

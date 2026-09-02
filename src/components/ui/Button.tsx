@@ -48,7 +48,12 @@ export function Button({
       // idle should carry no busy state at all.
       aria-busy={busy || undefined}
       className={[styles.button, styles[variant], className].filter(Boolean).join(" ")}
-      onClick={busy ? undefined : onClick}
+      // Not `undefined`: a type="submit" button submits its form on click
+      // regardless of whether a handler is attached, so nulling onClick
+      // suppresses nothing on the one variant of Button most likely to be
+      // busy — a submit control mid-request. preventDefault on the click is
+      // what actually stops the second, paid, in-flight submission.
+      onClick={busy ? (event) => event.preventDefault() : onClick}
     >
       {children}
     </button>

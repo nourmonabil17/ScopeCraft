@@ -338,15 +338,41 @@ describe("Test 5 · submits a valid payload", () => {
     setup({ isLoading: true });
 
     const button = screen.getByRole("button", { name: /generating plan/i });
-    expect(button).toBeDisabled();
+    // Busy, not disabled: a disabled control leaves the tab order mid-request
+    // and tells a screen-reader user nothing about why. The inputs, unlike
+    // the submit button, are still disabled while loading.
     expect(button).toHaveAttribute("aria-busy", "true");
+    expect(button).not.toBeDisabled();
     for (const control of Object.values(fields())) {
       expect(control).toBeDisabled();
     }
   });
 
+  it("builds the submit action from the Button primitive and keeps busy separate from disabled", async () => {
+    const { user, onSubmit } = setup({ isLoading: true, initialValues: { idea: VALID_IDEA } });
+
+    const submit = screen.getByRole("button", { name: /generating plan/i });
+    // toHaveClass("button") would also pass on the old hand-rolled button:
+    // identity-obj-proxy maps every CSS-module class to its own name, so
+    // InputForm.module.css's .button also renders as class "button". The
+    // variant class is what only the Button primitive can carry.
+    expect(submit).toHaveClass("button", "primary");
+    expect(submit).toHaveAttribute("type", "submit");
+    expect(submit).toHaveAttribute("aria-busy", "true");
+    expect(submit).not.toBeDisabled();
+
+    // Focusable and announced is not the same as actionable: a click still
+    // must not fire the submit while busy, or the "not disabled" choice
+    // above becomes a way to double-submit rather than just a11y polish.
+    await user.click(submit);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("does not submit while loading", async () => {
-    const { user, onSubmit } = setup({ isLoading: true });
+    // A valid idea is required here: an empty field makes validateIntake
+    // bail before onSubmit is ever reachable, which would pass this test
+    // even if `busy` failed to suppress the click entirely.
+    const { user, onSubmit } = setup({ isLoading: true, initialValues: { idea: VALID_IDEA } });
 
     await user.click(screen.getByRole("button", { name: /generating plan/i }));
 
@@ -502,6 +528,40 @@ describe("InputForm initialValues", () => {
 // ---------------------------------------------------------------------------
 // The validation rules on their own, with no DOM in the way.
 // ---------------------------------------------------------------------------
+
+describe("Test 8 · Field primitive wiring", () => {
+  it("keeps the character counter in the idea field's description", () => {
+    setup();
+
+    const idea = screen.getByLabelText(/product idea/i);
+    const describedBy = (idea.getAttribute("aria-describedby") ?? "").split(" ");
+    const counter = describedBy.map((x) => document.getElementById(x)).find(Boolean);
+
+    // The counter must be reachable by description, not announced live — see
+    // the decision recorded at the top of InputForm.tsx.
+    expect(describedBy.length).toBeGreaterThanOrEqual(2);
+    expect(counter).not.toBeNull();
+    expect(
+      describedBy.some((x) => document.getElementById(x)?.textContent?.match(/\d+\s*\/\s*\d+/))
+    ).toBe(true);
+  });
+
+  it("marks the idea field required through the primitive", () => {
+    setup();
+
+    expect(screen.getByLabelText(/product idea/i)).toHaveAttribute("aria-required", "true");
+  });
+
+  it("gives every field a label that is attached, not merely adjacent", () => {
+    setup();
+
+    // getByLabelText resolves through htmlFor/id, so it fails on a label that
+    // only looks attached.
+    for (const re of [/product idea/i, /constraints/i, /capacity/i, /sprint length/i]) {
+      expect(screen.getByLabelText(re)).toBeInTheDocument();
+    }
+  });
+});
 
 describe("validateIntake", () => {
   const valid = {
