@@ -37,3 +37,6 @@ CLAUDE.md
 # name breaks Jest's rootDir globs, which fails as "no tests found" rather than as
 # a path error. Committing it would hand that trap to everyone who clones.
 /Team10_ScopeCraft_HANDBOOK-*/
+
+# Visual brainstorming companion (local only)
+.superpowers/
