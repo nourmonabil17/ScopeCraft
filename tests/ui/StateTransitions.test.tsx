@@ -12,6 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "./render-helpers";
 import ScopeCraftPage from "@/app/scopecraft/page";
 import { LoadingState } from "@/components/common/LoadingState";
+import { TRANSLATIONS } from "@/lib/i18n/translations";
 import type { ScopeCraftResponse } from "@/lib/scopecraft/schema";
 import { DEFAULT_TEAM_CAPACITY_POINTS } from "@/lib/scopecraft/schema";
 import { DUPLICATE_PREFILL_STORAGE_KEY } from "@/components/scopecraft/presets";
@@ -292,6 +293,22 @@ describe("State 2 · loading timing", () => {
 
     // And exactly one line is live — not the accumulated list.
     expect(status.textContent).not.toMatch(/validating/i);
+  });
+
+  // The two tests above only ever render LTR. "Test both directions" means
+  // this component has to be seen in Arabic by something, not just the
+  // steps' English strings.
+  it("announces the fifth step in Arabic too", () => {
+    renderWithProviders(<LoadingState />, { locale: "ar" });
+
+    const status = within(screen.getByTestId("loading-state")).getByRole("status");
+
+    for (let i = 0; i < 4; i++) {
+      act(() => {
+        jest.advanceTimersByTime(1_400);
+      });
+    }
+    expect(status).toHaveTextContent(TRANSLATIONS.ar["state.loading.step5"]);
   });
 });
 
