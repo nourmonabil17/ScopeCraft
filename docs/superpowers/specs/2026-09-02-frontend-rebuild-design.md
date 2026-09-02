@@ -20,9 +20,22 @@ wide-desktop behaviour anywhere. Some views survive this because flexbox and gri
 are intrinsically fluid, which is why the failure has gone unnoticed; surviving is
 not the same as being designed.
 
-**It has no visual system.** 6,433 lines across 47 files, styled file by file.
-Colours, spacing and type sizes are decided locally in each module. There is no
-token layer, so there is nothing that can be changed once and be right everywhere.
+**Its visual system is half-built.** *(Corrected 2026-09-02, after this spec was
+first written and before planning began. The original text here claimed there was
+no token layer at all. That was wrong, and it was wrong in the direction this
+project has a documented history of — asserting something without checking it.)*
+
+What actually exists: a colour token layer of roughly thirty custom properties in
+`src/app/layout.tsx`, defined on `:root` and redefined on `:root.dark`, and used
+over 250 times across the module stylesheets. That part is sound and its theming
+model — a `.dark` class rather than a bare media query, so an explicit light
+choice survives a dark OS — is correct and worth keeping.
+
+What does not exist, verified by grep returning zero: **no spacing scale, no type
+scale, no radius scale, no motion-duration tokens, no breakpoint tokens.** Every
+margin, font size, corner and transition in 6,433 lines is a local decision made
+in whichever file needed it. That is the real gap, and it is why the app has no
+consistent rhythm even though its colours are consistent.
 
 **It does not feel finished.** The owner's words were "more interactive, more
 responsive, more professional." The first of those turned out, on questioning, to
@@ -97,6 +110,22 @@ the ground and is defined by its hairline rule; in dark, a panel is defined by a
 lighter fill.** A border does the lifting on white, fill does it on black. Giving
 light panels a grey fill to "match" dark would flatten the whole light theme into
 mush, and giving dark panels a border instead of a fill would make them vanish.
+
+### How the new tokens land without breaking the app
+
+The existing colour tokens are referenced over 250 times by components that are
+still live. Replacing them in one commit would mean every view is broken until
+every view is rebuilt, which contradicts the requirement that the live site never
+regresses.
+
+So the new token layer is **added alongside the old one**, not swapped for it. The
+old `--sc-*` names stay defined and working; the rebuilt primitives and views
+consume the new names. The old names are deleted only once nothing references them,
+as the final point of Module D — and that deletion is a real point with a real
+check (`grep` returning zero), not a cleanup someone remembers to do.
+
+This is the mechanism that lets every single commit in this rebuild leave the app
+working.
 
 ### The accent decision
 
