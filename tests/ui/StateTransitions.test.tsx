@@ -247,6 +247,17 @@ describe("State 2 · loading timing", () => {
       jest.advanceTimersByTime(52_000);
     });
     expect(elapsed).toHaveTextContent("1:01");
+
+    // A backgrounded tab: the wall clock moves but the throttled interval
+    // fires only once when the tab regains focus. Jumping Date.now() without
+    // ticking, then letting exactly one interval fire, is the case the
+    // timestamp read exists for — an accumulator that adds one second per
+    // fire would report 1:02 here instead of the true 1:32.
+    act(() => {
+      jest.setSystemTime(Date.now() + 30_000);
+      jest.advanceTimersByTime(1_000);
+    });
+    expect(elapsed).toHaveTextContent("1:32");
   });
 });
 
