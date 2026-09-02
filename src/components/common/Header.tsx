@@ -12,6 +12,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
+import { Button } from "@/components/ui/Button";
 import { LanguageToggle } from "./LanguageToggle";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserMenu } from "./UserMenu";
@@ -98,15 +99,14 @@ export function Header({ onReset }: HeaderProps) {
           <LanguageToggle />
           <ThemeToggle />
           {onReset && (
-            <button
-              type="button"
-              className={styles.resetButton}
+            <Button
+              variant="secondary"
               onClick={onReset}
               title={t("header.reset.description")}
               data-testid="header-reset"
             >
               {t("header.reset")}
-            </button>
+            </Button>
           )}
         </div>
       </div>

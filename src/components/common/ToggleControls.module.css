@@ -30,7 +30,14 @@
 /* A link, not a button, because it navigates — but it sits in a row of buttons
    and has to match their box exactly or the header looks misaligned. Shares
    .iconButton's metrics rather than re-deriving them: min-height 2.25rem is
-   also what keeps it past the WCAG 2.2 SC 2.5.8 24px target minimum. */
+   also what keeps it past the WCAG 2.2 SC 2.5.8 24px target minimum.
+
+   That match now holds only between the controls in this file. Since D1 the
+   same row also carries the Button primitive at 44px (reset, sign-out), so the
+   row is 8px uneven on /scopecraft until these toggles are rebuilt onto the new
+   tokens and come off the breakpoint audit's exemption list. Deliberate and
+   recorded — docs/decision-log.md entry 31. Raising min-height here alone would
+   not fix it: these controls also still carry the legacy --sc-* tokens. */
 .linkButton {
   display: inline-flex;
   align-items: center;
