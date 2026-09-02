@@ -832,3 +832,34 @@ nonce or hash policy and saying so is more useful than closing the row.
     — a living evidence artifact, not a historical record — got its `/`-coverage disclosure
     corrected instead, since that page no longer has distinct content for a coverage gap to
     be about.
+
+31. **The header's control heights were deliberately left mismatched — 2026-09-02, Module D1.**
+    D1 moved the header's two buttons (the reset action and sign-out) onto the `Button`
+    primitive, which measures 44px. The controls beside them in the same row — the Home
+    link, the language toggle and the theme toggle — are still `ToggleControls.module.css`
+    at 36px, because that file is a separate entry on the breakpoint audit's exemption list
+    and D1 was scoped to the header shell only.
+
+    **This knowingly breaks a stated invariant.** `ToggleControls.module.css` says in its
+    own comment that `.linkButton` "sits in a row of buttons and has to match their box
+    exactly or the header looks misaligned." That is still true of the two controls the
+    comment is about; it is no longer true of the row as a whole. The comment has been
+    amended to say so rather than left asserting something the row no longer satisfies.
+
+    **The alternative was worse in both directions.** Reverting the buttons to 36px would
+    have given up the 44px comfort target that the `Button` primitive exists to guarantee,
+    for every consumer, not just this one. Raising the toggles in the same change would have
+    pulled `ToggleControls.module.css` into D1 — a file with 19 legacy `--sc-*` references
+    and two `@media (max-width: 34rem)` queries whose width is not even on the approved
+    scale, so it fails both halves of the audit and is a rebuild, not a height edit.
+
+    **What it costs until then:** an 8px misalignment in the signed-in header, on
+    `/scopecraft` only, since both 44px controls render only behind the auth gate. It closes
+    when the toggles are rebuilt and come off the exemption list; the row is uniform again
+    at that point. Recorded here rather than absorbed silently, because the next person to
+    open that file will otherwise read the comment and believe the row is uniform today.
+
+    **Not verified in a browser.** D1's browser pass covered the signed-out header on
+    `/login`, whose row contains only the two 36px toggles. Both 44px controls sit behind
+    the auth gate and were never seen rendered. The unit suite proves they use the primitive;
+    nothing has yet confirmed how the mismatch actually looks.
