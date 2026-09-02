@@ -842,6 +842,20 @@ Submit empty. Then confirm:
 
 At 375px: presets stack one per row, the two number fields stack, and the page does not scroll sideways. At 480px: number fields pair up, presets still stacked. At 768px: presets go three-up. Repeat the whole sweep in Arabic and confirm the form mirrors, the counters sit on the correct side, and nothing clips.
 
+- [ ] **Step 4b: Run the UI evidence capture**
+
+CLAUDE.md §5 adds a fifth gate for any change that touches UI, and D2 touches a great deal of it. It was deliberately deferred to here rather than run per-task, because Tasks 3, 4 and 5 each change this same form.
+
+```bash
+npm run capture:ui
+```
+
+It needs `AUTH_SECRET` to match the server under capture. Report whether it passes and what it produced; if it fails, say so rather than skipping it.
+
+- [ ] **Step 4c: Settle the hint order**
+
+`Field` renders the hint **after** the control; this form previously rendered it **before**, on all four fields. Not an accessibility regression — `aria-describedby` is non-positional — but "context before input" is a deliberate pattern and it changed as a side effect of adopting the primitive. Look at it in the browser and put the question to the owner with what you see. If the answer is "put it back", that is a change to `Field` affecting every future consumer, not a local fix here.
+
 - [ ] **Step 5: Restore**
 
 ```bash
