@@ -4,8 +4,8 @@
  * D9 states (empty, error, validation error, domain refusal) on the legacy
  * --sc-* tokens.
  *
- * The two files share nothing token-shaped. The .card and .heading rules both
- * carry are pure literals, so the ~13 duplicated lines cost nothing and
+ * The two files share nothing token-shaped. The .card and .heading rules they
+ * both carry are pure literals, so the ~13 duplicated lines cost nothing and
  * disappear when D9 deletes the old file. The alternative — migrating all five
  * states here — would have meant restyling the retry and start-over buttons
  * that D9 replaces with the Button primitive, exactly as D1 did with
