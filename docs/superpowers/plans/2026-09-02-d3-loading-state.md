@@ -341,9 +341,11 @@ npm run typecheck && npm run lint && npm test && npm run build
 Expected: all pass, **399** tests across 20 suites — up one from the 398
 baseline even though this task writes no test.
 `tests/evaluation/breakpoint-audit.test.ts` is an `it.each` over every
-stylesheet under `src`, so a new stylesheet adds a case. That case is a real
-check: it proves `LoadingState.module.css` uses only approved breakpoints and
-no `max-width`. No test asserts computed style —
+stylesheet under `src`, so a new stylesheet adds a case. `LoadingState.module.css`
+has no width query at all today, so that case's loop body never runs and it
+passes vacuously — it is a guard, not a proof: it catches a `max-width` or an
+unapproved breakpoint if one is ever added to this file, rather than
+demonstrating anything about the file as it stands. No test asserts computed style —
 `*.module.css` maps to `identity-obj-proxy`, so `styles.foo === "foo"` and this
 task changes no class name the component uses. If a test fails, a class name was
 renamed or dropped; compare against the `styles.` names listed under
