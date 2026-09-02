@@ -1,0 +1,30 @@
+/* src/components/ui/Card.module.css
+ *
+ * Elevation is expressed differently per theme, and that asymmetry is the
+ * point rather than an oversight: on white a panel is the same colour as the
+ * page and is lifted by its hairline rule; on black it is lifted by a lighter
+ * fill. Both come from the tokens, so THIS FILE MUST NOT SPECIAL-CASE DARK.
+ * A `:root.dark` block here would be the first crack in that arrangement.
+ */
+
+.card {
+  background: var(--c-panel);
+  border: 1px solid var(--c-rule);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+
+  /* Lists of cards are the common case, and a list that carries its own
+     bullets and indentation is never what is wanted. */
+  list-style: none;
+  margin: 0;
+}
+
+.recessed {
+  background: var(--c-panel-recessed);
+}
+
+/* Dashed, not faded: opacity would drag the text below its contrast floor,
+   and the text inside a deferred card still has to be readable. */
+.muted {
+  border-style: dashed;
+}
