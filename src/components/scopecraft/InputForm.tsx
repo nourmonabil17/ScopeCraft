@@ -41,6 +41,7 @@ import {
 } from "@/lib/scopecraft/schema";
 import { useLanguage } from "@/context/LanguageContext";
 import { translate, type TranslationKey } from "@/lib/i18n/translations";
+import { Field } from "@/components/ui/Field";
 import {
   STARTER_PRESETS,
   emptyFormValues,
@@ -353,43 +354,34 @@ export function InputForm({ onSubmit, isLoading = false, initialValues }: InputF
         </div>
       </fieldset>
 
-      {/* ---- idea ---- */}
+      {/* ---- idea ----
+          Field owns id/aria-describedby/aria-invalid/aria-errormessage/
+          aria-required — wiring that used to be hand-built here and drifted
+          from the other three fields. The counter is not one of Field's
+          concerns (it doesn't own that id), so it stays outside Field and is
+          added to the description through `describedBy`. */}
       <div className={styles.field}>
-        <label className={styles.label} htmlFor={id("idea")}>
-          {t("form.idea.label")}
-          <span className={styles.required} aria-hidden="true">
-            {" *"}
-          </span>
-          <span className={styles.srOnly}>{t("form.idea.required")}</span>
-        </label>
-        <p className={styles.hint} id={id("idea-hint")}>
-          {t("form.idea.hint", { min: MIN_IDEA_LENGTH })}
-        </p>
-        <textarea
+        <Field
           id={id("idea")}
-          name="idea"
-          autoComplete="off"
-          className={`${styles.control} ${styles.textarea}`}
-          value={values.idea}
-          onChange={(event) => update("idea", event.target.value)}
-          onBlur={() => handleBlur("idea")}
-          disabled={isLoading}
-          required
-          aria-required="true"
-          rows={5}
-          aria-invalid={showError("idea") ? true : undefined}
-          aria-errormessage={showError("idea") ? id("idea-error") : undefined}
-          aria-describedby={`${id("idea-hint")} ${id("idea-counter")}`}
-        />
+          label={t("form.idea.label")}
+          hint={t("form.idea.hint", { min: MIN_IDEA_LENGTH })}
+          requiredLabel={t("form.idea.required")}
+          error={showError("idea")}
+          describedBy={[id("idea-counter")]}
+        >
+          <textarea
+            name="idea"
+            autoComplete="off"
+            className={`${styles.control} ${styles.textarea}`}
+            value={values.idea}
+            onChange={(event) => update("idea", event.target.value)}
+            onBlur={() => handleBlur("idea")}
+            disabled={isLoading}
+            required
+            rows={5}
+          />
+        </Field>
         <div className={styles.counterRow}>
-          {showError("idea") ? (
-            <p className={styles.fieldError} id={id("idea-error")}>
-              <span aria-hidden="true">⚠</span>
-              {showError("idea")}
-            </p>
-          ) : (
-            <span />
-          )}
           <span className={styles.counterGroup}>
             <ProgressRing ratio={ideaRatio} tone={ideaTone} />
             <span
@@ -407,40 +399,30 @@ export function InputForm({ onSubmit, isLoading = false, initialValues }: InputF
         </div>
       </div>
 
-      {/* ---- constraints ---- */}
+      {/* ---- constraints ----
+          "(optional)" is composed from two already-translated fragments, not
+          a new string — Field's label is a plain string, so the inline hint
+          that used to sit beside the label in its own span is folded in here. */}
       <div className={styles.field}>
-        <label className={styles.label} htmlFor={id("constraints")}>
-          {t("form.constraints.label")}{" "}
-          <span className={styles.hint}>{t("form.constraints.optional")}</span>
-        </label>
-        <p className={styles.hint} id={id("constraints-hint")}>
-          {t("form.constraints.hint")}
-        </p>
-        <textarea
+        <Field
           id={id("constraints")}
-          name="constraints"
-          autoComplete="off"
-          className={`${styles.control} ${styles.textarea}`}
-          value={values.constraints}
-          onChange={(event) => update("constraints", event.target.value)}
-          onBlur={() => handleBlur("constraints")}
-          disabled={isLoading}
-          rows={3}
-          aria-invalid={showError("constraints") ? true : undefined}
-          aria-errormessage={
-            showError("constraints") ? id("constraints-error") : undefined
-          }
-          aria-describedby={`${id("constraints-hint")} ${id("constraints-counter")}`}
-        />
+          label={`${t("form.constraints.label")} ${t("form.constraints.optional")}`}
+          hint={t("form.constraints.hint")}
+          error={showError("constraints")}
+          describedBy={[id("constraints-counter")]}
+        >
+          <textarea
+            name="constraints"
+            autoComplete="off"
+            className={`${styles.control} ${styles.textarea}`}
+            value={values.constraints}
+            onChange={(event) => update("constraints", event.target.value)}
+            onBlur={() => handleBlur("constraints")}
+            disabled={isLoading}
+            rows={3}
+          />
+        </Field>
         <div className={styles.counterRow}>
-          {showError("constraints") ? (
-            <p className={styles.fieldError} id={id("constraints-error")}>
-              <span aria-hidden="true">⚠</span>
-              {showError("constraints")}
-            </p>
-          ) : (
-            <span />
-          )}
           <span
             className={`${styles.counter} ${
               constraintsLength > MAX_CONSTRAINTS_LENGTH ? styles.counterWarn : ""
@@ -455,36 +437,35 @@ export function InputForm({ onSubmit, isLoading = false, initialValues }: InputF
       {/* ---- numbers ---- */}
       <div className={styles.numberRow}>
         <div className={styles.field}>
-          <label className={styles.label} htmlFor={id("team_capacity_points")}>
-            {t("form.capacity.label")}
-          </label>
-          <p className={styles.hint} id={id("capacity-hint")}>
-            {t("form.capacity.hint", {
-              min: MIN_TEAM_CAPACITY_POINTS,
-              max: MAX_TEAM_CAPACITY_POINTS,
-            })}
-          </p>
+          {/* The slider and the SVG progress twin of the number field are not
+              controls Field can own — Field clones props onto exactly one
+              child, so anything sharing the row with the labelled control has
+              to stay outside it. Only the number input goes in. */}
           <div className={styles.capacityRow}>
-            <input
+            <Field
               id={id("team_capacity_points")}
-              name="team_capacity_points"
-              autoComplete="off"
-              className={`${styles.control} ${styles.capacityNumber}`}
-              type="number"
-              inputMode="numeric"
-              min={MIN_TEAM_CAPACITY_POINTS}
-              max={MAX_TEAM_CAPACITY_POINTS}
-              step={1}
-              value={values.team_capacity_points}
-              onChange={(event) => update("team_capacity_points", event.target.value)}
-              onBlur={() => handleBlur("team_capacity_points")}
-              disabled={isLoading}
-              aria-invalid={showError("team_capacity_points") ? true : undefined}
-              aria-errormessage={
-                showError("team_capacity_points") ? id("capacity-error") : undefined
-              }
-              aria-describedby={id("capacity-hint")}
-            />
+              label={t("form.capacity.label")}
+              hint={t("form.capacity.hint", {
+                min: MIN_TEAM_CAPACITY_POINTS,
+                max: MAX_TEAM_CAPACITY_POINTS,
+              })}
+              error={showError("team_capacity_points")}
+            >
+              <input
+                name="team_capacity_points"
+                autoComplete="off"
+                className={`${styles.control} ${styles.capacityNumber}`}
+                type="number"
+                inputMode="numeric"
+                min={MIN_TEAM_CAPACITY_POINTS}
+                max={MAX_TEAM_CAPACITY_POINTS}
+                step={1}
+                value={values.team_capacity_points}
+                onChange={(event) => update("team_capacity_points", event.target.value)}
+                onBlur={() => handleBlur("team_capacity_points")}
+                disabled={isLoading}
+              />
+            </Field>
             {/* aria-hidden + tabIndex -1: this is a second view of the number
                 input above, not a separate setting. Screen-reader and keyboard
                 users operate the labelled number field; the slider is a
@@ -503,26 +484,18 @@ export function InputForm({ onSubmit, isLoading = false, initialValues }: InputF
               data-testid="capacity-slider"
             />
           </div>
-          {showError("team_capacity_points") && (
-            <p className={styles.fieldError} id={id("capacity-error")}>
-              <span aria-hidden="true">⚠</span>
-              {showError("team_capacity_points")}
-            </p>
-          )}
         </div>
 
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor={id("sprint_length_days")}>
-            {t("form.sprintLength.label")}
-          </label>
-          <p className={styles.hint} id={id("sprint-hint")}>
-            {t("form.sprintLength.hint", {
-              min: MIN_SPRINT_LENGTH_DAYS,
-              max: MAX_SPRINT_LENGTH_DAYS,
-            })}
-          </p>
+        <Field
+          id={id("sprint_length_days")}
+          label={t("form.sprintLength.label")}
+          hint={t("form.sprintLength.hint", {
+            min: MIN_SPRINT_LENGTH_DAYS,
+            max: MAX_SPRINT_LENGTH_DAYS,
+          })}
+          error={showError("sprint_length_days")}
+        >
           <input
-            id={id("sprint_length_days")}
             name="sprint_length_days"
             autoComplete="off"
             className={styles.control}
@@ -535,19 +508,8 @@ export function InputForm({ onSubmit, isLoading = false, initialValues }: InputF
             onChange={(event) => update("sprint_length_days", event.target.value)}
             onBlur={() => handleBlur("sprint_length_days")}
             disabled={isLoading}
-            aria-invalid={showError("sprint_length_days") ? true : undefined}
-            aria-errormessage={
-              showError("sprint_length_days") ? id("sprint-error") : undefined
-            }
-            aria-describedby={id("sprint-hint")}
           />
-          {showError("sprint_length_days") && (
-            <p className={styles.fieldError} id={id("sprint-error")}>
-              <span aria-hidden="true">⚠</span>
-              {showError("sprint_length_days")}
-            </p>
-          )}
-        </div>
+        </Field>
       </div>
 
       <div className={styles.actions}>

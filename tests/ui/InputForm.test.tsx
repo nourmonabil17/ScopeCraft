@@ -503,6 +503,40 @@ describe("InputForm initialValues", () => {
 // The validation rules on their own, with no DOM in the way.
 // ---------------------------------------------------------------------------
 
+describe("Test 8 · Field primitive wiring", () => {
+  it("keeps the character counter in the idea field's description", () => {
+    setup();
+
+    const idea = screen.getByLabelText(/product idea/i);
+    const describedBy = (idea.getAttribute("aria-describedby") ?? "").split(" ");
+    const counter = describedBy.map((x) => document.getElementById(x)).find(Boolean);
+
+    // The counter must be reachable by description, not announced live — see
+    // the decision recorded at the top of InputForm.tsx.
+    expect(describedBy.length).toBeGreaterThanOrEqual(2);
+    expect(counter).not.toBeNull();
+    expect(
+      describedBy.some((x) => document.getElementById(x)?.textContent?.match(/\d+\s*\/\s*\d+/))
+    ).toBe(true);
+  });
+
+  it("marks the idea field required through the primitive", () => {
+    setup();
+
+    expect(screen.getByLabelText(/product idea/i)).toHaveAttribute("aria-required", "true");
+  });
+
+  it("gives every field a label that is attached, not merely adjacent", () => {
+    setup();
+
+    // getByLabelText resolves through htmlFor/id, so it fails on a label that
+    // only looks attached.
+    for (const re of [/product idea/i, /constraints/i, /capacity/i, /sprint length/i]) {
+      expect(screen.getByLabelText(re)).toBeInTheDocument();
+    }
+  });
+});
+
 describe("validateIntake", () => {
   const valid = {
     idea: VALID_IDEA,
