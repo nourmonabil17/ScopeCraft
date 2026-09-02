@@ -23,7 +23,7 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { TranslationKey } from "@/lib/i18n/translations";
-import styles from "./StateViews.module.css";
+import styles from "./LoadingState.module.css";
 
 const STEP_KEYS: readonly TranslationKey[] = [
   "state.loading.step1",
@@ -56,9 +56,9 @@ export function LoadingState({ label }: LoadingStateProps) {
       <p className={styles.heading}>{label ?? t("state.loading.label")}…</p>
 
       <div className={styles.skeletonStack} aria-hidden="true">
-        <div className={styles.skeletonRow} style={{ width: "90%" }} />
-        <div className={styles.skeletonRow} style={{ width: "75%" }} />
-        <div className={styles.skeletonRow} style={{ width: "60%" }} />
+        <div className={styles.skeletonRow} />
+        <div className={styles.skeletonRow} />
+        <div className={styles.skeletonRow} />
       </div>
 
       {/* Visual step list — not a live region. A live region wrapping this
