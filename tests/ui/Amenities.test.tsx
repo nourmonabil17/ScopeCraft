@@ -174,6 +174,18 @@ describe("Header", () => {
 
     expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
   });
+
+  it("builds the reset action from the Button primitive", () => {
+    renderWithProviders(<Header onReset={jest.fn()} />);
+
+    const reset = screen.getByTestId("header-reset");
+    // identity-obj-proxy maps each CSS-module class to its own name, so class
+    // identity is the one thing jsdom can tell us about styling. It cannot tell
+    // us the control is 44px tall; it can tell us which stylesheet owns it.
+    expect(reset).toHaveClass("button");
+    expect(reset).not.toHaveClass("resetButton");
+    expect(reset).toHaveAttribute("type", "button");
+  });
 });
 
 // ---------------------------------------------------------------------------

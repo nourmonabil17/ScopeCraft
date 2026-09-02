@@ -85,4 +85,14 @@ describe("Header identity control", () => {
 
     expect(screen.getByTestId("user-menu")).toHaveTextContent("yousef@example.com");
   });
+
+  it("builds the sign-out action from the Button primitive", () => {
+    setStubSession({ user: { name: "Yousef", email: "yousef@example.com" } });
+    renderWithProviders(<Header />);
+
+    const signOutButton = screen.getByTestId("sign-out");
+    expect(signOutButton).toHaveClass("button");
+    expect(signOutButton).not.toHaveClass("resetButton");
+    expect(signOutButton).toHaveAttribute("type", "button");
+  });
 });

@@ -8,6 +8,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useLanguage } from "@/context/LanguageContext";
+import { Button } from "@/components/ui/Button";
 import styles from "./Header.module.css";
 
 export function UserMenu() {
@@ -26,14 +27,13 @@ export function UserMenu() {
       <span className={styles.userName} title={label}>
         {label}
       </span>
-      <button
-        type="button"
-        className={styles.resetButton}
+      <Button
+        variant="secondary"
         onClick={() => void signOut({ callbackUrl: "/login" })}
         data-testid="sign-out"
       >
         {t("header.signOut")}
-      </button>
+      </Button>
     </span>
   );
 }

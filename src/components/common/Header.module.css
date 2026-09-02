@@ -109,31 +109,6 @@
   justify-content: flex-end;
 }
 
-.resetButton {
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--sc-text);
-  background: var(--sc-surface-raised);
-  border: 1px solid var(--sc-border);
-  border-radius: 0.5rem;
-  padding: 0.4375rem 0.75rem;
-  min-height: 2.25rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 140ms ease, background 140ms ease;
-}
-
-.resetButton:hover {
-  border-color: var(--sc-border-strong);
-  background: var(--sc-surface-subtle);
-}
-
-.resetButton:focus-visible {
-  outline: 2px solid var(--sc-accent);
-  outline-offset: 2px;
-}
-
 @media (max-width: 30rem) {
   .status {
     display: none;
