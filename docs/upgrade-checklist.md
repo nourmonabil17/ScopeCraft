@@ -161,8 +161,24 @@ correctness, and test coverage. These are graded rows, not nice-to-haves.
       max-width fails even with an approved number. Both halves were proven to
       fire, not assumed. Four stylesheets are exempt, frozen at four by their own
       test; that list reaching zero is a Module D exit condition.
-- [ ] **C4 — Primitives.** Button, card, chip, field, dialog, toast — built once
-      as the vocabulary every view is then written in.
+- [x] **C4 — Primitives.** *Done 2026-09-02.* Six built, each with its own
+      tests and each verified in a browser in both themes and both directions:
+      Button `6d8c13d`, Card `3cf2efa`, Chip `f911bcc`, Field `ce21675`,
+      Dialog `d0c8851`, Toast `feff210`.
+      Each carries one rule worth keeping: Button separates `busy` from
+      `disabled` so a control does not vanish from the tab order mid-request;
+      Card has no `onClick` at all; Chip has no colour prop, and rendering it
+      under `filter: grayscale(1)` produced a row identical to the original
+      because there is no hue to lose; Field sets `aria-invalid` to true or
+      omits it, never false; Dialog renders `null` when closed; Toast routes
+      errors through `role="alert"` rather than the polite region.
+      **Two bugs the unit tests could not have caught, both found in the
+      browser.** Dialog rendered 557px wide inside a 529px viewport because
+      `inline-size` is content-box and the padding was added on top of the cap —
+      fixed with `box-sizing: border-box`. And expanding the Toast task against
+      the real `common/Toast.tsx` showed the sketch had assumed two tones where
+      the context emits three, and had called for a second live region that
+      would have announced every toast twice.
 
 ---
 
