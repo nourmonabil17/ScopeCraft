@@ -444,7 +444,7 @@ after the closing brace of `describe("State 2 · loading", ...)`.
 First extend the imports at the top of the file:
 
 ```tsx
-import { act, render, screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 ```
 
 and add, next to the other component imports:
@@ -499,7 +499,7 @@ describe("State 2 · loading timing", () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-npx jest --selectProjects jsdom -t "counts the wait up in m:ss" 2>&1 | tail -20
+npx jest --selectProjects ui -t "counts the wait up in m:ss" 2>&1 | tail -20
 ```
 
 Expected: FAIL — `Unable to find an element by: [data-testid="elapsed-time"]`.
@@ -567,7 +567,7 @@ Replace the heading line:
 - [ ] **Step 6: Run the test to verify it passes**
 
 ```bash
-npx jest --selectProjects jsdom -t "counts the wait up in m:ss" 2>&1 | tail -20
+npx jest --selectProjects ui -t "counts the wait up in m:ss" 2>&1 | tail -20
 ```
 
 Expected: PASS.
@@ -663,7 +663,7 @@ Task 2:
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```bash
-npx jest --selectProjects jsdom -t "keeps announcing past the fourth step" 2>&1 | tail -20
+npx jest --selectProjects ui -t "keeps announcing past the fourth step" 2>&1 | tail -20
 ```
 
 Expected: FAIL — the status region still reads "Calculating priority, MoSCoW,
@@ -728,7 +728,7 @@ that sentence to:
 - [ ] **Step 6: Run the test to verify it passes**
 
 ```bash
-npx jest --selectProjects jsdom -t "keeps announcing past the fourth step" 2>&1 | tail -20
+npx jest --selectProjects ui -t "keeps announcing past the fourth step" 2>&1 | tail -20
 ```
 
 Expected: PASS.
