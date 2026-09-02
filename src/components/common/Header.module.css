@@ -2,34 +2,37 @@
 
 .header {
   position: sticky;
-  top: 0;
+  inset-block-start: 0;
   z-index: 40;
-  background: var(--sc-surface-header);
-  border-bottom: 1px solid var(--sc-border);
-  backdrop-filter: saturate(150%) blur(8px);
+  background: var(--c-panel);
+  /* Direction A expresses elevation as a hairline in light and a lighter fill
+     in dark — never a shadow, and never a blur. The backdrop-filter this rule
+     replaced was doing neither job on an opaque panel. */
+  border-block-end: 1px solid var(--c-rule);
 }
 
 .inner {
-  max-width: 64rem;
-  margin: 0 auto;
-  padding: 0.625rem 1rem;
+  max-inline-size: 64rem;
+  margin-inline: auto;
+  padding-block: var(--space-2);
+  padding-inline: var(--space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .leftGroup {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
-  min-width: 0;
+  gap: var(--space-2);
+  min-inline-size: 0;
 }
 
 .mark {
@@ -37,53 +40,68 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.875rem;
-  height: 1.875rem;
-  border-radius: 0.5rem;
-  background: var(--sc-accent);
-  color: var(--sc-accent-contrast);
-  font-size: 0.75rem;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: var(--radius-md);
+  background: var(--c-accent);
+  color: var(--c-accent-contrast);
+  font-size: var(--text-xs);
   font-weight: 800;
+  /* "SC" is always Latin and aria-hidden, so tracking is safe here. */
   letter-spacing: 0.02em;
 }
 
 .brandText {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
+  gap: var(--space-2);
+  min-inline-size: 0;
 }
 
 .brandName {
-  font-size: 0.9375rem;
+  font-size: var(--text-base);
   font-weight: 700;
-  color: var(--sc-text);
+  color: var(--c-text);
   white-space: nowrap;
 }
 
+/* Phone is the base case, so the badge is absent until there is room for it —
+   not present and then removed. Inverted from a max-width query, which is what
+   kept this file on the breakpoint audit's exemption list.
+
+   No hue carries the meaning: there is no success role in the token set, and
+   the word "Live" is the signal. No letter-spacing either — this renders
+   "مباشر" under the ar locale, and tracking breaks Arabic's cursive joins. */
 .status {
-  display: inline-flex;
+  display: none;
   align-items: center;
-  gap: 0.3125rem;
-  font-size: 0.6875rem;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--sc-success);
-  background: var(--sc-success-surface);
-  border-radius: 999px;
-  padding: 0.125rem 0.5rem;
+  color: var(--c-text-muted);
+  background: var(--c-panel-recessed);
+  border: 1px solid var(--c-rule);
+  border-radius: var(--radius-sm);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
   white-space: nowrap;
+}
+
+@media (min-width: 30rem) {
+  .status {
+    display: inline-flex;
+  }
 }
 
 .statusDot {
-  width: 0.375rem;
-  height: 0.375rem;
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
   border-radius: 50%;
-  background: var(--sc-success);
+  background: var(--c-accent);
 }
 
-/* Only the dot pulses, and only when motion is welcome. A pulsing text label
+/* Only the dot animates, and only when motion is welcome. A pulsing text label
    would be much harder to read. */
 @media (prefers-reduced-motion: no-preference) {
   .statusDot {
@@ -104,15 +122,9 @@
 .actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
   justify-content: flex-end;
-}
-
-@media (max-width: 30rem) {
-  .status {
-    display: none;
-  }
 }
 
 /* ---- Signed-in identity (UserMenu) ---- */
@@ -120,25 +132,28 @@
 .user {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
+  gap: var(--space-2);
+  min-inline-size: 0;
 }
 
+/* Same inversion as .status. On a phone the header is already tight: the
+   sign-out control is the thing that matters, the name is the nicety, so the
+   name appears once there is room rather than being taken away when there
+   is not. */
 .userName {
-  font-size: 0.8125rem;
+  display: none;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--sc-text-muted);
-  /* A long GitHub display name must not push the toggles off the bar. */
-  max-width: 10rem;
+  color: var(--c-text-muted);
+  /* A long display name must not push the toggles off the bar. */
+  max-inline-size: 10rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Below this the header is already tight; the sign-out button stays, the
-   name goes — it is a nicety, the control is not. */
-@media (max-width: 30rem) {
+@media (min-width: 30rem) {
   .userName {
-    display: none;
+    display: block;
   }
 }
