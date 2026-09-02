@@ -1,0 +1,43 @@
+/* src/components/ui/Toast.module.css
+ *
+ * Tone is reinforced by a rule on the inline start edge rather than by a
+ * coloured fill. The message text is what carries the meaning — the same rule
+ * that governs Chip — and a border-inline-start flips correctly under RTL
+ * where a border-left would strand it on the wrong edge.
+ */
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  /* Same reasoning as Dialog: there is no global box-sizing reset in this app,
+     so any primitive that constrains its own size sets this itself or the
+     padding is added on top of that size. */
+  box-sizing: border-box;
+
+  padding-block: var(--space-3);
+  padding-inline: var(--space-4);
+
+  background: var(--c-panel);
+  color: var(--c-text);
+  border: 1px solid var(--c-rule);
+  border-inline-start-width: 3px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.info {
+  border-inline-start-color: var(--c-rule-strong);
+}
+
+.success {
+  border-inline-start-color: var(--c-accent);
+}
+
+/* Deliberately the strongest edge available in the token set rather than a red
+   that is not in it. Adding a semantic red would mean adding a colour whose
+   contrast is unasserted, and the alert role already carries the urgency. */
+.error {
+  border-inline-start-color: var(--c-text);
+}
