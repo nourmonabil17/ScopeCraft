@@ -844,7 +844,7 @@ At 375px: presets stack one per row, the two number fields stack, and the page d
 
 - [ ] **Step 4b: Run the UI evidence capture**
 
-CLAUDE.md §5 adds a fifth gate for any change that touches UI, and D2 touches a great deal of it. It was deliberately deferred to here rather than run per-task, because Tasks 3, 4 and 5 each change this same form.
+This repository's working rules add a fifth gate — a UI evidence capture — for any change that touches UI, and D2 touches a great deal of it. It was deliberately deferred to here rather than run per-task, because Tasks 3, 4 and 5 each change this same form.
 
 ```bash
 npm run capture:ui

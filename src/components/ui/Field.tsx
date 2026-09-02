@@ -68,7 +68,7 @@ export function Field({
                 "asterisk" is not a requirement and punctuation is skipped by
                 some verbosity settings entirely. */}
             <span className={styles.requiredMark} aria-hidden="true">
-              {" *"}
+              {"*"}
             </span>
             <span className={styles.srOnly}>{requiredLabel}</span>
           </>
@@ -83,6 +83,14 @@ export function Field({
         "aria-invalid": error ? true : undefined,
         // aria-errormessage is only meaningful while aria-invalid is true, so
         // the two are set together or not at all.
+        //
+        // The same id also sits in aria-describedby above, which means a
+        // screen reader that honours both will announce the error text
+        // twice. Deliberate, not an oversight: aria-errormessage support is
+        // still patchy enough that aria-describedby stays as the fallback
+        // every screen reader actually gets the message from, and a rare
+        // double-announcement is a smaller cost than some users never
+        // hearing the error at all.
         "aria-errormessage": errorId,
         "aria-required": requiredLabel ? true : undefined,
       })}

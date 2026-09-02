@@ -349,7 +349,7 @@ describe("Test 5 · submits a valid payload", () => {
   });
 
   it("builds the submit action from the Button primitive and keeps busy separate from disabled", async () => {
-    setup({ isLoading: true });
+    const { user, onSubmit } = setup({ isLoading: true, initialValues: { idea: VALID_IDEA } });
 
     const submit = screen.getByRole("button", { name: /generating plan/i });
     // toHaveClass("button") would also pass on the old hand-rolled button:
@@ -360,10 +360,19 @@ describe("Test 5 · submits a valid payload", () => {
     expect(submit).toHaveAttribute("type", "submit");
     expect(submit).toHaveAttribute("aria-busy", "true");
     expect(submit).not.toBeDisabled();
+
+    // Focusable and announced is not the same as actionable: a click still
+    // must not fire the submit while busy, or the "not disabled" choice
+    // above becomes a way to double-submit rather than just a11y polish.
+    await user.click(submit);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("does not submit while loading", async () => {
-    const { user, onSubmit } = setup({ isLoading: true });
+    // A valid idea is required here: an empty field makes validateIntake
+    // bail before onSubmit is ever reachable, which would pass this test
+    // even if `busy` failed to suppress the click entirely.
+    const { user, onSubmit } = setup({ isLoading: true, initialValues: { idea: VALID_IDEA } });
 
     await user.click(screen.getByRole("button", { name: /generating plan/i }));
 

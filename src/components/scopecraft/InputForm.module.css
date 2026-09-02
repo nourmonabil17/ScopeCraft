@@ -17,7 +17,8 @@
  *  - Interactive targets are at least 44x44px. WCAG 2.2 SC 2.5.8 requires 24px;
  *    44px is the comfortable target and costs nothing here.
  *  - Error state is never signalled by colour alone: the field gets a thicker
- *    border, an icon-prefixed message, and `aria-invalid`. WCAG SC 1.4.1.
+ *    border, an error message rendered by the Field primitive, and
+ *    `aria-invalid`. WCAG SC 1.4.1.
  */
 
 .form {
@@ -34,22 +35,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-
-.label {
-  font-weight: 600;
-  font-size: var(--text-base);
-}
-
-.required {
-  color: var(--c-danger);
-  margin-inline-start: var(--space-1);
-}
-
-.hint {
-  font-size: var(--text-sm);
-  color: var(--c-text-muted);
-  margin: 0;
 }
 
 .control {
@@ -159,16 +144,6 @@
 
 .ringOver .ringFill {
   stroke: var(--c-danger);
-}
-
-.fieldError {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  color: var(--c-danger);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  margin: 0;
 }
 
 /* Submit-time summary. role="alert" + focused, so a keyboard or screen-reader
@@ -339,7 +314,9 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  /* clip-path, not the deprecated clip: rect() — same visual result,
+     current syntax. Matches Field.module.css's copy of this rule. */
+  clip-path: inset(50%);
   white-space: nowrap;
   border-width: 0;
 }

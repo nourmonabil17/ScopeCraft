@@ -175,6 +175,12 @@ describe("State 2 · loading", () => {
     expect(submit).toHaveAttribute("aria-busy", "true");
     expect(submit).not.toBeDisabled();
 
+    // Reachable by Tab is not the same as clickable: a second click here
+    // must not start a second, paid generation while the first is in
+    // flight. One fetch call, not two, is what actually proves that.
+    await user.click(submit);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
     resolveFetch!(jsonResponse(FIXTURE, { headers: { "X-Provider-Used": "nvidia" } }));
     await screen.findByTestId("result-view");
   });
