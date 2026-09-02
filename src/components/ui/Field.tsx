@@ -20,6 +20,8 @@ export interface FieldControlProps {
   id?: string;
   "aria-describedby"?: string;
   "aria-invalid"?: true;
+  "aria-errormessage"?: string;
+  "aria-required"?: true;
 }
 
 export interface FieldProps {
@@ -27,29 +29,62 @@ export interface FieldProps {
   label: string;
   hint?: string;
   error?: string;
+  /** The translated "(required)" text. Present means required. This primitive
+   *  never holds a user-facing string of its own: every one is passed in
+   *  already translated, because an English word baked in here would be an
+   *  English word on the Arabic page that the i18n types cannot catch. */
+  requiredLabel?: string;
+  /** Extra element ids to append to aria-describedby — a character counter, a
+   *  running total, anything the control is described by but does not own. */
+  describedBy?: string[];
   children: ReactElement<FieldControlProps>;
 }
 
-export function Field({ id, label, hint, error, children }: FieldProps) {
+export function Field({
+  id,
+  label,
+  hint,
+  error,
+  requiredLabel,
+  describedBy,
+  children,
+}: FieldProps) {
   const hintId = hint ? `${id}-hint` : undefined;
   const errorId = error ? `${id}-error` : undefined;
 
   // Order matters to a screen reader: the hint describes what to enter, the
-  // error says what went wrong with what was entered.
-  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
+  // error says what went wrong with what was entered, and anything the caller
+  // appends is supplementary to both.
+  const describedByValue =
+    [hintId, errorId, ...(describedBy ?? [])].filter(Boolean).join(" ") || undefined;
 
   return (
     <div className={styles.field}>
       <label className={styles.label} htmlFor={id}>
         {label}
+        {requiredLabel ? (
+          <>
+            {/* The glyph is decoration. Screen readers get the word, because
+                "asterisk" is not a requirement and punctuation is skipped by
+                some verbosity settings entirely. */}
+            <span className={styles.requiredMark} aria-hidden="true">
+              {" *"}
+            </span>
+            <span className={styles.srOnly}>{requiredLabel}</span>
+          </>
+        ) : null}
       </label>
 
       {cloneElement(children, {
         id,
-        "aria-describedby": describedBy,
+        "aria-describedby": describedByValue,
         // Never `false`. aria-invalid="false" is announced by some assistive
         // tech, and an empty field is not an invalid one.
         "aria-invalid": error ? true : undefined,
+        // aria-errormessage is only meaningful while aria-invalid is true, so
+        // the two are set together or not at all.
+        "aria-errormessage": errorId,
+        "aria-required": requiredLabel ? true : undefined,
       })}
 
       {hint ? (

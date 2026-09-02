@@ -94,4 +94,58 @@ describe("Field", () => {
     expect(control).toHaveAttribute("type", "number");
     expect(control).toHaveValue(40);
   });
+
+  it("marks a required field for both sighted and screen-reader users", () => {
+    render(
+      <Field id="idea" label="Idea" requiredLabel="(required)">
+        <textarea defaultValue="" />
+      </Field>
+    );
+
+    const control = screen.getByLabelText(/idea/i);
+    expect(control).toHaveAttribute("aria-required", "true");
+    // The glyph is decorative; the word is what a screen reader reads — and it
+    // comes from the caller, so the Arabic page gets the Arabic word.
+    expect(screen.getByText("(required)")).toBeInTheDocument();
+  });
+
+  it("points aria-errormessage at the error it renders", () => {
+    render(
+      <Field id="idea" label="Idea" error="Too short">
+        <textarea defaultValue="" />
+      </Field>
+    );
+
+    const control = screen.getByLabelText(/idea/i);
+    expect(control).toHaveAttribute("aria-errormessage", "idea-error");
+    expect(control).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Too short")).toHaveAttribute("id", "idea-error");
+  });
+
+  it("appends extra described-by ids after its own", () => {
+    render(
+      <Field id="idea" label="Idea" hint="Describe it" describedBy={["idea-counter"]}>
+        <textarea defaultValue="" />
+      </Field>
+    );
+
+    // Order is the reading order: what to enter, then what went wrong, then
+    // the running count.
+    expect(screen.getByLabelText(/idea/i)).toHaveAttribute(
+      "aria-describedby",
+      "idea-hint idea-counter"
+    );
+  });
+
+  it("omits aria-required and aria-errormessage when they do not apply", () => {
+    render(
+      <Field id="idea" label="Idea">
+        <textarea defaultValue="" />
+      </Field>
+    );
+
+    const control = screen.getByLabelText(/idea/i);
+    expect(control).not.toHaveAttribute("aria-required");
+    expect(control).not.toHaveAttribute("aria-errormessage");
+  });
 });
