@@ -187,8 +187,36 @@ correctness, and test coverage. These are graded rows, not nice-to-haves.
 One point per view. Each is rebuilt, then reviewed against
 `web-design-guidelines` and `design:accessibility-review` before the next starts.
 
-- [ ] **D1 — App shell and header.** Nav, Home, language and theme toggles, skip
-      link first in tab order.
+- [x] **D1 — App shell and header.** *Done 2026-09-02, commits `0654aa0`,
+      `d8810bc` and `5b7332d`, merged as `910516f`.* `Header.module.css` is on the
+      `--c-*` tokens with zero legacy references, and both its `max-width: 30rem`
+      queries are inverted to phone-first `min-width`, which took it off
+      `PRE_REBUILD_EXEMPT` — four entries down to three. The reset and sign-out
+      actions now come from the `Button` primitive, which deleted `.resetButton`
+      rather than migrating it; both consumers moved together, since `UserMenu`
+      imported the same class.
+
+      **Verified on production**, measured rather than eyeballed: header
+      `--c-panel` on a `--c-rule` hairline with `backdrop-filter: none`, badge
+      `--c-text-muted` on `--c-panel-recessed`, dot `--c-accent`, mark 32 px at
+      `--radius-md`, in both themes. The breakpoint flips at exactly 479 → 480 px.
+      In Arabic the bar mirrors, does not scroll sideways, and the badge reads
+      `مباشر` with `letter-spacing: normal` — the tracking that was breaking
+      Arabic's cursive joins is gone. Skip link is still first in the DOM and
+      still reveals on focus.
+
+      **Two things this point does not cover, named rather than implied.** The
+      nav, Home, language and theme toggles in the wording above were *not*
+      rebuilt: they live in `ToggleControls.module.css`, which keeps its own
+      exemption entry, 19 legacy `--sc-*` references and two
+      `@media (max-width: 34rem)` queries whose width is not on the approved
+      scale. Scoping them out was the owner's call, and it leaves the header row
+      8 px uneven — 44 px buttons beside 36 px toggles — which is a taken
+      decision, recorded in [`decision-log.md`](decision-log.md) entry 31.
+      Second, the signed-in header has never been seen rendered: both 44 px
+      buttons sit behind the auth gate, so the browser pass covered `/login`,
+      whose row contains only the toggles this work never touched. Ticked on the
+      owner's instruction with that gap open.
 - [ ] **D2 — Intake form.** The main page. Presets, validation, submit states.
 - [ ] **D3 — Loading state.** Must keep the honest step reporting that exists
       today, and add what is missing: elapsed time. The current component stops
