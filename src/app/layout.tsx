@@ -20,6 +20,7 @@ import type { Metadata, Viewport } from "next";
 import { Providers } from "./providers";
 import { THEME_INIT_SCRIPT } from "@/context/ThemeContext";
 import { LANGUAGE_INIT_SCRIPT } from "@/context/LanguageContext";
+import { tokenCss } from "@/lib/design/css";
 
 export const metadata: Metadata = {
   title: "ScopeCraft",
@@ -40,6 +41,13 @@ export const viewport: Viewport = {
 };
 
 const rootStyle = `
+  /* New token layer (Module C). Coexists with the --sc-* block below until
+     Module D finishes migrating every view; the old block is deleted in that
+     module's final point, gated on \`grep -r "--sc-" src\` returning nothing.
+     Two generations of token in one stylesheet is deliberate — replacing them
+     in a single commit would break every view that has not been rebuilt yet. */
+${tokenCss()}
+
   :root {
     --bg: #ffffff;
     --fg: #1a1c22;
