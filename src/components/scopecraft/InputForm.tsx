@@ -41,6 +41,7 @@ import {
 } from "@/lib/scopecraft/schema";
 import { useLanguage } from "@/context/LanguageContext";
 import { translate, type TranslationKey } from "@/lib/i18n/translations";
+import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import {
   STARTER_PRESETS,
@@ -513,22 +514,12 @@ export function InputForm({ onSubmit, isLoading = false, initialValues }: InputF
       </div>
 
       <div className={styles.actions}>
-        <button
-          type="submit"
-          className={styles.button}
-          disabled={isLoading}
-          aria-busy={isLoading}
-        >
+        <Button type="submit" busy={isLoading}>
           {isLoading ? t("form.submit.loading") : t("form.submit")}
-        </button>
-        <button
-          type="button"
-          className={styles.secondaryButton}
-          onClick={handleReset}
-          disabled={isLoading}
-        >
+        </Button>
+        <Button variant="secondary" onClick={handleReset} disabled={isLoading}>
           {t("form.clear")}
-        </button>
+        </Button>
       </div>
 
       {/* Polite, low-traffic announcements: preset applied, form cleared.

@@ -338,11 +338,28 @@ describe("Test 5 · submits a valid payload", () => {
     setup({ isLoading: true });
 
     const button = screen.getByRole("button", { name: /generating plan/i });
-    expect(button).toBeDisabled();
+    // Busy, not disabled: a disabled control leaves the tab order mid-request
+    // and tells a screen-reader user nothing about why. The inputs, unlike
+    // the submit button, are still disabled while loading.
     expect(button).toHaveAttribute("aria-busy", "true");
+    expect(button).not.toBeDisabled();
     for (const control of Object.values(fields())) {
       expect(control).toBeDisabled();
     }
+  });
+
+  it("builds the submit action from the Button primitive and keeps busy separate from disabled", async () => {
+    setup({ isLoading: true });
+
+    const submit = screen.getByRole("button", { name: /generating plan/i });
+    // toHaveClass("button") would also pass on the old hand-rolled button:
+    // identity-obj-proxy maps every CSS-module class to its own name, so
+    // InputForm.module.css's .button also renders as class "button". The
+    // variant class is what only the Button primitive can carry.
+    expect(submit).toHaveClass("button", "primary");
+    expect(submit).toHaveAttribute("type", "submit");
+    expect(submit).toHaveAttribute("aria-busy", "true");
+    expect(submit).not.toBeDisabled();
   });
 
   it("does not submit while loading", async () => {

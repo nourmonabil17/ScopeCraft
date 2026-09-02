@@ -75,7 +75,6 @@
 
 /* The focus ring. Equivalent of ring-2 + ring-offset-2. */
 .control:focus-visible,
-.button:focus-visible,
 .preset:focus-visible,
 .capacitySlider:focus-visible {
   outline: 2px solid var(--sc-accent);
@@ -319,35 +318,6 @@
   flex-wrap: wrap;
 }
 
-.button {
-  font: inherit;
-  font-weight: 600;
-  background: var(--sc-accent);
-  color: var(--sc-accent-contrast);
-  border: 1px solid transparent;
-  border-radius: 0.5rem;
-  padding: 0.6875rem 1.25rem;
-  min-height: 2.75rem;
-  cursor: pointer;
-  transition: filter 140ms ease;
-}
-
-.button:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
-
-.button:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-
-.secondaryButton {
-  composes: button;
-  background: transparent;
-  color: var(--sc-text);
-  border-color: var(--sc-border);
-}
-
 /* Visible only to screen readers — used for status announcements that would be
    redundant noise on screen. */
 .srOnly {
@@ -364,7 +334,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .control,
-  .button,
   .preset,
   .ringFill {
     transition: none;
