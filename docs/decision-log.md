@@ -891,3 +891,24 @@ nonce or hash policy and saying so is more useful than closing the row.
     is added on top of both. Every new pair is asserted against the 4.5:1 floor
     in `tests/evaluation/design-tokens.test.ts`, including danger-on-danger-
     surface, which is the pair a reader actually meets in the error banner.
+
+33. **The loading card gets its own stylesheet — 2026-09-02, Module D3.**
+    `StateViews.module.css` is shared by five components, which made D3 look
+    inseparable from D9. It was not. Only `.card` and `.heading` are used by
+    more than one consumer, and neither contains a single token reference — the
+    shared surface had nothing token-shaped in it at all.
+
+    **Traded:** roughly 13 duplicated lines of literals, for one
+    module-cycle. **Against:** migrating `.retryButton` and
+    `.startOverButton` onto `--c-*` now, when D9 replaces both with the `Button`
+    primitive — the same disposal D1 performed on `.resetButton`. Work thrown
+    away is worse than a duplicated literal with a known deletion date.
+
+    **`.stepDone` was `--sc-success`, and no `success` role was added.** Entry 32
+    already made this call for the capacity ring, whose "ok" state takes
+    `--c-accent` rather than a green. A completed step is the same shape of
+    thing: past, not a fault, and already carrying a `✓`. It takes `--c-accent`
+    too. `danger` remains the only status colour among the twelve.
+
+    **`.warningCard` was deleted, not ported.** No consumer referenced it, and
+    it was the only reason this file mentioned `--sc-warning`.

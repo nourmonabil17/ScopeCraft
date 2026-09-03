@@ -7,10 +7,12 @@
 // `global.fetch` is mocked per scenario to return the exact response shape
 // the backend contract promises for that state.
 
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "./render-helpers";
 import ScopeCraftPage from "@/app/scopecraft/page";
+import { LoadingState } from "@/components/common/LoadingState";
+import { TRANSLATIONS } from "@/lib/i18n/translations";
 import type { ScopeCraftResponse } from "@/lib/scopecraft/schema";
 import { DEFAULT_TEAM_CAPACITY_POINTS } from "@/lib/scopecraft/schema";
 import { DUPLICATE_PREFILL_STORAGE_KEY } from "@/components/scopecraft/presets";
@@ -207,6 +209,106 @@ describe("State 2 · loading", () => {
     );
     // Exactly one line is live — not the whole step list.
     expect(status.textContent).not.toMatch(/validating.*contacting/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// State 2 — Loading, in isolation
+// ---------------------------------------------------------------------------
+//
+// Rendered directly rather than through the page. The page-flow tests above are
+// locked to real timers because fake timers deadlock against userEvent — see
+// the note on "advances the announced step over time". Nothing here touches
+// userEvent, so fake timers are safe, and driving the clock directly is the
+// only way to reach the 5.6 s mark without a six-second test.
+
+describe("State 2 · loading timing", () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it("counts the wait up in m:ss without announcing it", () => {
+    renderWithProviders(<LoadingState />);
+
+    const elapsed = screen.getByTestId("elapsed-time");
+    expect(elapsed).toHaveTextContent("0:00");
+    // A per-second live region is the character-counter mistake in another
+    // costume. The steps announce; the counter is for eyes only.
+    expect(elapsed).toHaveAttribute("aria-hidden", "true");
+    expect(within(screen.getByTestId("loading-state")).getByRole("status"))
+      .not.toContainElement(elapsed);
+
+    act(() => {
+      jest.advanceTimersByTime(9_000);
+    });
+    expect(elapsed).toHaveTextContent("0:09");
+
+    // Past a minute, because m:ss is the whole reason it is not a raw second
+    // count — a 60 s ceiling means the user can see 1:00.
+    act(() => {
+      jest.advanceTimersByTime(52_000);
+    });
+    expect(elapsed).toHaveTextContent("1:01");
+
+    // A backgrounded tab: the wall clock moves but the throttled interval
+    // fires only once when the tab regains focus. Jumping Date.now() without
+    // ticking, then letting exactly one interval fire, is the case the
+    // timestamp read exists for — an accumulator that adds one second per
+    // fire would report 1:02 here instead of the true 1:32.
+    act(() => {
+      jest.setSystemTime(Date.now() + 30_000);
+      jest.advanceTimersByTime(1_000);
+    });
+    expect(elapsed).toHaveTextContent("1:32");
+  });
+
+  it("keeps announcing past the fourth step instead of falling silent", () => {
+    renderWithProviders(<LoadingState />);
+
+    const loading = screen.getByTestId("loading-state");
+    const status = within(loading).getByRole("status");
+    expect(status).toHaveTextContent(/validating your request/i);
+
+    // Four transitions at 1400 ms lands on the fifth and final step at 5.6 s.
+    // Ticked one interval per act() rather than a single 5_600 ms jump:
+    // each step's setTimeout is only registered once React flushes the
+    // effect after the previous one fires, and that flush happens when
+    // act()'s callback returns — not mid-advance. A single big jump under
+    // fake timers only ever fires the one timer that already existed when
+    // it started, silently advancing one step instead of four (confirmed by
+    // hand). Ticking per-interval lets each step's effect register the next
+    // timer before the clock moves again.
+    for (let i = 0; i < 4; i++) {
+      act(() => {
+        jest.advanceTimersByTime(1_400);
+      });
+    }
+    expect(status).toHaveTextContent(/still working/i);
+
+    // Terminal, not looping: a 50 s wait must not cycle back to "Validating
+    // your request", which would be an outright lie about what is happening.
+    act(() => {
+      jest.advanceTimersByTime(45_000);
+    });
+    expect(status).toHaveTextContent(/still working/i);
+
+    // And exactly one line is live — not the accumulated list.
+    expect(status.textContent).not.toMatch(/validating/i);
+  });
+
+  // The two tests above only ever render LTR. "Test both directions" means
+  // this component has to be seen in Arabic by something, not just the
+  // steps' English strings.
+  it("announces the fifth step in Arabic too", () => {
+    renderWithProviders(<LoadingState />, { locale: "ar" });
+
+    const status = within(screen.getByTestId("loading-state")).getByRole("status");
+
+    for (let i = 0; i < 4; i++) {
+      act(() => {
+        jest.advanceTimersByTime(1_400);
+      });
+    }
+    expect(status).toHaveTextContent(TRANSLATIONS.ar["state.loading.step5"]);
   });
 });
 

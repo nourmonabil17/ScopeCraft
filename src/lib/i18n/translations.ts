@@ -108,6 +108,11 @@ const en = {
   "state.loading.step2": "Contacting the AI provider",
   "state.loading.step3": "Structuring your PRD",
   "state.loading.step4": "Calculating priority, MoSCoW, and sprint capacity",
+  // Terminal step. It is shown from 5.6 s until the response arrives, which the
+  // route caps at 60 s (maxDuration in src/app/api/scopecraft/route.ts), so the
+  // minute is a fact rather than reassurance. Before this existed the live
+  // region went silent at 4.2 s and stayed silent for the rest of the wait.
+  "state.loading.step5": "Still working — this can take up to a minute",
   "state.empty.heading": "Results cleared",
   "state.empty.body":
     "Nothing generated yet. Describe a product idea above, or pick a starter preset, and select Generate plan.",
@@ -358,6 +363,7 @@ const ar: Record<TranslationKey, string> = {
   "state.loading.step2": "جارٍ الاتصال بمزود الذكاء الاصطناعي",
   "state.loading.step3": "جارٍ هيكلة وثيقة المتطلبات",
   "state.loading.step4": "جارٍ حساب الأولوية وتصنيف MoSCoW وسعة السبرنت",
+  "state.loading.step5": "لا يزال العمل جاريًا — قد يستغرق هذا حتى دقيقة واحدة",
   "state.empty.heading": "تم مسح النتائج",
   "state.empty.body":
     "لم يتم إنشاء أي شيء بعد. صف فكرة منتج أعلاه، أو اختر مثالًا جاهزًا، ثم اضغط أنشئ الخطة.",

@@ -9,9 +9,9 @@
 //  - A step list announces real progress through `role="status"` +
 //    `aria-live="polite"`, updated on an interval. This is honest progress
 //    reporting for a chain we know the general shape of (validate → contact
-//    provider → structure → compute), not a fabricated progress percentage —
-//    the actual request either completes or fails; these steps describe what
-//    is happening, not how close to done it is.
+//    provider → structure → compute → still working), not a fabricated progress
+//    percentage — the actual request either completes or fails; these steps
+//    describe what is happening, not how close to done it is.
 //
 // The interval exists only to give a screen-reader user something better than
 // silence during a multi-second wait; it does not reflect real server-side
@@ -23,19 +23,34 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import type { TranslationKey } from "@/lib/i18n/translations";
-import styles from "./StateViews.module.css";
+import styles from "./LoadingState.module.css";
 
 const STEP_KEYS: readonly TranslationKey[] = [
   "state.loading.step1",
   "state.loading.step2",
   "state.loading.step3",
   "state.loading.step4",
+  // Terminal, and the only step that is honest about not knowing. Steps 1-4
+  // describe a chain whose shape is known; this one exists because the chain
+  // finishes describing itself at 4.2 s while the request can run to 60 s, and
+  // silence for the remaining 50 s told a screen-reader user nothing.
+  "state.loading.step5",
 ];
 
 /** How long each step is shown before advancing to the next. Tuned so a fast
  *  response (a second or two) still shows at least the first step, and a slow
  *  one reaches the final, most-accurate step rather than looking stuck. */
 const STEP_INTERVAL_MS = 1400;
+
+/** Elapsed time as `m:ss`. Western digits in both locales, matching every other
+ *  count in this codebase — the character counters and form.presets.meta all
+ *  render String(n), and Intl is reserved for dates. */
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 export interface LoadingStateProps {
   label?: string;
@@ -45,6 +60,18 @@ export function LoadingState({ label }: LoadingStateProps) {
   const { t } = useLanguage();
   const [stepIndex, setStepIndex] = useState(0);
 
+  // Measured from a timestamp, not accumulated by an incrementing counter: a
+  // backgrounded tab has its timers throttled, and a counter that ticks once
+  // per throttled fire under-reports the wait by however long the user was
+  // away. The subtraction is right regardless of how often the timer runs.
+  const [startedAt] = useState(() => Date.now());
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setElapsedMs(Date.now() - startedAt), 1000);
+    return () => clearInterval(timer);
+  }, [startedAt]);
+
   useEffect(() => {
     if (stepIndex >= STEP_KEYS.length - 1) return;
     const timer = setTimeout(() => setStepIndex((i) => i + 1), STEP_INTERVAL_MS);
@@ -53,12 +80,21 @@ export function LoadingState({ label }: LoadingStateProps) {
 
   return (
     <div className={styles.loadingCard} data-testid="loading-state">
-      <p className={styles.heading}>{label ?? t("state.loading.label")}…</p>
+      <p className={styles.heading}>
+        {label ?? t("state.loading.label")}…{" "}
+        <span
+          className={styles.elapsed}
+          aria-hidden="true"
+          data-testid="elapsed-time"
+        >
+          {formatElapsed(elapsedMs)}
+        </span>
+      </p>
 
       <div className={styles.skeletonStack} aria-hidden="true">
-        <div className={styles.skeletonRow} style={{ width: "90%" }} />
-        <div className={styles.skeletonRow} style={{ width: "75%" }} />
-        <div className={styles.skeletonRow} style={{ width: "60%" }} />
+        <div className={styles.skeletonRow} />
+        <div className={styles.skeletonRow} />
+        <div className={styles.skeletonRow} />
       </div>
 
       {/* Visual step list — not a live region. A live region wrapping this

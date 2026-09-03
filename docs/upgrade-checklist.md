@@ -257,9 +257,51 @@ One point per view. Each is rebuilt, then reviewed against
       comment records the horizontal-scrollbar bug it prevents. The language and
       theme toggles are still on the legacy tokens and still exempt, so the
       header row remains 8px uneven per entry 31.
-- [ ] **D3 — Loading state.** Must keep the honest step reporting that exists
-      today, and add what is missing: elapsed time. The current component stops
-      advancing at step 4 and then sits still for up to 50 s.
+- [x] **D3 — Loading state.** Kept the honest step reporting and added the
+      elapsed time that was missing. The stall was real: the route allows 60 s
+      (`maxDuration`, 30 s per provider attempt with a fallback chain) while the
+      step list stopped advancing at 4.2 s.
+
+      Two fixes, neither of them a new timer. A `m:ss` counter beside the
+      heading, `aria-hidden` for the same reason the intake form's character
+      counters are — measured from a stored timestamp rather than accumulated
+      per tick, so a throttled background tab does not under-report the wait.
+      And a fifth step, which makes step 4 non-terminal so the live region has
+      one more thing to say; the existing chain already stopped at
+      `STEP_KEYS.length - 1`, so appending a key was the whole change.
+
+      `LoadingState.module.css` split out of `StateViews.module.css` on the
+      `--c-*` tokens, phone-first, with the three skeleton widths moved out of
+      inline `style={{ width }}` into `nth-child` rules. Dead `.warningCard`
+      deleted. Legacy references fell 214 → 204, measured as
+      `git grep -o 'var(--sc-' -- src | wc -l`. The pattern matters: a bare
+      `--sc-` substring also matches the prose in comments that *describe* the
+      legacy block, which is why three people counting this during D3 got three
+      different answers. `var(--sc-` counts references actually in use, and it
+      is that number — not the substring count — that has to reach 0 before the
+      `--sc-*` block can be deleted from `src/app/layout.tsx`.
+
+      Verified by `npm run capture:ui`, exit 0: 19 contrast pairs light / 20
+      dark, none below AA; 0 unnamed controls; 0 heading skips; no
+      horizontal overflow on the idle page at 1280/768/390 px in both LTR and
+      RTL.
+
+      **Not covered by this point.** `StateViews.module.css` keeps its four D9
+      consumers on the legacy tokens, along with the hand-rolled `.retryButton`
+      and `.startOverButton` that D9 replaces with the `Button` primitive —
+      porting them now would be work D9 throws away. `.srOnly` remains
+      duplicated across five stylesheets — this point moved the copy that used
+      to live in `StateViews.module.css` rather than adding a sixth, so the
+      duplication is unchanged; consolidating it touches four separate points
+      and is its own, like the global `box-sizing` reset. Reduced motion is
+      still a per-file `@media` block rather than a token-level rule, which is
+      E1. The automated audit measures the idle `/scopecraft` page only — it
+      never renders `LoadingState`, so the two pairs new to this point,
+      `--c-text-muted` on `--c-panel` and `--c-accent` on `--c-panel`, are not
+      in the captured numbers above. Both are asserted in
+      `tests/evaluation/design-tokens.test.ts`: 6.39:1 and 5.47:1 in light,
+      6.98:1 and 12.01:1 in dark — all clear of the 4.5:1 floor, but not part
+      of the regenerated evidence file.
 - [ ] **D4 — Result view.** The peak moment of the whole product. Largest single
       point in this module.
 - [ ] **D5 — Interactive sprint board.** Rebuilt visual, **preserved decisions**:

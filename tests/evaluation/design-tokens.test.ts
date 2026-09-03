@@ -39,9 +39,22 @@ describe("design tokens meet WCAG 2.2 AA", () => {
     expect(contrastRatio(t.textMuted, t.ground)).toBeGreaterThanOrEqual(4.5);
   });
 
+  // The loading state's elapsed counter is muted text on a panel, not on
+  // ground — the same role, a different surface, and its own obligation.
+  it.each(themes)("%s: muted text on a panel clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.textMuted, t.panel)).toBeGreaterThanOrEqual(4.5);
+  });
+
   it.each(themes)("%s: accent on ground clears 4.5:1", (theme) => {
     const t = tokens.color[theme];
     expect(contrastRatio(t.accent, t.ground)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // The loading state's completed step takes --c-accent on --c-panel.
+  it.each(themes)("%s: accent on a panel clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.accent, t.panel)).toBeGreaterThanOrEqual(4.5);
   });
 
   it.each(themes)("%s: text on a panel clears 4.5:1", (theme) => {
