@@ -5,12 +5,31 @@ frontend in [PR #3](https://github.com/nourmonabil17/ScopeCraft/pull/3).
 **First captured:** 2026-08-24, at commit `4896897`, from a **production build**
 (`next start`) talking to live providers.
 
-**Re-captured in full 2026-09-04, at commit `f9c861f`** — the whole set of 22 in one run,
-never a partial refresh. Two earlier re-captures are folded into that: F5 on 2026-09-03,
-which took the set from 17 to 22 by adding the Arabic views, and this one, which was
-required because Module E2 changed how every state view enters. The measured accessibility
-results are unchanged between runs; what moved is the timestamp and the generated plan's
-capacity readout, which differs because it is a fresh generation.
+**Re-captured in full 2026-09-04, at commit `27de5fc`** — the whole set of 22 in one run,
+never a partial refresh. Three earlier re-captures are folded into that: F5 on 2026-09-03,
+which took the set from 17 to 22 by adding the Arabic views; one for Module E2, which
+changed how every state view enters; and this one, for E3 and E4. The measured
+accessibility results are unchanged across all of them — 18 light and 20 dark contrast
+pairs, 0 below AA, 0 unnamed controls, 0 heading skips, no horizontal overflow in any of
+the six width/direction combinations. What moves between runs is the timestamp and the
+generated plan's capacity readout, which differs because it is a fresh generation.
+
+**These are stills, and two things are therefore outside what they can evidence.**
+
+The first is motion. A screenshot cannot show a transition, so the entry effect on the
+state views (E2) and the cross-fade between routes (E3) are evidenced by measurement
+instead — `getAnimations()` read from a live page, recorded in decision-log entries 43
+and 44 — not by anything in this folder.
+
+The second is hover. Nothing here holds a pointer over a control, so the two hover states
+added in E4 — the primary button's fill and the history row's border — do not appear in
+any shot. The CSS was confirmed present and parsing in the browser; the interaction
+itself is not proven, here or anywhere else in this repository.
+
+One thing the stills *did* prove: `21-saved-plan-arabic-rtl.png` is the only shot reached
+by a client-side navigation rather than a fresh page load, which makes it the only one
+that passes through a view transition. It renders fully opaque, so the frozen-timeline
+failure E2 was designed against did not occur in this renderer.
 
 Until this capture the repository contained **zero** screenshots or recordings — a
 repo-wide search for `*.png`, `*.gif`, `*.mp4`, `*.mov` returned nothing, while the
