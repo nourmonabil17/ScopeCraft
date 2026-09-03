@@ -370,11 +370,11 @@ export function ResultView({
 
           {data.sprint.length > 0 && (
             <details>
-              <summary className={styles.acLabel} style={{ cursor: "pointer" }}>
+              <summary className={`${styles.acLabel} ${styles.sequenceSummary}`}>
                 {t("prd.sprint.fullSequence")}
               </summary>
-              <div className={styles.tableScroll} style={{ marginTop: "0.625rem" }}>
-                <table className={styles.sprintTable}>
+              <div className={styles.sequenceScroll}>
+                <table className={styles.sequenceTable}>
                   <thead>
                     <tr>
                       <th scope="col">{t("prd.sprint.story")}</th>
