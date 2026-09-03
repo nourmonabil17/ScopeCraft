@@ -1232,7 +1232,11 @@ grep -nE '(^|[^a-z-])(left|right|width|height|margin-top|margin-bottom|padding-l
 npx jest --selectProjects node tests/evaluation/breakpoint-audit.test.ts
 ```
 
-Expected: `0` for this file; **176** for the tree (204 − 28); the physical-property
+Expected: `0` for this file; **169** for the tree. The arithmetic: `git grep -c`
+counts matching LINES (28 for this file before D4) while `git grep -o | wc -l`
+counts OCCURRENCES (35). The tree-wide 204 was occurrences, so the two metrics
+must not be subtracted from each other. Task 3 removed 17 occurrences, taking
+the tree to 187; this task removes the remaining 18. The physical-property
 grep prints nothing; the audit passes with the exemption list still at 2 —
 this file was never exempt and its one new query is `min-width: 48rem`, which
 is on the approved scale.
@@ -1252,7 +1256,7 @@ git -c user.name="Yousef mohmed hasabo" -c user.email="yousefhasabo94@gmail.com"
   commit -m "style(result): move the result view onto the --c-* tokens
 
 Phone-first, with the story grid gaining a second column at 48rem — the
-tablet band's documented intent. Legacy references in use fall 204 to 176.
+tablet band's documented intent. Legacy references in use fall 204 to 169.
 
 Fixes a real RTL bug while here: both tables were text-align: left, which put
 every cell on the wrong edge in Arabic. Two inline style objects move into
@@ -1378,7 +1382,7 @@ git push origin dev && git push fork dev:main
   Entry 34 binds it, but this point does not change it.
 - **Touch `EvidencePanel`.** 12 references, including `--sc-could`, which entry
   34 also binds. It is reached by D4's evidence tab but is not D4's scope.
-- **Delete the `--sc-*` block.** 176 references remain after this point.
+- **Delete the `--sc-*` block.** 169 references remain after this point.
 - **Consolidate `.srOnly`** or add the global `box-sizing` reset. Both are
   their own points by the owner's ruling.
 - **Raise `.tab` to a 44px target.** Target sizing is D6's, and doing it here
