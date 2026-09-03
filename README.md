@@ -201,6 +201,12 @@ pull request to `main` and `dev`.
 Stated honestly, because the release gate asks for bounded limitations rather than a clean
 sales pitch.
 
+> **The full list lives in [`docs/known-limitations.md`](docs/known-limitations.md)** — 19
+> entries, each marked either *Accepted* (a weighed trade-off, with the reasoning) or *Open*
+> (a real gap with an owner and a next step). This section covers the abuse and refusal
+> boundary specifically; that document covers everything, including the ones with no
+> comfortable answer.
+
 **Endpoint authentication & rate limiting — closed 2026-08-27.** Both the *page* at
 `/scopecraft` and the *endpoint* behind it now require a signed-in session (GitHub OAuth —
 see [Authentication](#authentication)). `POST /api/scopecraft` returns `401 UNAUTHORIZED`

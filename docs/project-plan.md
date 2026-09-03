@@ -1059,8 +1059,8 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 488 tests with no document saying what is covered, what is not, and how manual QA runs |
 | 31 | QA | **Manual QA evidence** | `docs/evidence/qa/` | 6.5 produces findings with nowhere to live |
 | 32 | Operations | **Runbook / troubleshooting** | `docs/runbook.md` | What to do when providers fail, the database is down, or sign-in breaks. Every known finding is a runbook entry |
-| 33 | Submission | **Known limitations** | `docs/known-limitations.md` | The rubric asks for *signed-off* known limitations. Currently scattered across README, architecture and the decision log |
-| 34 | Submission | **Demo script** | `docs/demo-script.md` | A three-minute demo is a graded deliverable and does not exist |
+| 33 | Submission | ~~**Known limitations**~~ **WRITTEN 2026-09-03** | `docs/known-limitations.md` | ✅ Done in 11.4.5 — 19 entries, each Accepted (a weighed trade-off) or Open (a real gap with an owner and a next step), with a sign-off block |
+| 34 | Submission | ~~**Demo script**~~ **WRITTEN 2026-09-03** | `docs/demo-script.md` | ✅ Done in 11.4.7 — a timed 3:00 running order, the recovery paths, the questions, and the five claims not to make |
 | 35 | Defense | **Frontend defense prep** | `docs/defense-prep-frontend.md` | Only the backend row has one; three members have none |
 | 36 | Defense | **Integration defense prep** | `docs/defense-prep-integration.md` | as above |
 | 37 | Defense | **Evaluation & safety defense prep** | `docs/defense-prep-evaluation.md` | as above |
@@ -1113,14 +1113,40 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
 - [ ] **11.4.4** `docs/qa-test-plan.md` — the two (or three) Jest projects and why, what
       each suite covers, what is deliberately not covered, how manual QA runs, how evidence
       is captured. Records the 6.5 pass and the 6.6 coverage map.
-- [ ] **11.4.5** `docs/known-limitations.md` — consolidate every honest limitation into one
+- [x] **11.4.5** `docs/known-limitations.md` — consolidate every honest limitation into one
       document the rubric can point at, with a sign-off line each: the open API endpoint if
       it stays open, per-IP abuse, session revocation, the domain-classifier gap, estimate
       quality, `PLANNING_ERROR` intermittency, no screen-reader run, CSP `unsafe-inline`.
+      **Done 2026-09-03.** 19 entries across security, AI behaviour, accessibility, testing
+      and platform. Two of the listed items had changed under the brief and are recorded as
+      changed rather than copied across: the API endpoint is **not** open — it returns `401`
+      before reading a body — and `PLANNING_ERROR` was fixed on 2026-08-27, so neither is a
+      live limitation.
+
+      Writing it found one nobody had named: `getClarification` tokenises with `/[a-z]+/g`,
+      so **Arabic input produces zero tokens and skips the pre-provider gibberish guard
+      entirely**, going straight to a paid generation. Verified 2026-09-03. Entry 9, Open.
+
+      The split that makes the document worth having is **Accepted** (weighed and chosen,
+      with the reasoning) versus **Open** (a real gap with an owner and a next step). An
+      accepted entry with no reasoning behind it is a bug in the document.
 - [ ] **11.4.6** `docs/runbook.md` — symptom → cause → fix, seeded from the nine known
       findings in `CLAUDE.md` §9.
-- [ ] **11.4.7** `docs/demo-script.md` — three minutes, timed, rehearsed against the live
+- [x] **11.4.7** `docs/demo-script.md` — three minutes, timed, rehearsed against the live
       site. What to show, in what order, what to say when a provider is slow.
+      **Written 2026-09-03. Not yet rehearsed** — the timings are budgeted against the real
+      bounds (30 s per provider attempt, 50 s for the chain) rather than measured with a
+      stopwatch, and the document says so. Rehearsing it is the remaining half.
+
+      Two structural choices worth keeping. The generation is started at 0:35 and the
+      AI/human boundary explanation runs 0:50–1:30 **over** it — that explanation is the
+      demo's central claim and it is also exactly long enough to cover the full 50-second
+      budget, so the worst case has no dead air. And a saved plan is opened in a second tab
+      before the demo starts: every beat from 1:30 on works identically on a saved plan, so
+      a provider failure costs one beat rather than the demo.
+
+      It closes on a named gap — no screen-reader run — rather than a flourish, and carries a
+      *What not to claim* list of five sentences an examiner could falsify on the spot.
 - [ ] **11.4.8** `docs/environment-variables.md` — one table, three concerns (providers,
       auth, database), which are required, which are per-environment, which are secret.
 - [ ] **11.4.9** `docs/defense-prep-frontend.md` — **Joe writes it.** Scaffold the structure
