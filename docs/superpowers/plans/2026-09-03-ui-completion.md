@@ -65,24 +65,25 @@ a real bug in this project.
 
 | Occurrences | File | Point |
 |---:|---|---|
-| 37 | `InteractiveSprintBoard.module.css` | 1 |
-| 19 | `ToggleControls.module.css` | 2 |
-| 26 | `HistoryList.module.css` | 3 |
-| 2 | `SavedPlanView.module.css` | 3 |
-| 16 | `LoginCard.module.css` | 4 |
-| 11 | `WelcomeModal.module.css` | 4 |
-| 13 | `StateViews.module.css` | 5 |
-| 13 | `common/Toast.module.css` | 5 |
-| 12 | `EvidencePanel.module.css` | 6 |
-| 8 | `page.module.css` | 6 |
-| 7 | `ExportActions.module.css` | 6 |
-| 3 | `BackLink.module.css` | 6 |
-| 2 | `layout.tsx` | 6 |
-| **169** | | |
+| ~~37~~ **0** | `InteractiveSprintBoard.module.css` | 1 ✅ |
+| ~~19~~ **0** | `ToggleControls.module.css` | 2 ✅ |
+| ~~26~~ **0** | `HistoryList.module.css` | 3 ✅ |
+| ~~2~~ **0** | `SavedPlanView.module.css` | 3 ✅ |
+| ~~16~~ **0** | `LoginCard.module.css` | 4 ✅ |
+| ~~11~~ **0** | `WelcomeModal.module.css` | 4 ✅ |
+| ~~13~~ **0** | `StateViews.module.css` | 5 ✅ |
+| ~~13~~ **0** | `common/Toast.module.css` | 5 ✅ |
+| ~~12~~ **0** | `EvidencePanel.module.css` | 6 ✅ |
+| ~~8~~ **0** | `page.module.css` | 6 ✅ |
+| ~~7~~ **0** | `ExportActions.module.css` | 6 ✅ |
+| ~~3~~ **0** | `BackLink.module.css` | 6 ✅ |
+| ~~2~~ **0** | `layout.tsx` | 6 ✅ |
+| **169** → **0** | | **Points 1–6 done** |
 
-The only three non-approved media queries left are `ToggleControls` (`max-width: 34rem`
-×2) and `InteractiveSprintBoard` (`max-width: 42rem`) — which is exactly the two-entry
-`PRE_REBUILD_EXEMPT` list. Points 1 and 2 clear both.
+The only three non-approved media queries left were `ToggleControls` (`max-width: 34rem`
+×2) and `InteractiveSprintBoard` (`max-width: 42rem`) — which was exactly the two-entry
+`PRE_REBUILD_EXEMPT` list. Point 1 cleared the board's; `PRE_REBUILD_EXEMPT` is down to
+one entry and Point 2 empties it.
 
 ---
 
@@ -91,15 +92,19 @@ The only three non-approved media queries left are `ToggleControls` (`max-width:
 D4's five tasks are committed on `feat/d4-result-view` (7 commits) and individually
 reviewed. Its final whole-branch review was interrupted and the branch is unmerged.
 
-- [ ] Run the final whole-branch review over `757cea5..HEAD`.
-- [ ] Address anything Critical or Important; park Minors in the ledger.
-- [ ] Merge to `dev` with a merge commit, matching D1–D3
-      (`Merge D4: result view onto the new tokens, buckets by weight`).
-- [ ] **Do not push.** Shipping is Point 7.
+- [x] Run the final whole-branch review over `757cea5..HEAD`. Nothing Critical or
+      Important. No orphan classes, no stale tokens, authorship and trailers clean.
+- [x] Address anything Critical or Important; park Minors in the ledger. The one
+      deferred Minor was **closed rather than parked** — see below.
+- [x] Merge to `dev` with a merge commit, matching D1–D3 — `70aa590`.
+- [x] **Do not push.** Shipping is Point 7.
 
-One deferred Minor is already on the ledger: `tests/ui/ResultView.test.tsx` uses
-`toBeGreaterThanOrEqual` where the fixture makes counts deterministic (high=1,
-medium=2, low=3, `Scenario:`=5). Triage it here.
+One deferred Minor was on the ledger: `tests/ui/ResultView.test.tsx` used
+`toBeGreaterThanOrEqual` where the fixture makes counts deterministic. Rather than
+assume the fixture, the assertions were tightened and run: high=1, medium=2, low=3 and
+`Scenario:`=5 all pass exactly. Closed in `1fff2b2` — a floor of `>= 1` would have
+passed with four of the five criteria missing, which is the failure the test exists to
+catch.
 
 ---
 
@@ -121,9 +126,15 @@ languages. That is worse than either state alone.
 - `@media (max-width: 42rem)` at line 92 inverts to phone-first `min-width: 48rem`.
   42rem is not on the approved scale; 48rem is, and its documented intent is
   "Tablet. **Two-column board**" — which is what this query is for.
-- `--sc-warning` (used twice, for the over-capacity state) has no `--c-*` equivalent.
+- ~~`--sc-warning` (used twice, for the over-capacity state) has no `--c-*` equivalent.
   It takes `--c-danger`: over capacity is a fault, not a caution, and `danger` is the
-  only status colour among the twelve.
+  only status colour among the twelve.~~
+  **Corrected during execution.** `--sc-warning` is used **three** times and is the
+  *approaching*-capacity state plus the dependency note — over capacity was already on
+  `--sc-danger`. The note took `--c-danger` on its own merits; the caption steps up by
+  weight, not hue; and the meter fill ends with two colours for three states, `ok` and
+  `warning` sharing the accent because neither is a fault. `.meterFillWarning` was
+  deleted rather than mapped. Recorded as decision-log entry 35.
 - The two deferred/included columns take `Card` with `recessed` and `muted` — the
   props exist for exactly this and have had no consumer.
 - `PRE_REBUILD_EXEMPT` drops to 1 entry; its `toHaveLength` assertion updates.
@@ -134,6 +145,14 @@ single-pointer alternative and the buttons already are one), and no delivery dat
 
 **Check:** `InteractiveBoard.test.tsx` passes unchanged; capacity maths untouched;
 breakpoint audit passes with one exemption left.
+
+**Done 2026-09-03, commits `463b7e5`, `76686cb`.** All three checks met. Beyond the
+list above: story cards also took `Card` (leaving them hand-rolled would have rebuilt
+the very inconsistency this point exists to close), the toggle took `Button` — 32px to
+44px for free — `Card`'s `as` union gained `"section"` so the columns kept their two
+named landmarks, and `Chip` gained `testId`. `data-moscow` was dropped; nothing read
+it. Suite 435 → 455; capture re-run at exit 0. Written up in
+[`upgrade-checklist.md`](../../upgrade-checklist.md) under D5.
 
 ---
 
@@ -156,6 +175,24 @@ row sits uneven.
 **Check:** breakpoint audit passes with an empty exemption list. `ThemeAndLocale.test.tsx`
 passes unchanged.
 
+**Done 2026-09-03, commits `596cea0`, `de15d2c`.** Both checks met; the exemption list
+is `[]` and its assertion was kept rather than deleted, so the list cannot quietly
+reopen. `Header.tsx` and `HistoryLink.tsx` were also consumers of this stylesheet — the
+plan listed only the two toggles — but both use `.linkButton` through `className`, so
+neither needed a component change.
+
+Two things the plan did not anticipate. The controls **stay hand-rolled** rather than
+adopting `Button`: two of the four are not buttons (`.linkButton` is an `<a>`,
+`.segment` is a `role="radio"`), and promoting only the one real button would have
+recreated the mismatch this point exists to remove — so the invariant is enforced by a
+test that reads both stylesheets instead. And the condensed labels **must stay visually
+hidden rather than `display: none`**: `.segmentShort` is `aria-hidden`, so the full
+label is the only thing naming its radio, and removing it from the layout would leave
+the language control nameless on every phone.
+
+Entry 31 is closed, and the header was **looked at** for the first time — that entry had
+recorded the mismatch for four points while explicitly noting nobody had seen it.
+
 ---
 
 ## Point 3 — D6 and D7, history and saved plan (1h 30m)
@@ -175,6 +212,34 @@ Raise to 44px. This is named in the checklist as D6's job, so it is in scope, no
 **Check:** `HistoryList.test.tsx` passes; duplicate and delete still work; the 44px
 target asserted in the test rather than left to the eye.
 
+**Done 2026-09-03, commit `be8b3fb`.** All three checks met. The 44px is asserted in
+two halves, because jsdom resolves no CSS: `HistoryList.test.tsx` proves both actions
+carry the `Button` class, and `design-tokens.test.ts` proves `Button` declares exactly
+one target size and that it is `2.75rem`.
+
+Delete needed a colour `Button` did not have, and it became a **`danger` variant**
+rather than a `className` override — both would be single-class selectors, so the winner
+would depend on CSS chunk load order. The confirming state reuses that variant instead
+of gaining a second one; the escalation is the label change, which was already the only
+signal a screen reader had. **The filled-red confirm is gone**, restorable in four
+lines.
+
+The status badges **stay local rather than becoming `Chip`** — they are a fault, a
+provenance flag and a provider name, not buckets, and "Failed" has a claim on `danger`
+that `Chip` must never grow.
+
+**The plan's file list was short by two again:** `history/page.tsx` and
+`history/[id]/page.tsx` also import this stylesheet for `.main`. Neither needed a
+change. That is the second consecutive point where the listed consumers were incomplete
+— worth assuming for Points 4 through 6 rather than rediscovering.
+
+**The capture cannot see this page.** It never visits `/scopecraft/history`. It was run
+as a gate and passed with no measured change, and the regenerated screenshots were
+deliberately **not committed** — their only difference is a different AI generation.
+Verified against the real server instead: 200 with a minted session, `Card` and `Button`
+classes present in the server-rendered HTML, and a per-module attribution of every
+`var(--sc-*)` in the page's shipped CSS showing neither rebuilt file.
+
 ---
 
 ## Point 4 — D8, login and welcome modal (1h)
@@ -191,6 +256,24 @@ declaration prevents — do not remove it early.
 
 **Check:** the dialog still traps focus and closes on Escape;
 `installDialogPolyfill()` still supplies `showModal`/`close` in jsdom.
+
+**Done 2026-09-03, commit `d6037d7`.** Both met — the Escape test passes unchanged
+through `Dialog`'s own `close` handler, and the polyfill needed no change.
+
+The **watch held**: `Dialog.module.css`'s `box-sizing` was not touched, and the local
+`.dialog` rule in `WelcomeModal.module.css` was deleted rather than ported, so there is
+now exactly one panel rule instead of two that could drift. A test pins the modal to the
+primitive's class.
+
+Beyond the plan: both provider buttons took `Button` (Google as `secondary`, which its
+brand guidelines require) and moved from `disabled` to **`busy`** — a disabled control
+leaves the tab order, and `busy` keeps it reachable while still blocking a second
+sign-in. The CTA took `Button` too.
+
+**A stale caption in `capture-ui-evidence.mjs` was fixed on the way**: it claimed
+"GitHub is the only credential path" while the committed shot shows a Google button,
+because this machine has only `AUTH_GOOGLE_*`. Found by looking at the screenshot rather
+than the exit code.
 
 ---
 
@@ -218,6 +301,31 @@ work D9 throws away. `--sc-shadow-lg` on the toast goes the way of every other s
 **Check:** an error toast announces immediately; one live region in the tree asserted
 by test; RTL shimmer verified in an `ar` render.
 
+**Done 2026-09-03, commit `5fdc3d5`.** Both bugs fixed; entries 36 and 37.
+
+Two notes where the check as written did not survive contact:
+
+**"One live region in the tree" is not literally achievable** alongside "give an error
+tone `role=\"alert\"`" — the viewport plus an alert is two. The intent was clearly
+*no nesting*, and that is what was built: the viewport carries no live-region semantics
+and each toast carries its own role. Asserted as "no toast sits inside another live
+region", which is the property that actually matters.
+
+**The RTL shimmer could not be "verified in an `ar` render".** jsdom resolves no CSS and
+`identity-obj-proxy` returns the class name, so a rendered assertion would pass whether
+the rule existed or not. It is asserted from the stylesheet instead, and the assertion
+was verified to fail by breaking the rule — the method Point 2 used for target sizes.
+
+**The capture could not complete**, for a reason unrelated to this point: the capture
+account hit its own `RATE_LIMITED` ceiling of 20 plans/day, this being the fourth run of
+the day at two generations each. The partial evidence was reverted rather than committed.
+Re-run after the quota resets.
+
+*Aside, not acted on:* tripping that limiter is live proof that **Module B's B1 is at
+least partly built already** — `src/lib/quota.ts` enforces 20/day and the endpoint
+returns a typed `RATE_LIMITED` envelope, not a bare 429. B1 is still unticked. Not this
+plan's to tick, but worth checking before it is worked.
+
 **Note:** `npm run capture:ui` **never renders any of these states** — it audits the
 idle `/scopecraft` page only. Every new contrast pair must be asserted in
 `tests/evaluation/design-tokens.test.ts` instead. This is the point where that limit
@@ -233,13 +341,21 @@ five `.srOnly` definitions and three `box-sizing` declarations.
 
 **What changes:** 32 → **0 tree-wide.** Then, and only then:
 
-- [ ] **Delete the `--sc-*` block** from `src/app/layout.tsx` — the whole point of
-      the preceding six. Gate: `git grep -o 'var(--sc-' -- src | wc -l` returns `0`.
-- [ ] **Consolidate `.srOnly`.** Defined five times: `Field`, `InputForm`,
+- [x] **Delete the `--sc-*` block** from `src/app/layout.tsx` — the whole point of
+      the preceding six. Gate returns **0**. Both legacy `:root` blocks went,
+      including `--bg`/`--fg`, whose only consumer was `body`.
+- [x] **Consolidate `.srOnly`.** 5 → 1, as `.sc-sr-only` in `layout.tsx`.
+      Two copies had already drifted (`clip: rect()` vs `clip-path`), and
+      `ExportActions`' had no consumer. Entry 39.
+      *Original text:* Defined five times: `Field`, `InputForm`,
       `ExportActions`, `InteractiveSprintBoard`, `LoadingState`. One definition,
       in the generated token CSS or a single shared module. This touches four points'
       output, which is why it waits until they are all done.
-- [ ] **Add the global `box-sizing: border-box` reset** and remove the three local
+- [x] **Added the global `box-sizing: border-box` reset.** All three comments
+      read first. Verified: no overflow at 1280/768/390 in either direction. It
+      also made the declared sizes real — the header went 79px → 61px because
+      controls declaring 2.75rem were content-box and rendering ~62px. Entry 38.
+      *Original text:* and remove the three local
       declarations in `InputForm.module.css:53`, `Dialog.module.css:17`,
       `Toast.module.css:17`. Each carries a comment recording the bug it prevents —
       read all three before removing any, and keep the reasoning in the global rule.
@@ -250,26 +366,65 @@ five `.srOnly` definitions and three `box-sizing` declarations.
 **Check:** the count is 0; the app renders identically in both themes and both
 directions; no horizontal overflow appears anywhere from the box-sizing change.
 
+**Done 2026-09-03, commit `80850ac`.** Count is 0; overflow clean in all six
+combinations. "Renders identically" turned out to be the wrong bar and is recorded as
+such: the reset deliberately changes rendering, and the header moved 79px → 61px
+because controls were content-box and rendering ~62px against a declared 44px. Checked
+against the committed pre-change screenshot rather than by eye — the mobile header is
+tighter and better, and the three-row wrap at 390px is pre-existing.
+
+**The gate greps for its own pattern.** Quoting the command in a `layout.tsx` comment
+made the count report 1 and the gate could never close. The comment points at the
+checklist instead, and the guard test builds the string from fragments.
+
+**Four guards now hold the line**: no legacy property anywhere under `src`, the
+sr-only rule defined exactly once, `box-sizing` declared exactly once.
+
+**The capture is still quota-blocked** from Point 5 — the audit and the eleven
+non-generated screens ran and passed, which is what verifies the box-sizing change, but
+the generated screens did not regenerate, so the partial evidence was reverted again.
+Point 7's F5 re-capture produces the coherent set.
+
 ---
 
 ## Point 7 — Verify and ship (1h 30m)
 
-- [ ] **F5 / F1** — `npm run capture:ui`. Build first, two servers (3200, and 3201
-      with bogus AI keys), env loaded as `set -a; . ./.env.local; set +a` —
-      `export $(grep ...)` breaks because `DATABASE_URL` contains an `&`.
-- [ ] **F2** — every rebuilt view in Arabic RTL. Not inferred; rendered.
-- [ ] **F3** — 1280 / 768 / 390px, both directions.
-- [ ] **F4** — full suite green; record the real number.
-- [ ] **H3** — the stale-number sweep. Test count, screenshot count, dependency count
-      and branch heads appear in ~6 files each. ~15 documents currently carry test
-      counts between 130 and 293.
-- [ ] **H2** — decision-log entries for the `--sc-*` deletion, the box-sizing reset,
-      and the `.srOnly` consolidation.
+- [x] **F5 / F1** — `npm run capture:ui`, exit 0, 17 screenshots. Commit `aff1cb3`.
+      **The quota is a rolling 24-hour window, not a calendar day**, so it does not
+      reset at midnight — Points 5 and 6 were blocked by it and this run raised
+      `DAILY_PLAN_LIMIT` locally, which is what that env knob exists for. Nothing
+      about the capture is less real for it; the two generations were live.
+- [~] **F2** — every rebuilt view in Arabic RTL. **Partially met, and not tickable
+      as written.** What was rendered in a real browser: the idle page in Arabic
+      (`05-arabic-rtl.png`) and the RTL overflow checks at all three widths. What was
+      *not*: the result view, sprint board, history list and saved plan in Arabic —
+      the capture's screenplay never visits them in `ar`, and no screenshot exists.
+      Those are covered in Arabic only by jsdom tests, which prove strings, roles and
+      structure but resolve no CSS. **Closing this properly needs the capture
+      extended to drive `ar`, which is its own change, not a tick.**
+- [x] **F3** — 1280 / 768 / 390px, both directions. No horizontal overflow in any of
+      the six combinations, measured from the live DOM.
+- [x] **F4** — **486 tests over 21 suites** — 222 node, 264 UI. Typecheck, lint and
+      build clean.
+- [x] **H3** — the stale-number sweep. `CLAUDE.md`, `README.md`, `HANDOFF.md`,
+      `AI_USAGE.md`, `local-development.md`, `project-plan.md` and
+      `evidence/README.md` now read 486/21 and 17 screenshots.
+      **Deliberately left**: `release-checklist.md` and `contribution-matrix.md` are
+      Nour's, dated and tied to a named commit — the first even asks to be kept
+      current, but that instruction is addressed to its owner. `defense-prep-backend`
+      (242) and `database-and-auth-design` (251) are historical narrative; rewriting
+      them would falsify the record. Plans, specs and the checklist's "Done" entries
+      are point-in-time by design.
+- [x] **H2** — decision-log entries **38** (the `--sc-*` deletion and the box-sizing
+      reset, including what it revealed about the 44px targets) and **39** (the
+      `.srOnly` consolidation, including that two copies had already drifted).
 - [ ] **G1 — Ship.** `git push origin dev && git push fork dev:main`.
       **Vercel builds from the FORK.** Pushing to `origin` alone never updates the
-      live site.
+      live site. **Not done — held for the owner.** `CLAUDE.md` §8 is explicit that
+      production pushes are not taken unasked, and this is the one step in the plan
+      that leaves the machine.
 - [ ] **G2 — Verify live** against `https://scope-craft-nine.vercel.app`, both
-      languages, both themes.
+      languages, both themes. Blocked on G1.
 
 ---
 

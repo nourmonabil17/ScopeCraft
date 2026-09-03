@@ -14,6 +14,7 @@
 import { useLanguage } from "@/context/LanguageContext";
 import type { ValidationIssue } from "@/lib/scopecraft/schema";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import { Button } from "@/components/ui/Button";
 import styles from "./StateViews.module.css";
 
 export interface ValidationErrorStateProps {
@@ -57,9 +58,9 @@ export function ValidationErrorState({
       )}
       {onDismiss && (
         <div className={styles.actions}>
-          <button type="button" className={styles.startOverButton} onClick={onDismiss}>
+          <Button variant="secondary" onClick={onDismiss}>
             {t("state.validation.action")}
-          </button>
+          </Button>
         </div>
       )}
     </div>

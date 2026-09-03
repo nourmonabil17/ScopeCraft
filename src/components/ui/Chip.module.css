@@ -1,7 +1,7 @@
 /* src/components/ui/Chip.module.css
  *
- * Three weights, one colour. The fill carries emphasis; the text carries the
- * meaning. Nothing in this file may introduce a hue that encodes a bucket —
+ * Four weights, one colour. The border ramp carries emphasis; the text carries
+ * the meaning. Nothing in this file may introduce a hue that encodes a bucket —
  * see the component header for why.
  */
 

@@ -370,17 +370,207 @@ One point per view. Each is rebuilt, then reviewed against
       `--c-text-faint` on `--c-panel`, is not in the numbers above; it is
       asserted in `tests/evaluation/design-tokens.test.ts` at 4.54:1 light and
       5.88:1 dark.
-- [ ] **D5 — Interactive sprint board.** Rebuilt visual, **preserved decisions**:
-      no drag-and-drop (WCAG 2.2 SC 2.5.7 needs a single-pointer alternative, and
-      buttons already are one), and no delivery dates (a documented non-goal —
-      it shows capacity, not calendar commitments).
-- [ ] **D6 — History list.** Cards, stats strip, duplicate and delete. Fix the
-      32 px action-button targets while here — they clear the 24 px WCAG 2.5.8
-      floor but sit under the 44 px comfort target.
-- [ ] **D7 — Saved plan view.**
-- [ ] **D8 — Login and welcome modal.**
-- [ ] **D9 — Error, empty, refusal and validation states.** The end of the
-      peak-end rule: a failed generation is an ending too.
+- [x] **D5 — Interactive sprint board.** *Done 2026-09-03, commits `463b7e5`,
+      `76686cb`.* The largest legacy holdout, 37 occurrences to 0, and it closes
+      an inconsistency D4 opened: the overview tab rendered MoSCoW as `Chip`
+      weights while the backlog tab, one click away, rendered the same four
+      buckets in red/amber/blue/grey. `MOSCOW_BADGE_CLASS` is gone and the badge
+      is a `Chip` on entry 34's mapping. The two columns take `Card` — the
+      deferred one with `recessed` and `muted`, whose documented meaning is
+      "content that is present but not committed to" and which had shipped in
+      Module C with no consumer. Story cards take `Card` as an `li`; the toggle
+      takes `Button`, which raises it from 32px to the 44px comfort target.
+
+      **Preserved decisions**: no drag-and-drop (WCAG 2.2 SC 2.5.7 needs a
+      single-pointer alternative, and buttons already are one), and no delivery
+      dates (a documented non-goal — it shows capacity, not calendar
+      commitments). The capacity maths in `client-recalc.ts` was not touched and
+      `InteractiveBoard.test.tsx`'s existing cases pass unchanged.
+
+      **The plan was wrong about `--sc-warning` and the plan is what changed.**
+      It recorded the token as "used twice, for the over-capacity state". It is
+      used three times, and it is the *approaching*-capacity state plus the
+      dependency note — over-capacity was already on `--sc-danger`. The
+      dependency note is a fault and took `--c-danger`; the caption steps up by
+      weight instead of hue, muted grey to full text. The meter fill ends with
+      two colours for three states: `ok` and `warning` share the accent because
+      neither is a fault, and the track is `aria-hidden` decoration, so the
+      caption carries the three-way distinction in words. `.meterFillWarning`
+      was deleted rather than mapped. **This is the fourth time a metric or a
+      token count in a plan has not survived contact with the tree.**
+
+      **`@media (max-width: 42rem)` inverted to `min-width: 48rem`**, whose
+      recorded intent in `breakpoints.ts` is "Tablet. **Two-column board**" —
+      written for this board. `PRE_REBUILD_EXEMPT` drops to one entry;
+      `ToggleControls` is the last, and comes off at the next point.
+
+      **Two primitives grew, each for a stated reason.** `Card`'s `as` union
+      gains `"section"`: a named `<section>` is a landmark and a `<div>` is not,
+      so the columns would have lost two named regions to satisfy a type.
+      `Chip` gains `testId`, the same named-prop trade `Card` made at D4 —
+      a `{...rest}` spread would also admit `style`, which is the one hole a hue
+      could return through. `data-moscow` was dropped; it had no reader anywhere
+      in the tree.
+
+      **Verified by `npm run capture:ui`**, exit 0: 17 screenshots and the audit
+      regenerated, 19 contrast pairs light and 20 dark with none below AA, 0
+      unnamed controls, 0 heading skips, and no horizontal overflow at 1280, 768
+      or 390px in both LTR and RTL. The suite is 455 tests over 21 suites, up
+      from 435.
+
+      **Not covered by this point.** The meter keeps its own surface rather than
+      taking `Card`: it needs `role="group"` and `aria-label`, and `Card`
+      deliberately has no spread to carry them. A named `role` prop would buy
+      one consumer and reopen the door `Card` exists to hold shut, so this pays
+      four duplicated declarations instead. The points input stays a bare
+      `<input>` rather than taking `Field` — it has its own `<label>` wrapper and
+      restructuring it is not what this point is about. `.srOnly` is still
+      defined here, one of five; that consolidation is Point 6. The visual RTL
+      layout of the board is asserted only as far as jsdom can — the strings,
+      the weights and the group label — because the capture's overflow checks
+      run on the idle page. Rendering every rebuilt view in Arabic is F2.
+- [x] **D6 — History list.** *Done 2026-09-03, commit `be8b3fb`.* Rows take
+      `Card` as a real `li`; the stats strip and every metric in the file move
+      onto the space and text scales. 26 legacy references to 0.
+
+      **The 32px targets are fixed**, which was this point's named job. Both row
+      actions take `Button`, so they inherit its 44px rather than declaring a
+      number of their own that could drift. Delete needed a colour `Button` did
+      not have, and it became a **`danger` variant** rather than a colour passed
+      in through `className`: both would be single-class selectors, so which one
+      won would depend on the order the CSS chunks happened to load — not a
+      thing to leave to chance on a delete button. Inside `Button.module.css`
+      the cascade is source order and settled.
+
+      **The three status badges stay local rather than becoming `Chip`.** Chip
+      encodes a bucket by weight and carries no hue by design (entry 34), and
+      these are not buckets: one is a fault, one a provenance flag, one a
+      provider's name. "Failed" has a legitimate claim on `danger`, which `Chip`
+      must never grow. Their surfaces took `--c-danger-surface` and
+      `--c-panel-recessed`, both pairs already asserted.
+
+      **The plan's file list was short by two.** `history/page.tsx` and
+      `history/[id]/page.tsx` also import this stylesheet, for `.main`. Neither
+      needed a change, but "one consumer" was wrong — the second point in a row
+      where that has been true.
+
+      **What it costs:** the filled-red confirming state is gone. The escalation
+      is now carried by the label changing to "Confirm delete?", which was
+      already the only signal a screen reader had and the only thing the tests
+      assert. Restoring the fill is four lines and a second variant.
+
+      **Not verified by the capture.** `npm run capture:ui` never visits
+      `/scopecraft/history` — its 17 screenshots are the login, idle, form,
+      loading, result, board, evidence, refusal and error screens. It was run
+      anyway as a gate and passed with **no measured change**: 18 contrast pairs
+      light and 20 dark, 0 below AA, 0 unnamed controls, identical overflow
+      results. The regenerated screenshots were **not committed**, because their
+      only difference is a different AI generation and filing them as evidence
+      for this point would misrepresent what they show. Verified instead against
+      the real server: `/scopecraft/history` returns 200 with a minted session
+      and its HTML carries `Card-module__card` on the rows and
+      `Button-module__secondary` / `__danger` on the actions; attributing every
+      `var(--sc-*)` in the page's shipped CSS back to its module leaves neither
+      rebuilt file in the list.
+- [x] **D7 — Saved plan view.** *Done 2026-09-03, commit `be8b3fb`.* Two
+      references, done alongside D6 because it is the same feature reached from
+      the same list. `border-bottom` became `border-block-end` and
+      `min-height` became `min-block-size` while there — physical properties in
+      a file that renders in both directions.
+- [x] **D8 — Login and welcome modal.** *Done 2026-09-03, commit `d6037d7`.*
+      27 legacy references to 0. `LoginCard` takes `Card`, which is what drops
+      `--sc-shadow`; `WelcomeModal` takes `Dialog`, which drops `--sc-shadow-lg`
+      and deletes the local `.dialog` rule along with the component's own ref,
+      `showModal()` effect and UA resets.
+
+      **The local `.dialog` rule going away matters beyond the count.** The
+      `box-sizing` declaration in `Dialog.module.css` carries a measured bug
+      behind it — a 491px content box rendering 557px wide and pushing
+      `margin-inline-end` to −28px — and a second panel rule in the consumer is
+      how the two drift apart. A test asserts the modal renders through the
+      primitive's class, so it cannot quietly grow its own again. That
+      declaration was **not** removed; it comes out with the global reset at
+      Point 6, as planned.
+
+      **Both provider buttons take `Button` and differ only by variant.** Google
+      is `secondary` rather than as a styling choice: its brand guidelines
+      require a neutral, non-brand-coloured button with the mark carrying the
+      colour, which is what `secondary` already is.
+
+      **`disabled` became `busy`.** A disabled control leaves the tab order, so
+      a keyboard user who was on the button when the redirect started loses
+      their place with nothing announced. `busy` keeps it reachable and
+      announced while suppressing the action. Both buttons go busy together, so
+      neither can start a second sign-in while the first is in flight — the
+      property `disabled` was actually there for, now asserted directly rather
+      than implied by the attribute.
+
+      **A stale caption in the capture script was fixed on the way.** It read
+      "GitHub is the only credential path". That is backwards: the page renders
+      a button per provider with configured credentials, and the capture machine
+      has only `AUTH_GOOGLE_*`, so the committed `00-login.png` shows a Google
+      button under a caption naming GitHub. Found by looking at the screenshot
+      rather than at the exit code.
+
+      **Verified by `npm run capture:ui`**, exit 0. Unlike D6, this page *is* in
+      the capture set, so `00-login.png` is real evidence of the rebuilt card —
+      shown here in Arabic RTL. 18 contrast pairs light and 20 dark with none
+      below AA, 0 unnamed controls, 0 heading skips, no horizontal overflow at
+      1280, 768 or 390px in both directions. Suite 467 → 472.
+
+      **Not covered by this point.** `tests/ui/WelcomeModal.test.tsx` emits one
+      React `act()` warning from the Escape test. It was verified to be
+      **pre-existing** — the same warning appears on unmodified `HEAD` — and is
+      test hygiene rather than a product fault, so it was left alone rather than
+      folded into a point about tokens.
+- [x] **D9 — Error, empty, refusal and validation states.** *Done 2026-09-03,
+      commit `5fdc3d5`.* 26 legacy references to 0, and both bugs this point was
+      carrying.
+
+      **The nested live region.** The toast viewport was a single
+      `role="status" aria-live="polite"` wrapping every tone, so an error
+      announcement waited for a pause in speech. The announcement moved onto each
+      toast through the `Toast` primitive — `alert` for an error, `status`
+      otherwise — and the container now carries no live-region semantics, so
+      those roles are never nested inside a politer ancestor. What that trades,
+      and where it is weakest, is [`decision-log.md`](decision-log.md) entry 36.
+      **One existing test asserted the old shape and was rewritten rather than
+      deleted**, so the reversal is visible in the diff.
+
+      **The RTL shimmer.** `transform` is physical, so `translateX(100%)` swept
+      visually left-to-right in Arabic against right-to-left text. One rule
+      reverses it under `[dir="rtl"]`; the gradient is symmetric so it needs no
+      counterpart flip. Entry 37. Pre-existing and carried byte-identical from
+      before the rebuild — it survived four points of review because it is
+      decorative and `aria-hidden`, so nothing about it is wrong to a screen
+      reader and nobody had watched the loading state in Arabic.
+
+      **`.retryButton` and `.startOverButton` are gone**, replaced by `Button`
+      across all four state views. That is the work D3 explicitly deferred here
+      rather than porting something D9 would throw away. Nothing in
+      `StateViews.module.css` styles a control any more, asserted directly.
+
+      Both new checks read their stylesheet from disk, because jsdom resolves no
+      CSS, and **both were verified to fail by breaking the rule** before being
+      kept. Suite 472 → 482.
+
+      **The capture could not complete, and not because of this change.** The
+      run stopped at the generation step with `RATE_LIMITED` — the capture
+      account had used all 20 of its daily plans, this being the fourth capture
+      run of the day at two real generations each. `14-provider-error.png`,
+      which renders `ErrorState` and *is* one of this point's files, captured
+      cleanly before the quota bit; the audit passed with identical numbers, 18
+      contrast pairs light and 20 dark, none below AA. The partially regenerated
+      screenshots were **reverted rather than committed**: a set where six shots
+      are from an older run and eleven from a failed one is not evidence of
+      anything. The committed evidence remains the complete D8 capture.
+      **Re-run `npm run capture:ui` after the quota resets to close this.**
+
+      **Not covered by this point.** The four states are still absent from the
+      capture's screenplay apart from the provider error, so their contrast pairs
+      live in `design-tokens.test.ts` rather than in a measured audit — the limit
+      D3 first recorded and the reason this point leaned on token assertions.
+      `.srOnly` is still defined five times; that consolidation is Point 6.
 
 ---
 
@@ -403,6 +593,14 @@ recorded here so they are not quietly added later.
 ---
 
 ## Module F — Verification
+
+> **F2 is partially met and is the one open verification item.** The capture renders
+> the idle page in Arabic and checks RTL overflow at 1280/768/390, but its screenplay
+> never visits the result view, sprint board, history list or saved plan in `ar`. Those
+> four are covered in Arabic by jsdom tests only, which prove strings, roles and
+> structure but resolve no CSS. Extending the capture to drive `ar` through the result
+> tabs is its own change and is not claimed here. Recorded 2026-09-03.
+
 
 - [ ] **F1 — Accessibility re-audit.** Full WCAG 2.2 AA pass on the rebuilt UI.
       Contrast measured. Every interactive control has an accessible name.

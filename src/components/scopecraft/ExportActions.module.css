@@ -1,60 +1,48 @@
-/* src/components/scopecraft/ExportActions.module.css (owner: Joe) */
+/* src/components/scopecraft/ExportActions.module.css
+ *
+ * Rebuilt at Point 6 on the --c-* tokens. The hand-rolled `.button` is gone —
+ * the export controls are the Button primitive, which already declared the
+ * same 2.75rem target this file was maintaining a second copy of.
+ *
+ * The screen-reader-only rule is gone too. It was one of five identical
+ * copies — and the copy in this file had no consumer at all. There is now a
+ * single global `.sc-sr-only` in layout.tsx.
+ */
 
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 0.625rem;
+  gap: var(--space-2);
 }
 
 .row {
   display: flex;
-  gap: 0.625rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
+/* Button has no display of its own — a native <button> is inline-block — so
+   the icon-and-label box is established here rather than in the primitive. */
 .button {
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--sc-text);
-  background: var(--sc-surface-raised);
-  border: 1px solid var(--sc-border);
-  border-radius: 0.5rem;
-  padding: 0.5rem 0.875rem;
-  min-height: 2.75rem;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  gap: var(--space-1);
 }
 
-.button:hover {
-  border-color: var(--sc-accent);
+.button:hover:not(:disabled) {
+  border-color: var(--c-accent);
 }
 
-.button:focus-visible {
-  outline: 2px solid var(--sc-accent);
-  outline-offset: 2px;
-}
-
+/* Reserves its line so the row does not jump when an export reports back.
+   --sc-success had no --c-* equivalent and takes the accent, the same
+   substitution entries 32 and 33 made: a completed export is a past, finished
+   thing, not a fault. */
 .status {
-  font-size: 0.8125rem;
-  color: var(--sc-success);
-  min-height: 1.25rem;
+  font-size: var(--text-sm);
+  color: var(--c-accent);
+  min-block-size: 1.25rem;
 }
 
 .statusError {
-  color: var(--sc-danger);
-}
-
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
+  color: var(--c-danger);
 }

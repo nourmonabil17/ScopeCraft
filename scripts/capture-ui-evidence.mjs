@@ -404,7 +404,12 @@ try {
   // Captured *before* the session cookie is installed, so this is the genuine
   // signed-out screen rather than a page rendered with auth quietly bypassed.
   await goto(`${BASE}/login`, '[data-testid="login-card"]');
-  await shot("00-login", "signed out — GitHub is the only credential path");
+  // Not "GitHub is the only credential path", which this said until 2026-09-03
+  // and which was backwards: the page renders a button per provider that has
+  // credentials configured, and the machine running the capture has only
+  // AUTH_GOOGLE_*. Naming a provider here hardcodes one environment's env into
+  // a caption printed over every future run.
+  await shot("00-login", "signed out — a button per configured credential provider");
   await signInAsCaptureUser();
 
   console.log("\n[1/5] Responsive views — the same idle screen at three widths");

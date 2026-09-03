@@ -36,7 +36,7 @@ dependency — and fills the real form so every state shot is a real state.
 | [`ui/ui-evidence.md`](ui/ui-evidence.md) | All seven workflow states, responsive views, theme and RTL, plus the `PLANNING_ERROR` reliability finding |
 | [`ui/accessibility-checklist.md`](ui/accessibility-checklist.md) | WCAG 2.2 AA checklist, each row measured or test-backed |
 | [`ui/accessibility-audit.txt`](ui/accessibility-audit.txt) | Raw measured output — contrast table, control names, landmarks, overflow |
-| [`ui/shots/`](ui/shots) | 16 screenshots at 1280 / 768 / 390px, light and dark, English and Arabic RTL |
+| [`ui/shots/`](ui/shots) | 17 screenshots at 1280 / 768 / 390px, light and dark, English and Arabic RTL |
 
 ## Acceptance criteria → evidence
 

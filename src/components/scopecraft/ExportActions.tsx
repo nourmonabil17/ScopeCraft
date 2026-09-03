@@ -23,6 +23,7 @@ import { toBacklogJson, toMarkdown, type BoardOverride } from "@/lib/scopecraft/
 import { useLanguage } from "@/context/LanguageContext";
 import { useToast } from "@/context/ToastContext";
 import type { BoardSnapshot } from "./InteractiveSprintBoard";
+import { Button } from "@/components/ui/Button";
 import styles from "./ExportActions.module.css";
 
 export interface ExportActionsProps {
@@ -130,14 +131,14 @@ export function ExportActions({ data, board }: ExportActionsProps) {
   return (
     <div className={styles.panel}>
       <div className={styles.row}>
-        <button type="button" className={styles.button} onClick={handleCopyMarkdown}>
+        <Button variant="secondary" className={styles.button} onClick={handleCopyMarkdown}>
           <span aria-hidden="true">📋</span>
           {t("export.copyMarkdown")}
-        </button>
-        <button type="button" className={styles.button} onClick={handleDownloadJson}>
+        </Button>
+        <Button variant="secondary" className={styles.button} onClick={handleDownloadJson}>
           <span aria-hidden="true">⬇</span>
           {t("export.downloadJson")}
-        </button>
+        </Button>
       </div>
       <p
         className={`${styles.status} ${status.kind === "error" ? styles.statusError : ""}`}

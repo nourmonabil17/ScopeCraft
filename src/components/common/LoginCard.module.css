@@ -1,134 +1,89 @@
-/* src/components/common/LoginCard.module.css */
+/* src/components/common/LoginCard.module.css
+ *
+ * Rebuilt at Point 4 (D8) on the --c-* tokens. Card supplies the panel and
+ * Button supplies both provider controls, which is what removes --sc-shadow
+ * from this file — there is no shadow scale among the twelve roles and there
+ * is not going to be one.
+ *
+ * What is left here is layout: the page measure, the mark, and the one rule
+ * that makes the two provider buttons full-width.
+ */
 
 .main {
-  max-width: 26rem;
-  margin: 0 auto;
-  padding: 4rem 1rem;
+  max-inline-size: 26rem;
+  margin-inline: auto;
+  padding-block: var(--space-8);
+  padding-inline: var(--space-4);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/* Card supplies the surface, the rule, the radius and the padding. This is
+   the internal arrangement only — a centred column, which is particular to
+   the sign-in page and not something the primitive should know about. */
 .card {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 0.75rem;
-  padding: 2rem 1.5rem;
-  background: var(--sc-surface-raised);
-  border: 1px solid var(--sc-border);
-  border-radius: 0.875rem;
-  box-shadow: var(--sc-shadow);
+  gap: var(--space-3);
 }
 
 .mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.875rem;
-  background: var(--sc-accent);
-  color: var(--sc-accent-contrast);
-  font-size: 1.125rem;
+  inline-size: 3rem;
+  block-size: 3rem;
+  border-radius: var(--radius-md);
+  background: var(--c-accent);
+  color: var(--c-accent-contrast);
+  font-size: var(--text-lg);
   font-weight: 800;
   letter-spacing: 0.02em;
 }
 
 .title {
-  margin: 0.25rem 0 0;
-  font-size: 1.375rem;
-  color: var(--sc-text);
+  margin-block: var(--space-1) 0;
+  margin-inline: 0;
+  font-size: var(--text-xl);
+  color: var(--c-text);
 }
 
 .subtitle {
   margin: 0;
-  color: var(--sc-text-muted);
+  color: var(--c-text-muted);
   line-height: 1.55;
 }
 
-.githubButton {
+/* Both provider buttons are the Button primitive and differ only by variant:
+   GitHub is `primary` (the filled one), Google is `secondary`. That split is
+   not a style preference — Google's brand guidelines require a neutral,
+   non-brand-coloured button, with the mark carrying the colour and the chrome
+   staying plain, which is exactly what `secondary` already is.
+   This class adds what neither variant has: full width in a column, and a
+   flex context. A native <button> is inline-block and Button sets no display
+   of its own, so the box the mark and label sit in is established here rather
+   than pushed into the primitive for one consumer. */
+.providerButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  margin-top: 0.5rem;
-  font: inherit;
-  font-weight: 600;
-  color: var(--sc-accent-contrast);
-  background: var(--sc-accent);
-  border: 1px solid transparent;
-  border-radius: 0.625rem;
-  /* Comfortably past the 24x24 CSS px of WCAG 2.2 SC 2.5.8 (AA). */
-  min-height: 2.75rem;
-  padding: 0.625rem 1rem;
-  cursor: pointer;
-  transition: opacity 140ms ease;
+  inline-size: 100%;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
 }
 
-.githubButton:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.githubButton:focus-visible {
-  outline: 2px solid var(--sc-accent);
-  outline-offset: 2px;
-}
-
-.githubButton:disabled {
-  opacity: 0.65;
-  cursor: progress;
-}
-
-/* The mark is decorative; it must not flip with the rest of the RTL layout. */
-.githubMark {
-  flex: 0 0 auto;
-}
-
-/* Google's brand guidelines call for a neutral (not brand-colored) button —
- * the mark itself carries the color, the button chrome does not — so this is
- * deliberately NOT .githubButton with a different background. Sharing the
- * shape (size, radius, spacing) keeps the two buttons reading as one group. */
-.googleButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  margin-top: 0.5rem;
-  font: inherit;
-  font-weight: 600;
-  color: var(--sc-text);
-  background: var(--sc-surface-raised);
-  border: 1px solid var(--sc-border);
-  border-radius: 0.625rem;
-  min-height: 2.75rem;
-  padding: 0.625rem 1rem;
-  cursor: pointer;
-  transition: opacity 140ms ease, background-color 140ms ease;
-}
-
-.googleButton:hover:not(:disabled) {
-  background: var(--sc-surface);
-}
-
-.googleButton:focus-visible {
-  outline: 2px solid var(--sc-accent);
-  outline-offset: 2px;
-}
-
-.googleButton:disabled {
-  opacity: 0.65;
-  cursor: progress;
-}
-
+/* The marks are decorative; they must not flip with the rest of the RTL
+   layout, and they must not shrink when the label runs long in Arabic. */
+.githubMark,
 .googleMark {
   flex: 0 0 auto;
 }
 
 .note {
-  margin: 0.25rem 0 0;
-  font-size: 0.8125rem;
+  margin-block: var(--space-1) 0;
+  margin-inline: 0;
+  font-size: var(--text-sm);
   line-height: 1.5;
-  color: var(--sc-text-muted);
+  color: var(--c-text-muted);
 }

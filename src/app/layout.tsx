@@ -41,80 +41,18 @@ export const viewport: Viewport = {
 };
 
 const rootStyle = `
-  /* New token layer (Module C). Coexists with the --sc-* block below until
-     Module D finishes migrating every view; the old block is deleted in that
-     module's final point, gated on \`grep -r "--sc-" src\` returning nothing.
-     Two generations of token in one stylesheet is deliberate — replacing them
-     in a single commit would break every view that has not been rebuilt yet. */
+  /* The token layer, generated from src/lib/design/tokens.ts.
+     The legacy block that used to sit below this — two generations of token in
+     one stylesheet — was deleted at Module D's final point, once every view had
+     been migrated. The coexistence was deliberate for the whole of Module D:
+     replacing both in one commit would have broken every view not yet rebuilt.
+
+     The gate was a tree-wide count of legacy custom-property references
+     reaching zero. That command is deliberately NOT quoted here: it greps for
+     its own pattern, so writing it into a comment makes the count report 1 and
+     the gate can never close. It lives in docs/upgrade-checklist.md instead. */
 ${tokenCss()}
 
-  :root {
-    --bg: #ffffff;
-    --fg: #1a1c22;
-    --sc-text: #1a1c22;
-    --sc-text-muted: #5a6070;
-    --sc-border: #d7dbe6;
-    --sc-border-strong: #8b93a7;
-    --sc-surface: #ffffff;
-    --sc-surface-subtle: #f4f6fa;
-    --sc-surface-raised: #ffffff;
-    --sc-surface-header: rgba(255, 255, 255, 0.85);
-    --sc-accent: #2f4fd4;
-    --sc-accent-contrast: #ffffff;
-    --sc-accent-subtle: #e8ecfb;
-    --sc-danger: #a3231f;
-    --sc-danger-surface: #fdf2f2;
-    --sc-warning: #8a5a00;
-    --sc-warning-surface: #fff6e0;
-    --sc-success: #157a45;
-    --sc-success-surface: #e9f7ef;
-    --sc-shadow: 0 1px 2px rgba(20, 22, 30, 0.08), 0 1px 1px rgba(20, 22, 30, 0.04);
-    --sc-shadow-lg: 0 10px 24px rgba(20, 22, 30, 0.12), 0 2px 6px rgba(20, 22, 30, 0.08);
-
-    /* MoSCoW badge colors — distinct hues, not just weight, so bucket is never
-       conveyed by color alone (each badge also carries its own text label). */
-    --sc-must: #a3231f;
-    --sc-must-surface: #fdf2f2;
-    --sc-should: #8a5a00;
-    --sc-should-surface: #fff6e0;
-    --sc-could: #1c5fa8;
-    --sc-could-surface: #eaf2fb;
-    --sc-wont: #5a6070;
-    --sc-wont-surface: #f0f1f5;
-  }
-
-  :root.dark {
-    --bg: #0f1116;
-    --fg: #e8eaf0;
-    --sc-text: #e8eaf0;
-    --sc-text-muted: #a2a9bb;
-    --sc-border: #2f3542;
-    --sc-border-strong: #6b7385;
-    --sc-surface: #0f1116;
-    --sc-surface-subtle: #171a21;
-    --sc-surface-raised: #1b1f28;
-    --sc-surface-header: rgba(15, 17, 22, 0.85);
-    --sc-accent: #8ea6ff;
-    --sc-accent-contrast: #0f1116;
-    --sc-accent-subtle: #212a47;
-    --sc-danger: #ff9b95;
-    --sc-danger-surface: #2a1618;
-    --sc-warning: #e8b74f;
-    --sc-warning-surface: #2c2412;
-    --sc-success: #6fd39b;
-    --sc-success-surface: #10261b;
-    --sc-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(0, 0, 0, 0.35);
-    --sc-shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.4);
-
-    --sc-must: #ff9b95;
-    --sc-must-surface: #2a1618;
-    --sc-should: #e8b74f;
-    --sc-should-surface: #2c2412;
-    --sc-could: #8fb8e8;
-    --sc-could-surface: #172538;
-    --sc-wont: #a2a9bb;
-    --sc-wont-surface: #23262f;
-  }
 
   /* Skip link: off-screen until focused, then pinned above everything. The
      header is sticky, so a link that merely became visible could still be
@@ -132,8 +70,8 @@ ${tokenCss()}
     top: 0;
     z-index: 1000;
     padding: 0.6rem 1rem;
-    background: var(--sc-accent);
-    color: var(--sc-accent-contrast);
+    background: var(--c-accent);
+    color: var(--c-accent-contrast);
     border-start-start-radius: 0;
     border-start-end-radius: 0;
     border-end-start-radius: 0;
@@ -154,6 +92,51 @@ ${tokenCss()}
     scroll-margin-top: 5rem;
   }
 
+  /* The global box-sizing reset, added at Module D's final point. Until then
+     each primitive that constrained its own size set this itself, because
+     adding it mid-rebuild would have shifted every view that had not been
+     redone yet.
+
+     Three local declarations were removed when this landed. Their reasoning is
+     kept here rather than lost with them, because each recorded a real measured
+     bug and this rule is now the only thing preventing all three:
+
+       - InputForm's textarea: horizontal padding and border were added OUTSIDE
+         a 100% width, pushing the document ~10px wider than the viewport and
+         giving every page a horizontal scrollbar below ~800px. Textareas
+         default to content-box, so nothing inherited it.
+       - Dialog: a 491px content box rendered 557px wide on a 529px viewport and
+         pushed margin-inline-end to -28px.
+       - Toast: same shape — a width cap plus padding overflowing its own cap.
+
+     Anything that sets its own inline-size is relying on this rule. Removing it
+     brings all three back at once. */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  /* Visible to screen readers only. One definition, replacing five identical
+     copies that had accumulated across Field, InputForm, ExportActions,
+     InteractiveSprintBoard and LoadingState — one per point that needed it,
+     each unaware of the others. ExportActions' copy turned out to have no
+     consumer at all.
+
+     clip-path: inset(50%) rather than the deprecated clip: rect(), and logical
+     sizing, so it behaves the same in both directions. */
+  .sc-sr-only {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
   /* Pointer ergonomics: removes the 300ms double-tap delay on touch and stops
      the grey flash on tap, which reads as a rendering glitch rather than
      feedback. Focus and hover styling carry the feedback instead. */
@@ -164,8 +147,8 @@ ${tokenCss()}
 
   body {
     margin: 0;
-    background: var(--bg);
-    color: var(--fg);
+    background: var(--c-ground);
+    color: var(--c-text);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     transition: background-color 160ms ease, color 160ms ease;
   }

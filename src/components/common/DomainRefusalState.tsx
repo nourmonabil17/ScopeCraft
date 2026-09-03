@@ -16,6 +16,7 @@
 "use client";
 
 import { useLanguage } from "@/context/LanguageContext";
+import { Button } from "@/components/ui/Button";
 import styles from "./StateViews.module.css";
 
 export interface DomainRefusalStateProps {
@@ -36,9 +37,9 @@ export function DomainRefusalState({ message, onEditIdea }: DomainRefusalStatePr
       <p className={styles.body}>{t("state.refusal.body")}</p>
       {onEditIdea && (
         <div className={styles.actions}>
-          <button type="button" className={styles.startOverButton} onClick={onEditIdea}>
+          <Button variant="secondary" onClick={onEditIdea}>
             {t("state.refusal.action")}
-          </button>
+          </Button>
         </div>
       )}
     </div>

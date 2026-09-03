@@ -19,6 +19,8 @@ import { useToast } from "@/context/ToastContext";
 import { EmptyState } from "@/components/common/EmptyState";
 import { ErrorState } from "@/components/common/ErrorState";
 import { DUPLICATE_PREFILL_STORAGE_KEY } from "@/components/scopecraft/presets";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import styles from "./HistoryList.module.css";
 
 export interface PlanSummary {
@@ -105,7 +107,7 @@ export function HistoryList({ plans }: { plans: PlanSummary[] | null }) {
 
       <ul className={styles.list}>
         {visiblePlans.map((plan) => (
-          <li key={plan.id} className={styles.item}>
+          <Card key={plan.id} as="li" className={styles.item}>
             {/* dir="auto" because this is the user's own text and may be in
                 either language regardless of the interface language. Without
                 it, an Arabic idea renders left-aligned in the English UI and an
@@ -158,36 +160,37 @@ export function HistoryList({ plans }: { plans: PlanSummary[] | null }) {
               )}
             </p>
 
+            {/* Both actions are the Button primitive, which is what raises
+                them from 32px to the 44px comfort target. They sit side by
+                side, so one of them staying hand-rolled would recreate exactly
+                the height mismatch decision-log entry 31 was about. */}
             <div className={styles.cardActions}>
-              <button
-                type="button"
-                className={styles.duplicateButton}
+              <Button
+                variant="secondary"
                 onClick={() => duplicate(plan)}
                 title={t("history.duplicate.description")}
               >
                 {t("history.duplicate")}
-              </button>
+              </Button>
               {confirmingId === plan.id ? (
-                <button
-                  type="button"
-                  className={styles.deleteButtonConfirming}
+                <Button
+                  variant="danger"
                   onClick={() => deletePlan(plan.id)}
                   onBlur={() => setConfirmingId(null)}
                 >
                   {t("history.delete.confirm")}
-                </button>
+                </Button>
               ) : (
-                <button
-                  type="button"
-                  className={styles.deleteButton}
+                <Button
+                  variant="danger"
                   onClick={() => setConfirmingId(plan.id)}
                   title={t("history.delete.description")}
                 >
                   {t("history.delete")}
-                </button>
+                </Button>
               )}
             </div>
-          </li>
+          </Card>
         ))}
       </ul>
     </section>

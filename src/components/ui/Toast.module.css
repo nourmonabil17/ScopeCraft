@@ -11,11 +11,8 @@
   align-items: center;
   gap: var(--space-2);
 
-  /* Same reasoning as Dialog: there is no global box-sizing reset in this app,
-     so any primitive that constrains its own size sets this itself or the
-     padding is added on top of that size. */
-  box-sizing: border-box;
-
+  /* box-sizing comes from the global reset in layout.tsx, which records the
+     measured bug this used to prevent locally. */
   padding-block: var(--space-3);
   padding-inline: var(--space-4);
 

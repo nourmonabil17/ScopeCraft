@@ -5,6 +5,8 @@
 // darkens a muted grey or brightens an accent past the point where it still
 // clears AA — which is exactly the change that gets made by eye and shipped.
 
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { contrastRatio } from "@/lib/design/contrast";
 import { tokens } from "@/lib/design/tokens";
 import { tokenCss } from "@/lib/design/css";
@@ -78,10 +80,30 @@ describe("design tokens meet WCAG 2.2 AA", () => {
     expect(contrastRatio(t.textFaint, t.panel)).toBeGreaterThanOrEqual(4.5);
   });
 
+  // Three pairs new at D5, none of which the capture can reach: it renders the
+  // idle page only and never a board. The recessed surface is the deferred
+  // column and the capacity percentage pill.
+  it.each(themes)("%s: accent on a recessed panel clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.accent, t.panelRecessed)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(themes)("%s: muted text on a recessed panel clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.textMuted, t.panelRecessed)).toBeGreaterThanOrEqual(4.5);
+  });
+
   // SC 1.4.11: a rule that separates content is a non-text contrast target.
   it.each(themes)("%s: strong rule on ground clears 3:1", (theme) => {
     const t = tokens.color[theme];
     expect(contrastRatio(t.ruleStrong, t.ground)).toBeGreaterThanOrEqual(3);
+  });
+
+  // The points input's border is the only thing marking it as a field, and it
+  // sits on a card rather than on the page ground.
+  it.each(themes)("%s: strong rule on a panel clears 3:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.ruleStrong, t.panel)).toBeGreaterThanOrEqual(3);
   });
 
   it.each(themes)("%s: text on the accent fill clears 4.5:1", (theme) => {
@@ -147,5 +169,85 @@ describe("tokenCss", () => {
   // A bare prefers-color-scheme block would break that, silently.
   it("never defines colours inside a prefers-color-scheme media query", () => {
     expect(css).not.toContain("prefers-color-scheme");
+  });
+});
+
+// The invariant behind decision-log entry 31. D1 moved the header's two real
+// buttons onto the Button primitive at 44px while the controls beside them in
+// the same row stayed at 36px, leaving the signed-in header 8px uneven for
+// four points. Point 2 closed it by matching the number.
+//
+// It is asserted from the stylesheets rather than from a render because jsdom
+// resolves no CSS — identity-obj-proxy hands back the class name and nothing
+// else, so a rendered check here would pass whatever the values were.
+describe("header control target sizes", () => {
+  function minBlockSizes(file: string): string[] {
+    const css = readFileSync(file, "utf8");
+    return [...css.matchAll(/min-block-size:\s*([^;]+);/g)].map((m) => m[1].trim());
+  }
+
+  const buttonSizes = minBlockSizes("src/components/ui/Button.module.css");
+
+  it("Button states exactly one target size", () => {
+    expect(buttonSizes).toHaveLength(1);
+    expect(buttonSizes[0]).toBe("2.75rem");
+  });
+
+  // The Home link, the history link, the theme toggle and the language
+  // segmented control all live in this one file and all sit in the Button's
+  // row. Any one of them drifting is the mismatch reopening.
+  it("every toggle control matches the Button's target", () => {
+    const toggleSizes = minBlockSizes("src/components/common/ToggleControls.module.css");
+    expect(toggleSizes.length).toBeGreaterThan(0);
+    for (const size of toggleSizes) {
+      expect(size).toBe(buttonSizes[0]);
+    }
+  });
+});
+
+// The exit condition for Module D, made permanent. The legacy --sc-* layer was
+// deleted from layout.tsx at Point 6 once every view had been migrated; these
+// assertions are what stop it coming back one convenience at a time.
+describe("the legacy token layer is gone", () => {
+  function filesUnder(dir: string, ext: string[]): string[] {
+    const found: string[] = [];
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) found.push(...filesUnder(path, ext));
+      else if (ext.some((e) => entry.endsWith(e))) found.push(path);
+    }
+    return found;
+  }
+
+  const sources = filesUnder("src", [".css", ".ts", ".tsx"]);
+
+  it("finds sources to audit", () => {
+    expect(sources.length).toBeGreaterThan(0);
+  });
+
+  // Built from fragments so this assertion does not match itself: the file is
+  // under tests/ and the walk is over src/, but the same trap already cost a
+  // round trip once when the pattern was written into a comment in layout.tsx
+  // and the gate reported 1 forever.
+  const LEGACY = ["var(--", "sc-"].join("");
+
+  it("references no legacy custom property anywhere under src", () => {
+    const offenders = sources.filter((f) => readFileSync(f, "utf8").includes(LEGACY));
+    expect(offenders).toEqual([]);
+  });
+
+  // Five identical copies collapsed into one global utility. A sixth appearing
+  // is the drift this catches.
+  it("defines the screen-reader-only rule exactly once", () => {
+    const hits = sources.filter((f) => /\.sc-sr-only\s*\{/.test(readFileSync(f, "utf8")));
+    expect(hits).toEqual(["src/app/layout.tsx"]);
+  });
+
+  // Three local declarations became one global reset. Anything that sets its
+  // own inline-size now depends on that rule; a local re-declaration means
+  // someone hit the symptom again without finding the reset.
+  it("declares box-sizing exactly once, globally", () => {
+    const hits = sources.filter((f) => /box-sizing:\s*border-box/.test(readFileSync(f, "utf8")));
+    expect(hits).toEqual(["src/app/layout.tsx"]);
   });
 });

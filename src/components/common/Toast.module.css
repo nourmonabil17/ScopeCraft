@@ -1,5 +1,13 @@
 /* src/components/common/Toast.module.css
  *
+ * Rebuilt at Point 5 (D9) on the --c-* tokens.
+ *
+ * The panel itself is gone from this file — the Toast primitive owns the
+ * surface, the rule, the padding and the tone edge, which is what removes
+ * --sc-shadow-lg. What is left is the viewport's position, the entrance
+ * animation, and the two things a bare primitive has no opinion about: the
+ * tone glyph and the dismiss control.
+ *
  * `inset-inline-end` rather than `right`: in RTL the toast stack belongs on
  * the left, and a logical property does that automatically instead of needing
  * a [dir="rtl"] override.
@@ -7,30 +15,23 @@
 
 .viewport {
   position: fixed;
-  inset-block-end: 1.25rem;
-  inset-inline-end: 1.25rem;
+  inset-block-end: var(--space-5);
+  inset-inline-end: var(--space-5);
   z-index: 60;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  max-width: min(24rem, calc(100vw - 2.5rem));
+  gap: var(--space-2);
+  max-inline-size: min(24rem, calc(100vw - var(--space-7)));
+
+  /* The container spans a corner of the screen but must not swallow clicks
+     between toasts; each toast turns pointer events back on for itself. */
   pointer-events: none;
 }
 
-.toast {
+.entering {
   pointer-events: auto;
-  display: flex;
   align-items: flex-start;
-  gap: 0.625rem;
-  padding: 0.75rem 0.875rem;
-  border-radius: 0.625rem;
-  border: 1px solid var(--sc-border);
-  background: var(--sc-surface-raised);
-  color: var(--sc-text);
-  box-shadow: var(--sc-shadow-lg);
-  font-size: 0.875rem;
-  line-height: 1.45;
-  animation: toast-in 180ms ease-out;
+  animation: toast-in var(--motion-base) var(--motion-ease);
 }
 
 @keyframes toast-in {
@@ -44,22 +45,12 @@
   }
 }
 
+/* Per-file rather than a token-level rule; making reduced motion a token
+   concern is E1's job. */
 @media (prefers-reduced-motion: reduce) {
-  .toast {
+  .entering {
     animation: none;
   }
-}
-
-.success {
-  border-inline-start: 3px solid var(--sc-success);
-}
-
-.error {
-  border-inline-start: 3px solid var(--sc-danger);
-}
-
-.info {
-  border-inline-start: 3px solid var(--sc-accent);
 }
 
 .icon {
@@ -68,41 +59,46 @@
   line-height: 1.45;
 }
 
-.success .icon {
-  color: var(--sc-success);
+/* The glyph is aria-hidden and the message text carries the meaning, so these
+   colours are reinforcement only. Each pair is already asserted against
+   --c-panel in design-tokens.test.ts. --sc-success had no equivalent and takes
+   the accent, the same substitution entries 32 and 33 made. */
+.success {
+  color: var(--c-accent);
 }
 
-.error .icon {
-  color: var(--sc-danger);
+.error {
+  color: var(--c-danger);
 }
 
-.info .icon {
-  color: var(--sc-accent);
+.info {
+  color: var(--c-text-muted);
 }
 
 .message {
   flex: 1 1 auto;
-  min-width: 0;
+  min-inline-size: 0;
 }
 
 .dismiss {
   flex: 0 0 auto;
   font: inherit;
-  font-size: 1.125rem;
+  font-size: var(--text-lg);
   line-height: 1;
-  color: var(--sc-text-muted);
+  color: var(--c-text-muted);
   background: transparent;
   border: none;
-  border-radius: 0.25rem;
-  padding: 0.125rem 0.25rem;
+  border-radius: var(--radius-sm);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-1);
   cursor: pointer;
 }
 
 .dismiss:hover {
-  color: var(--sc-text);
+  color: var(--c-text);
 }
 
 .dismiss:focus-visible {
-  outline: 2px solid var(--sc-accent);
+  outline: 2px solid var(--c-accent);
   outline-offset: 2px;
 }

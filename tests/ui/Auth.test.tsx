@@ -96,3 +96,48 @@ describe("Header identity control", () => {
     expect(signOutButton).toHaveAttribute("type", "button");
   });
 });
+
+// ---------------------------------------------------------------------------
+// D8: the login card's primitives
+// ---------------------------------------------------------------------------
+
+describe("Login card primitives", () => {
+  it("puts both provider controls on the Button primitive", () => {
+    renderWithProviders(<LoginCard />);
+    // GitHub is the filled one; Google is deliberately neutral, because its
+    // brand guidelines require a non-brand-coloured button with the mark
+    // carrying the colour. That is `secondary`, not a styling preference.
+    expect(screen.getByTestId("login-github")).toHaveClass("button", "primary");
+    expect(screen.getByTestId("login-google")).toHaveClass("button", "secondary");
+  });
+
+  // `busy`, not `disabled`. A disabled control leaves the tab order, so a
+  // keyboard user who was on the button when the redirect started loses their
+  // place with nothing announced. Busy keeps it reachable and suppressed.
+  it("marks both controls busy — and still focusable — during a redirect", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LoginCard />);
+
+    await user.click(screen.getByTestId("login-github"));
+
+    const github = screen.getByTestId("login-github");
+    const google = screen.getByTestId("login-google");
+    expect(github).toHaveAttribute("aria-busy", "true");
+    expect(google).toHaveAttribute("aria-busy", "true");
+    expect(github).not.toBeDisabled();
+    expect(google).not.toBeDisabled();
+  });
+
+  // The reason the sibling was disabled in the first place: it must not be
+  // able to start a second redirect while the first is in flight.
+  it("does not start a second sign-in while one is redirecting", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LoginCard />);
+
+    await user.click(screen.getByTestId("login-github"));
+    await user.click(screen.getByTestId("login-google"));
+
+    expect(signIn).toHaveBeenCalledTimes(1);
+    expect(signIn).toHaveBeenCalledWith("github", { callbackUrl: "/scopecraft" });
+  });
+});

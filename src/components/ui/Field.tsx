@@ -70,7 +70,7 @@ export function Field({
             <span className={styles.requiredMark} aria-hidden="true">
               {"*"}
             </span>
-            <span className={styles.srOnly}>{requiredLabel}</span>
+            <span className="sc-sr-only">{requiredLabel}</span>
           </>
         ) : null}
       </label>

@@ -864,6 +864,30 @@ nonce or hash policy and saying so is more useful than closing the row.
     the auth gate and were never seen rendered. The unit suite proves they use the primitive;
     nothing has yet confirmed how the mismatch actually looks.
 
+    **Closed 2026-09-03, Point 2, commit `596cea0`.** `ToggleControls.module.css` was
+    rebuilt onto the `--c-*` tokens and every box in it is now `2.75rem`, the number
+    `Button` states. `PRE_REBUILD_EXEMPT` is empty, so the condition this entry named
+    for its own closure — "it closes when the toggles are rebuilt and come off the
+    exemption list" — is met on both halves.
+
+    **And it has now been seen.** The paragraph above is the reason to say so
+    explicitly: the mismatch was recorded for four points without anyone having looked
+    at it. `docs/evidence/ui/shots/01-idle-desktop-light.png`, recaptured against this
+    build, shows the signed-in header — Home, Your plans, Sign out, the language
+    segmented control and the theme toggle — sitting on one line at one height. The
+    audit's own numbers moved with it: the Home link's contrast rose from 17.03 to 19.8
+    in light and 13.71 to 14.48 in dark, because its surface changed from the legacy
+    raised grey to `--c-panel`. Light dropped from 19 measured combinations to 18 — a
+    merge, not a loss, since the link's background is now identical to the ground it
+    sits on. Interactive controls stayed at 16 with 0 unnamed.
+
+    **What keeps it closed:** `tests/evaluation/design-tokens.test.ts` reads
+    `Button.module.css` and `ToggleControls.module.css` from disk and fails if any
+    control in the latter declares a different `min-block-size` from the former. jsdom
+    resolves no CSS — `identity-obj-proxy` returns the class name and nothing else — so
+    a rendered assertion would have passed whatever the values were. The check was
+    confirmed to fail by breaking it before it was kept.
+
 32. **The token set gained an error colour it never had — 2026-09-02, Module D2.**
     The ten roles approved in Module C carry no way to say "this is wrong".
     That went unnoticed because nothing had used them yet; D2 put a
@@ -963,3 +987,149 @@ nonce or hash policy and saying so is more useful than closing the row.
     `git grep -o 'var(--sc-' -- src | wc -l`, which is the third time these two
     metrics have been mixed. The occurrence count is the one that has to reach
     zero before the `--sc-*` block can be deleted.
+
+35. **The capacity meter shows three states in two colours — 2026-09-03, Module D5.**
+    Entry 34 bound the board to the weight ramp and it was applied without
+    incident. The meter was the part that did not fit. It has three states —
+    `ok`, `warning`, `over` — and a filled bar has no border style to ramp: a
+    fill is a fill. The twelve roles carry no `success` and no `warning`, so
+    three states had two colours available.
+
+    **Which two share, and why.** `ok` and `warning` share `--c-accent`. Under
+    capacity and approaching capacity are both *not a fault*; over capacity is
+    the only fault on the board, and `danger` is what entry 32 added faults for.
+    Splitting `ok` from `warning` by hue would have needed the thirteenth role
+    this module has now declined four times.
+
+    **What carries the distinction instead.** The caption below the bar, in
+    words — "2 points of headroom left" against "over by 3" — stepped up by
+    weight: `--c-text-muted` at `ok`, full `--c-text` at 600 for `warning`,
+    `--c-danger` at 700 for `over`. The track itself is `aria-hidden="true"`
+    and always was, so it was never the accessible channel; this makes the
+    visual channel agree with the one screen readers already had.
+    `.meterFillWarning` was deleted rather than mapped to something.
+
+    **What it costs, plainly:** the bar no longer turns amber as a sprint fills
+    up. A Product Owner glancing at the colour alone gets two states, not
+    three, and has to read the caption for the third. That is a real reduction
+    in at-a-glance information and it is the price of the closed palette.
+
+    **The plan had this token wrong, which is how it was found.** The D5 plan
+    recorded `--sc-warning` as "used twice, for the over-capacity state". It
+    was used three times, and over-capacity was already on `--sc-danger` — the
+    token was the *approaching*-capacity state and the dependency note. The
+    note is a genuine fault (a committed story depending on a deferred one
+    cannot be delivered) and took `--c-danger` on its own merits. Four plans in
+    this module have now carried a count or a mapping that did not survive
+    contact with the tree; reading the file before trusting the plan is the
+    only thing that has caught any of them.
+
+36. **The toast announcement moved from the container to each toast — 2026-09-03, Module D9.**
+    The viewport was a single `role="status" aria-live="polite"` region wrapping
+    every tone. That is a defensible design and its reasoning was written down
+    in `ToastContext.tsx`: a live region must exist before content changes or
+    assistive tech never registers it, and mounting a new region per message is
+    the classic mistake. The problem is that it made **every** tone polite, so
+    an error waited for a pause in speech. For a failed generation that can mean
+    acting on a plan that was never produced.
+
+    **What changed.** Each toast now carries its own role through the `Toast`
+    primitive — `alert` for an error, `status` otherwise — and the container
+    carries no live-region semantics at all, so those roles are never nested
+    inside a politer ancestor. Nesting is what made the error polite.
+
+    **Traded:** the guarantee that the region pre-existed the message.
+    **Against:** errors that announce when they happen rather than when the
+    speech queue drains.
+
+    **Why that is the right side of the trade, and where it is weakest.**
+    `role="alert"` is specified to be announced on insertion — that is the
+    entire reason the role exists — so the urgent case, the one that was broken,
+    is also the case with the strongest support for the new shape. Success and
+    info now rely on a freshly inserted `role="status"` being picked up, which is
+    less reliable than mutating inside a pre-registered region. **That is a real
+    weakening for the non-urgent tones and it is not measured**: this project has
+    no screen-reader test rig, so what is asserted is the role attributes and the
+    absence of nesting, not what a reader actually says. If a polite toast is
+    ever reported as silent, the fix is a persistent empty polite region beside
+    the alert path, not a return to wrapping everything in one.
+
+    **One existing test asserted the old shape and was rewritten rather than
+    deleted**, so the change is visible in the diff as a reversal rather than as
+    a disappearance. It now asserts the viewport is *not* a live region, that an
+    error is `alert` and a success is `status`, and that no toast sits inside
+    another live region.
+
+37. **The loading shimmer swept the wrong way in Arabic — 2026-09-03, Module D9.**
+    `LoadingState.module.css` animates its skeleton highlight with
+    `translateX(-100%) → translateX(100%)`. `transform` is physical; there is no
+    logical translate. So the sweep moved visually left-to-right regardless of
+    direction, against text that reads right-to-left.
+
+    Carried byte-identical from the pre-rebuild stylesheet, so it predates D3 and
+    was not introduced by the rebuild — D3 recorded it and left it, because D9
+    owns this file. It is decorative and `aria-hidden`, which is why it survived
+    four points of review without anyone noticing: nothing about it is wrong to a
+    screen reader, and nobody had watched the loading state in Arabic.
+
+    **The fix is one rule**: `animation-direction: reverse` under `[dir="rtl"]`.
+    The gradient is symmetric — transparent → highlight → transparent — so it
+    needs no counterpart flip, and reversing the keyframe is the whole change.
+
+    **Asserted from the stylesheet, not from a render.** jsdom resolves no CSS
+    and `identity-obj-proxy` returns the class name, so a rendered assertion
+    would have passed whether the rule existed or not. The check reads the file
+    and was confirmed to fail by breaking the rule before it was kept — the same
+    method used for the header target sizes at Point 2.
+
+38. **The global `box-sizing` reset, and what it revealed — 2026-09-03, Module D, Point 6.**
+    Three stylesheets carried a local `box-sizing: border-box`, each with a
+    comment recording a measured bug it prevented: `InputForm`'s textarea pushing
+    the document ~10px past the viewport below ~800px; `Dialog`'s 491px content
+    box rendering 557px wide and forcing `margin-inline-end` to −28px; `Toast`'s
+    width cap overflowing itself. Two of those comments said explicitly that a
+    global reset was the right answer and that Module C was not allowed to add
+    one, because it would move every view that had not been rebuilt yet.
+
+    Every view has now been rebuilt, so the reset landed and the three local
+    declarations came out. **All three comments were read before any was
+    removed** — the plan insisted on that, and it was right to: the reasoning is
+    now kept in the global rule, because that rule is the only thing preventing
+    all three bugs at once. Anything setting its own `inline-size` depends on it.
+
+    **It was verified, not assumed.** No horizontal overflow at 1280, 768 or
+    390px in either direction — six combinations, measured from the live DOM.
+
+    **What it revealed.** The sticky header measured 79px before and 61px after.
+    Nothing shrank that should not have: controls declaring
+    `min-block-size: 2.75rem` were `content-box`, so they rendered 44px *plus*
+    padding and border — roughly 62px. They now render exactly 44px. The 44px
+    comfort target that Point 2 and Point 3 were written to hit was being
+    over-satisfied by accident, and is now hit deliberately. Compared against the
+    committed pre-change screenshot at 390px, the mobile header is tighter and
+    better; the three-row wrap at that width is unchanged and pre-existing.
+
+    **A trap worth recording, because it cost a round trip.** The gate for this
+    whole module is a tree-wide count of legacy custom-property references
+    reaching zero. Writing that command into a comment in `layout.tsx` made the
+    count report 1 — the grep matched its own documentation — so the gate could
+    never close. The comment now points at the checklist rather than quoting the
+    pattern, and the guard test builds the string from fragments for the same
+    reason.
+
+39. **Five copies of the screen-reader-only rule became one — 2026-09-03, Module D, Point 6.**
+    `.srOnly` was defined identically in `Field`, `InputForm`, `ExportActions`,
+    `InteractiveSprintBoard` and `LoadingState` — one per point that needed it,
+    none aware of the others. Two had already drifted: three used the deprecated
+    `clip: rect()` with physical `width`/`height`, two used `clip-path: inset(50%)`
+    with logical sizing. **`ExportActions`' copy had no consumer at all.**
+
+    They are now one global `.sc-sr-only` in `layout.tsx`, beside `.sc-skip-link`,
+    which was already a global utility — so this adds no new file and no new
+    import. Consumers use the plain class string rather than a CSS-module
+    reference.
+
+    This waited until Point 6 rather than being folded into a view rebuild
+    because it touches five stylesheets that four separate points produced.
+    Doing it inside any one of them would have made that point's diff span files
+    it had no business changing.

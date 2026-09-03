@@ -20,7 +20,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import styles from "./Button.module.css";
 
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> {
-  variant?: "primary" | "secondary" | "quiet";
+  variant?: "primary" | "secondary" | "quiet" | "danger";
   /** Defaults to "button". An unspecified type inside a form submits it. */
   type?: "button" | "submit";
   /** Working, but still focusable and still announced. Not the same as disabled. */

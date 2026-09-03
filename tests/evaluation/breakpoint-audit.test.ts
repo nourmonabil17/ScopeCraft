@@ -46,10 +46,7 @@ const WIDTH_QUERY = /@media[^{]*?\((min|max)-width:\s*([^)]+)\)/g;
 // Adding a NEW file here is not allowed. The whole point of the audit is that
 // work done from now on uses the scale, and an exemption list that can grow is
 // not an exemption list — it is a way of never fixing anything.
-const PRE_REBUILD_EXEMPT = [
-  "src/components/common/ToggleControls.module.css",
-  "src/components/scopecraft/InteractiveSprintBoard.module.css",
-];
+const PRE_REBUILD_EXEMPT: string[] = [];
 
 describe("breakpoint audit", () => {
   const all = stylesheetsUnder("src");
@@ -72,9 +69,14 @@ describe("breakpoint audit", () => {
   });
 
   it("the pre-rebuild exemption list has not grown", () => {
-    // Measured at 4 on 2026-09-02. Header came off in D1, InputForm in D2.
-    // Module D shrinks this to zero.
-    expect(PRE_REBUILD_EXEMPT).toHaveLength(2);
+    // Measured at 4 on 2026-09-02, and now empty. Header came off in D1,
+    // InputForm in D2, InteractiveSprintBoard in D5, ToggleControls at
+    // Point 2. Every stylesheet under src is audited, with no exceptions.
+    //
+    // This assertion stays rather than being deleted with the list: it is what
+    // stops the list being reopened. An empty exemption list that can quietly
+    // gain an entry is not an exit condition, it is a comment.
+    expect(PRE_REBUILD_EXEMPT).toHaveLength(0);
   });
 
   it("every exempt file still exists", () => {

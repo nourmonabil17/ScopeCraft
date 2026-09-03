@@ -15,6 +15,7 @@
 "use client";
 
 import { useLanguage } from "@/context/LanguageContext";
+import { Button } from "@/components/ui/Button";
 import styles from "./StateViews.module.css";
 
 export interface ErrorStateProps {
@@ -38,9 +39,9 @@ export function ErrorState({ message, questions, onRetry }: ErrorStateProps) {
       )}
       {onRetry && (
         <div className={styles.actions}>
-          <button type="button" className={styles.retryButton} onClick={onRetry}>
+          <Button variant="primary" onClick={onRetry}>
             {t("state.error.retry")}
-          </button>
+          </Button>
         </div>
       )}
     </div>

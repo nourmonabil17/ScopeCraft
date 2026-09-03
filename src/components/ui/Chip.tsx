@@ -20,15 +20,22 @@
 import type { ReactNode } from "react";
 import styles from "./Chip.module.css";
 
+// `testId` is spelled out rather than taken as a {...rest} spread, the same
+// trade Card makes and for the same reason: a spread here would also admit
+// `style`, and an inline style is the one place a hue could get back in.
 export interface ChipProps {
   weight?: "solid" | "outline" | "dashed" | "faint";
   className?: string;
+  testId?: string;
   children: ReactNode;
 }
 
-export function Chip({ weight = "outline", className, children }: ChipProps) {
+export function Chip({ weight = "outline", className, testId, children }: ChipProps) {
   return (
-    <span className={[styles.chip, styles[weight], className].filter(Boolean).join(" ")}>
+    <span
+      data-testid={testId}
+      className={[styles.chip, styles[weight], className].filter(Boolean).join(" ")}
+    >
       {children}
     </span>
   );

@@ -5,10 +5,14 @@
 // CSS, which is enough for a single-page app and avoids the SSR hazards of
 // createPortal against a document that doesn't exist yet.
 //
-// Accessibility: the container is a single `role="status" aria-live="polite"`
-// region that persists across toasts. Mounting a *new* live region per toast
-// is the classic mistake — screen readers only announce mutations inside a
-// region that already existed when they registered it.
+// Accessibility: the announcement lives on each toast, not on the container.
+// Until Point 5 the container was a single `role="status" aria-live="polite"`
+// region wrapping every tone, which meant an error waited for a pause in
+// speech. Each toast now carries its own role through the Toast primitive —
+// `alert` for an error, `status` otherwise — and the container carries no
+// live-region semantics, so those roles are never nested inside a politer
+// ancestor. The trade against the older "region must pre-exist" reasoning is
+// decision-log entry 36.
 
 "use client";
 

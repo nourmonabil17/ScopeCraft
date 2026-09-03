@@ -43,3 +43,24 @@ describe("Toast", () => {
     expect(screen.getByText("Could not reach the planner.")).toBeInTheDocument();
   });
 });
+
+// Added at Point 5, when the app's toast viewport moved onto this primitive.
+describe("Toast · identification", () => {
+  it("emits its own data-tone rather than taking one as a prop", () => {
+    render(<Toast tone="success">Saved</Toast>);
+    expect(screen.getByText("Saved").closest("[data-tone]")).toHaveAttribute(
+      "data-tone",
+      "success"
+    );
+  });
+
+  it("takes a test id", () => {
+    render(<Toast tone="error" testId="toast">Failed</Toast>);
+    expect(screen.getByTestId("toast")).toHaveAttribute("role", "alert");
+  });
+
+  it("emits no test id attribute when none is passed", () => {
+    const { container } = render(<Toast>Note</Toast>);
+    expect(container.firstElementChild).not.toHaveAttribute("data-testid");
+  });
+});

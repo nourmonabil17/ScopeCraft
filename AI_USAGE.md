@@ -159,10 +159,10 @@ fixes each added tests.
 |---|---|---|
 | Lint | `npm run lint` | exit 0 — eslint `--max-warnings=0`, no output |
 | Types | `npx tsc --noEmit` | exit 0 — no diagnostics |
-| Tests | `npm test` | **245/245 passing**, 8 suites — 131 node (API · tools · evaluation) + 114 UI. Was 130/130 on 2026-08-23 |
+| Tests | `npm test` | **486/486 passing**, 21 suites — 222 node (API · tools · evaluation) + 264 UI. Was 245/245 on 2026-08-24 and 130/130 on 2026-08-23 |
 | Live providers | `npm run smoke` | all three reachable and answering |
 | API evidence | `npm run capture:evidence` | 11/11 cases matched `docs/api-contracts.md` |
-| UI + a11y evidence | `npm run capture:ui` | 16 screenshots; 36 contrast pairs, 0 below WCAG AA |
+| UI + a11y evidence | `npm run capture:ui` | 17 screenshots; 38 contrast pairs (18 light, 20 dark), 0 below WCAG AA |
 | Build | `npm run build` | exit 0 — 4 routes, `/api/scopecraft` dynamic |
 | Client secret scan | `grep -rqE "AIza\|gsk_\|nvapi-" .next/static \|\| echo "CLEAN"` | `CLEAN` |
 | `NEXT_PUBLIC_` audit | `grep -rn "NEXT_PUBLIC_" src/` | no matches |

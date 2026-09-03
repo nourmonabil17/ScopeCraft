@@ -13,6 +13,7 @@
 
 import { useLanguage } from "@/context/LanguageContext";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import { Button } from "@/components/ui/Button";
 import styles from "./StateViews.module.css";
 
 export interface EmptyStateProps {
@@ -42,9 +43,9 @@ export function EmptyState({
       <p className={styles.body}>{t(bodyKey)}</p>
       {onStartOver && (
         <div className={styles.actions}>
-          <button type="button" className={styles.startOverButton} onClick={onStartOver}>
+          <Button variant="secondary" onClick={onStartOver}>
             {t("state.empty.action")}
-          </button>
+          </Button>
         </div>
       )}
     </div>
