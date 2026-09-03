@@ -531,6 +531,18 @@ Stated plainly rather than left for an examiner to find. Full entries are in
   glossed; do not loosen anything further without a decision-log entry.
 - **No component-level visual regression testing.** The screenshot set is evidence, captured and
   reviewed by a human, not an automated diff.
+- **No hover state is exercised anywhere.** Neither the suite nor the screenshot capture can
+  hold a pointer over a control, so the two hover affordances added in E4 — the primary
+  button's fill and the history row's `:has(.ideaLink:hover)` border — are proven only as far
+  as "the rule ships and parses in the browser, with its tokens resolving". The colours behind
+  them are asserted (`design-tokens.test.ts` holds the hovered fill to 4.5:1 against its label
+  and requires it to differ measurably from the resting fill); the interaction is not.
+- **View transitions and per-element transitions are mutually exclusive here.** The page-level
+  `<ViewTransition>` that gives E3 its route cross-fade also prevents any element beneath it
+  from being captured — measured with a control experiment, decision-log entry 45 — so the
+  sprint board's story-move animation was built and removed. Reconciling them needs
+  `transitionTypes` threaded through every `Link`, where a link added later silently loses the
+  transition. Recorded as a deliberate non-goal, not an oversight.
 - **The `UNAUTHORIZED` branch of §3.1 has no UI test.** Every other error code the page branches
   on is covered by `StateTransitions.test.tsx`; the expired-session redirect is not, because it
   sets `window.location.href`, which jsdom does not navigate on. It is exercised end to end

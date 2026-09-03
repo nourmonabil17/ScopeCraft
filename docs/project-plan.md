@@ -1116,8 +1116,10 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
 
       §12 states what is *not* covered and cross-links `known-limitations.md`: no
       screen-reader run, no real-device test, hydration #418, the two `unsafe-inline` CSP
-      directives, no visual-regression testing, and `prefers-reduced-motion` still handled
-      per-file rather than at the token layer (Module E1, open).
+      directives, no visual-regression testing, no hover state exercised anywhere, and the
+      fact that a page-level view transition forbids per-element ones beneath it. The
+      `prefers-reduced-motion` entry that stood here was closed by Module E1 on 2026-09-04
+      and is struck through in place rather than deleted.
 
       **Authorship.** H4 marks this row formally Joe's and says not to write it on his
       behalf. Written by Yousef on the owner's decision, and recorded as such in

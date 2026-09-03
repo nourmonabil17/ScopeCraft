@@ -630,6 +630,13 @@ One point per view. Each is rebuilt, then reviewed against
 
 ## Module E — Motion and polish
 
+> **Module E closed 2026-09-04.** All four points done. One dependency added:
+> none. One experimental Next flag added: `experimental.viewTransition`, with
+> the check that it does not pull the app onto React's experimental channel
+> written beside it. Two things were built and deliberately removed — three of
+> the four per-file reduced-motion blocks (E1, already dead) and the sprint
+> board's story-move animation (E4, structurally impossible under E3).
+
 Scope confirmed by the owner: motion and polish is the whole of "more
 interactive" — not drag-and-drop, not inline editing of story text, not
 side-by-side plan comparison. Those were offered and not chosen; they are
