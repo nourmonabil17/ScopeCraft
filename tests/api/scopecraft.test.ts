@@ -1739,14 +1739,19 @@ describe("Module 5 · secret and log leak guard", () => {
     }
   });
 
-  it("returns only the two documented response headers beyond the defaults", async () => {
+  it("returns only the three documented response headers beyond the defaults", async () => {
     jest.spyOn(nvidiaProvider, "generate").mockResolvedValue(fakeResponse);
 
     const response = await POST(makeRequest(JSON.stringify({ idea: secretIdea })));
     const names = [...response.headers.keys()].sort();
 
-    expect(names).toEqual(["content-type", "x-prompt-version", "x-provider-used"]);
+    // An allowlist, not a snapshot. A header added here is a new thing this
+    // route tells the outside world about itself, and it has to be a deliberate,
+    // documented decision rather than something that arrives with a feature.
+    // X-Plan-Id is absent because persistence returns no row under the test mock.
+    expect(names).toEqual(["content-type", "x-cache", "x-prompt-version", "x-provider-used"]);
     expect(response.headers.get("X-Provider-Used")).toBe("nvidia");
+    expect(response.headers.get("X-Cache")).toBe("miss");
   });
 
   it("logs a 5xx as one sanitized line carrying code and status only", async () => {
@@ -1900,6 +1905,60 @@ describe("daily quota boundary", () => {
     const values = dbMock.mock.calls.at(-1)?.slice(1) ?? [];
     expect(values).toContain("failed");
     expect(values).toContain("PROVIDER_ERROR");
+  });
+});
+
+describe("Module A3 \u00b7 application-layer cache", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  const idea = "A backlog planning copilot for student teams";
+
+  // The check A3 leaves behind. Timing would not prove this \u2014 a fast response
+  // could just be a fast provider. The provider spies are the proof.
+  it("serves a repeat request without calling any provider", async () => {
+    const spies = [
+      jest.spyOn(nvidiaProvider, "generate"),
+      jest.spyOn(groqProvider, "generate"),
+      jest.spyOn(geminiProvider, "generate"),
+    ];
+
+    queueDbResult([{ used: 1 }]);                                        // 4b. quota
+    queueDbResult([{ response: fakeResponse, provider_used: "groq" }]);  // 4c. cache
+
+    const response = await POST(makeRequest(JSON.stringify({ idea })));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Cache")).toBe("hit");
+    expect(await response.json()).toEqual(fakeResponse);
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+  });
+
+  // Guards the one non-obvious decision in the hash: which fields are in it.
+  it("keys on the fields that change the answer, and only those", async () => {
+    for (const provider of [nvidiaProvider, groqProvider, geminiProvider]) {
+      jest.spyOn(provider, "generate").mockResolvedValue(fakeResponse);
+    }
+
+    // On a miss the queries run quota, cache, insert. The cache lookup
+    // interpolates (userId, hash, promptVersion), so the hash is the second value.
+    async function lookupKey(body: Record<string, unknown>): Promise<string> {
+      dbMock.mockClear();
+      await POST(makeRequest(JSON.stringify(body)));
+      return dbMock.mock.calls[1]?.[2] as string;
+    }
+
+    const base = await lookupKey({ idea, team_capacity_points: 30, sprint_length_days: 14 });
+    expect(typeof base).toBe("string");
+
+    // sprint_length_days reaches neither the prompt nor the sprint arithmetic,
+    // so the same idea at 7 days is the same plan. Same key, or the cache never
+    // hits for a caller who nudged a field that changes nothing.
+    expect(await lookupKey({ idea, team_capacity_points: 30, sprint_length_days: 7 }))
+      .toBe(base);
+
+    // Capacity decides which stories fit a sprint, so it must split the key.
+    expect(await lookupKey({ idea, team_capacity_points: 60, sprint_length_days: 14 }))
+      .not.toBe(base);
   });
 });
 

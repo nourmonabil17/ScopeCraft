@@ -114,8 +114,8 @@ client can switch on them exhaustively. Every error shares the envelope
   are dropped, so **a rejected request cannot echo the submitted value back.**
 - `5xx` logs exactly one line: `scopecraft.request_failed code=<CODE> status=<NNN>`.
   `4xx` logs nothing. No raw `Error` object ever reaches `console`.
-- A `200` carries exactly three headers: `content-type`, `x-provider-used`,
-  `x-prompt-version`.
+- A `200` carries exactly four headers: `content-type`, `x-provider-used`,
+  `x-prompt-version`, `x-cache` — plus `x-plan-id` when the row was written.
 
 Exact JSON bodies for every code are in [`docs/api-contracts.md`](./api-contracts.md).
 

@@ -307,7 +307,7 @@ cleaner console for developers.
 
 ### 16. No test-coverage threshold — *Accepted*
 
-506 tests across 21 suites, and no coverage percentage is enforced.
+508 tests across 21 suites, and no coverage percentage is enforced.
 
 **Why accepted:** on a project this size a coverage number produces tests written to satisfy the
 number rather than to catch a defect. Every real bug found during the backend modules — the eager

@@ -108,8 +108,9 @@ in exactly one of `included` / `deferred` — both asserted by test.
 
 | Header | Meaning |
 |---|---|
-| `X-Provider-Used` | `nvidia` \| `groq` \| `gemini` — which tier answered |
+| `X-Provider-Used` | `nvidia` \| `groq` \| `gemini` — which tier answered. On a cache hit this is the tier that answered *originally* |
 | `X-Prompt-Version` | prompt contract version (currently `v7`) |
+| `X-Cache` | `hit` \| `miss` — whether a provider was called for this request |
 
 ### Error responses
 
@@ -174,10 +175,17 @@ and carries no PRD fields.
 |---|---|
 | `X-Provider-Used` | Which tier of the failover chain answered |
 | `X-Prompt-Version` | Which prompt produced this plan |
+| `X-Cache` | `hit` when the plan came from a previous identical request of the caller's, `miss` when a provider generated it |
 | `X-Plan-Id` | The stored row's id, for `PATCH`. **Absent** when the persistence write failed — the client reads that as "editing works, saving does not" rather than failing on the first edit |
 
 The id travels as a header rather than a body field because the body is a validated Zod
 contract that the model's output has to satisfy, and a database id is not part of a plan.
+
+`X-Cache` exists because without it a hit is indistinguishable from a real generation:
+`X-Provider-Used` on a hit names the tier that answered the *original* request, which
+would otherwise read as a provider call that never happened. A hit still gets its own
+`X-Plan-Id` — a fresh row, so editing the board here cannot overwrite the original
+plan's board.
 
 ---
 
@@ -295,6 +303,7 @@ zero tokens:
 4.  clarification check → 422 CLARIFICATION_REQUIRED
 ────────────── no database round trip above this line ──────────────
 4b. daily quota         → 429 RATE_LIMITED / 503 STORAGE_UNAVAILABLE
+4c. cache lookup        → 200 (x-cache: hit), no provider called
 ────────────── no provider module touched above this line ──────────────
 5.  runScopeCraft       → 200 / 422 / 502 / 504
 6.  persist the outcome       (never changes the response)
@@ -330,8 +339,10 @@ user's prompt.
 
 ### Response headers
 
-The route handler sets exactly `content-type`, `x-provider-used` and `x-prompt-version` on a
-`200` — asserted by test, so the handler cannot quietly start echoing internals.
+The route handler sets exactly `content-type`, `x-provider-used`, `x-prompt-version` and
+`x-cache` on a `200` — asserted by test as an allowlist, so the handler cannot quietly start
+echoing internals. (`x-plan-id` joins them when the persistence write returns a row; it is
+absent under the test's mock, which is why the assertion lists four.)
 
 On the wire the framework adds the security headers configured in `next.config.js`
 (`Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,

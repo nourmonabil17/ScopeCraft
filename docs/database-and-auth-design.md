@@ -99,7 +99,8 @@ without disturbing that ordering:
   4. clarification check  → 422
   4b. rate limit          → 429 RATE_LIMITED      ← new: one DB round trip, placed
   ─────────────────────────────────────────────     after the free local checks so a
-  5. runScopeCraft                                  malformed request never costs one
+  4c. cache lookup        → 200, no provider        malformed request never costs one
+  5. runScopeCraft
   6. persist the plan row → 200
 ```
 

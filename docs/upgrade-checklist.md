@@ -110,12 +110,40 @@ The three findings from reading [`providers.ts`](../src/lib/ai/providers.ts) and
       tokens, well under Gemini's ~1024-token cache minimum, so it would buy
       nothing. Recorded here so it is not re-proposed later.
 
-- [ ] **A3 — Cache identical requests at the application layer.**
+- [x] **A3 — Cache identical requests at the application layer.**
       Hash `(idea + constraints + team_capacity_points)` and check it before
       calling any provider. This is the one that actually saves money and kills
       the 50 s wait for a repeat. Uses Postgres, which is already a dependency.
       *Check:* a repeat request returns without a provider call, proven by the
       provider counter, not by timing.
+
+      **Done 2026-09-04.** One nullable column, `plans.request_hash`, and a
+      `select ... limit 1` at stage 4c of the route — after the quota check, so
+      a replay cannot bypass the meter. No new dependency and no cache store:
+      every field the cache needs is already in `plans`. Decision-log entry 47
+      records the three choices the owner made — per-user rather than global (a
+      global cache makes response time an oracle for "has anyone generated this
+      idea"), a hit writes a row (history stays complete, at the cost of
+      `attempts = 0` rows the B2 queries must exclude), and a hit counts against
+      the quota (over-strict, but the alternative needs a filter in
+      `checkDailyQuota` that a future bug can hide in).
+
+      *Check, run:* `tests/api/scopecraft.test.ts` → "Module A3 · application-layer
+      cache". Two tests. The first queues a cached row, drives `POST`, and asserts
+      all three provider spies were never called — confirmed to fail when the
+      lookup is stubbed out. The second asserts the key ignores
+      `sprint_length_days` and splits on `team_capacity_points`.
+
+      **Not verified live.** `request_hash` reaches a deployed database only
+      through the `alter table ... add column if not exists` at the foot of
+      `db/schema.sql`. Until that file is re-applied to both Neon branches, this
+      is verified locally and not in production — and shipping the code first
+      would make `recordPlan` fail on an unknown column and stop persisting
+      plans *silently*.
+
+      **Not in scope:** invalidation. A cached plan is never evicted; it stops
+      being served when `PROMPT_VERSION` moves, which is the only change that
+      makes it wrong. Recorded here so a TTL is not re-proposed as an oversight.
 
 ---
 
@@ -888,7 +916,9 @@ recorded here so they are not quietly added later.
       nor its same-day reversal appear anywhere in it.
 - [ ] **H2 — Decision-log entries** for the rewrite decision, the
       dependency-free constraint, and the motion-only interactivity scope.
-      Currently at 30 entries.
+      ~~Currently at 30 entries.~~ **Corrected 2026-09-04: 47 entries.** The
+      count was stale by seventeen; the three entries this point actually asks
+      for are still unwritten.
 - [ ] **H3 — Drifting numbers.** Test count, screenshot count, dependency count,
       branch heads, commit SHAs — each appears in roughly six files and all five
       move during this work.

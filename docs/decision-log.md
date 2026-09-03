@@ -1536,3 +1536,74 @@ nonce or hash policy and saying so is more useful than closing the row.
     mode. Applying the file first is safe — two nullable columns are additive
     and the old code never names them. Exercised against a database that already
     held the pre-B2 table, and again to confirm idempotency.
+
+47. **The request cache is a column on `plans`, not a cache — 2026-09-04,
+    Module A, A3.**
+
+    A3 asked for identical requests to be answered without calling a provider.
+    The obvious readings were Redis, an in-process LRU, or a `plan_cache` table.
+    What shipped is one nullable `text` column, `plans.request_hash`, and a
+    `select ... limit 1` between the quota check and the generate step.
+
+    **Why no cache store.** Every row the cache would hold is already in `plans`
+    — the whole validated response, the provider that produced it, the prompt
+    version it was produced under. A second store would have to be kept
+    consistent with the first for no information gained, and an in-process LRU
+    is worthless on a platform that runs the route in short-lived function
+    instances. The same argument `src/lib/quota.ts` makes for not adding
+    Redis for rate limiting applies here unchanged.
+
+    **Placed after the quota, not before it.** The lookup is stage 4c: after the
+    budget check at 4b, before the generate call at 5. In front of the quota it
+    would have been cheaper on a hit and a hole in the meter — a caller could
+    replay a request the budget never saw. The ordering costs one count query on
+    a hit and buys "no path through this route skips the meter".
+
+    **Three decisions the owner made, recorded because each had a real cost.**
+
+    *Per-user, not global.* A global cache hits more often and saves more
+    tokens. It also turns response time into an oracle: a fast answer would tell
+    you that somebody else had already generated that exact idea. Scoping to one
+    user gives up the saving and keeps the endpoint from answering a question it
+    was never asked.
+
+    *A hit writes a `plans` row.* Without it a repeat generation would vanish
+    from the caller's history — the plan they are looking at would have no row
+    to edit or return to. The cost is that `attempts = 0` rows now exist in the
+    B2 corpus, so any latency or failover query has to say `where attempts > 0`.
+    Zero is deliberately distinct from `NULL` there: zero means no provider was
+    called, `NULL` means the count was not recorded.
+
+    *A hit counts against the daily quota.* It spends no provider tokens, so the
+    strict reading is that it should be free. Free hits would need
+    `checkDailyQuota` to filter them out, and that filter is a place a future
+    bug can silently under-count real generations. The limit is therefore plans
+    per day, not provider calls per day. Over-strict by design, and zero extra
+    code — the quota counts rows, and a hit writes one.
+
+    **What is in the hash, and the one field that is not.** The key is sha256
+    over `(hash version, idea, constraints, team_capacity_points)`.
+    `sprint_length_days` is validated and stored but nothing in `src/lib` reads
+    it — it reaches neither the prompt nor the sprint arithmetic — so two
+    requests differing only in sprint length produce identical plans and share
+    one entry. Excluding it raises the hit rate; if it ever becomes live, it
+    must be added to the hash **and** `REQUEST_HASH_VERSION` bumped, or old rows
+    will answer new questions. The version prefix exists for exactly that: it
+    guards changes to *what is hashed*, where `prompt_version` — matched in the
+    lookup, so a v7 plan never answers a v8 request — guards the other
+    direction.
+
+    **`X-Cache` is a new response header, and the allowlist test made that a
+    decision rather than an accident.** A hit without it is indistinguishable
+    from a generation: `X-Provider-Used` names the tier that answered the
+    *original* request, which reads as a provider call that never happened. The
+    header is the only way to observe cache behaviour from outside the process,
+    which is what makes the behaviour checkable against a live deployment.
+
+    **The deploy ordering is the same hazard B2 had, for the same reason.**
+    `request_hash` arrives only via the `alter table ... add column if not
+    exists` at the foot of `db/schema.sql`. Ship the code before applying the
+    file and every insert fails on an unknown column; `recordPlan` swallows its
+    errors, so plans would stop persisting **silently**. Apply the file to both
+    Neon branches first — one nullable column is additive and the old code never
+    names it.

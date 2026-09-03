@@ -11,6 +11,7 @@
 //   3.  schema             422
 //   4.  clarification      422
 //   4b. daily quota        429  one DB round trip, after every free local check
+//   4c. cache lookup            a second round trip that can skip step 5 entirely
 //   5.  generate                the only expensive step
 //   6.  persist the outcome
 //
@@ -23,6 +24,7 @@
 // never the request body and never a raw Error object, since a provider error's
 // message can contain the request URL and therefore a key.
 
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
@@ -233,6 +235,57 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // ---- 4c. Cache. The second database round trip, and the last chance to
+  //           avoid spending provider tokens at all. ----
+  //
+  // AFTER the quota, deliberately. A lookup in front of it would let a caller
+  // replay a request without the budget ever seeing it, which is a hole in the
+  // thing the budget exists to close. The ordering costs one count query on a
+  // hit and buys "no path through this route skips the meter".
+  //
+  // The stored response is returned as-is rather than re-validated. It was
+  // schema-checked by Zod on the way in and its deterministic fields were
+  // already overwritten server-side before it was stored, so re-running either
+  // would only be able to agree with itself.
+  const cached = await findCachedPlan(userId, requestHash(parsed.data));
+  if (cached) {
+    // duration_ms = 0 and attempts = 0 are both literally true: the generate
+    // step did not run and no provider was called. Zero is what separates these
+    // rows from NULL ("not recorded") in the B2 columns, so a latency or
+    // failover query over `plans` has to say `where attempts > 0`.
+    const planId = await recordPlan(userId, parsed.data, {
+      status: "ok",
+      response: cached.response,
+      providerUsed: cached.provider_used ?? undefined,
+      promptVersion: PROMPT_VERSION,
+      durationMs: 0,
+      attempts: 0,
+    });
+
+    // No new log key for the hit: `duration_ms=0 attempts=0` on a status=ok line
+    // already says a plan was served without calling anything.
+    logGeneration({
+      status: "ok",
+      durationMs: 0,
+      attempts: 0,
+      providerUsed: cached.provider_used ?? undefined,
+      persisted: planId !== null,
+    });
+
+    return NextResponse.json(cached.response, {
+      status: 200,
+      headers: {
+        "X-Provider-Used": cached.provider_used ?? "unknown",
+        "X-Prompt-Version": PROMPT_VERSION,
+        "X-Cache": "hit",
+        // The NEW row's id, not the cached row's. The board is saved against the
+        // plan the caller is looking at; handing back the older id would let an
+        // edit made here overwrite the board of the original plan.
+        ...(planId ? { "X-Plan-Id": planId } : {}),
+      },
+    });
+  }
+
   // ---- 5. Generate ----
   //
   // The clock starts here and not at the top of the handler, so `duration_ms`
@@ -268,6 +321,7 @@ export async function POST(req: NextRequest) {
       headers: {
         "X-Provider-Used": providerUsed,
         "X-Prompt-Version": promptVersion,
+        "X-Cache": "miss",
         // A header rather than a body field: the body is a validated Zod
         // contract that the model's output has to satisfy, and an id is not
         // part of the plan. It travels the same way the other two provenance
@@ -344,6 +398,7 @@ async function recordPlan(
   try {
     const [row] = await sql<{ id: string }[]>`
       insert into plans (user_id, idea, constraints, capacity_points, sprint_days,
+                         request_hash,
                          status, error_code, response, provider_used, prompt_version,
                          duration_ms, attempts)
       values (${userId},
@@ -351,6 +406,7 @@ async function recordPlan(
               ${constraintsToText(request.constraints) ?? null},
               ${request.team_capacity_points},
               ${request.sprint_length_days},
+              ${requestHash(request)},
               ${outcome.status},
               ${outcome.errorCode ?? null},
               ${outcome.response ? sql.json(outcome.response as never) : null},
@@ -367,6 +423,89 @@ async function recordPlan(
     console.error(
       `scopecraft.persist_failed status=${outcome.status} ` +
         `reason=${error instanceof Error ? error.name : "unknown"}`
+    );
+    return null;
+  }
+}
+
+/**
+ * Bumped when the *inputs* to the hash change, so a hash computed under a new
+ * shape can never collide with a row hashed under the old one. Distinct from
+ * PROMPT_VERSION, which guards the other direction: same inputs, different
+ * prompt, therefore a different answer.
+ */
+const REQUEST_HASH_VERSION = "h1";
+
+/**
+ * Cache key over the request fields that actually change the answer.
+ *
+ * `sprint_length_days` is deliberately absent. It is validated and stored, but
+ * nothing in src/lib reads it — it reaches neither the prompt nor the sprint
+ * arithmetic, so two requests differing only in sprint length produce identical
+ * plans and should share one cache entry. If it ever becomes live, add it here
+ * AND bump REQUEST_HASH_VERSION, or old rows will answer new questions.
+ *
+ * JSON.stringify over an array rather than concatenating the fields: it keeps
+ * them unambiguously separated, so ("ab", "c") cannot hash the same as
+ * ("a", "bc"). NFC before lowercasing because Arabic can arrive in either
+ * normal form and the two spellings are the same idea.
+ */
+function requestHash(request: ScopeCraftRequest): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        REQUEST_HASH_VERSION,
+        request.idea.normalize("NFC").toLowerCase(),
+        constraintsToText(request.constraints)?.normalize("NFC").toLowerCase() ?? "",
+        request.team_capacity_points,
+      ])
+    )
+    .digest("hex");
+}
+
+interface CachedPlan {
+  response: unknown;
+  provider_used: string | null;
+}
+
+/**
+ * The caller's most recent successful plan for an identical request, or null.
+ *
+ * Scoped to one user. A global cache would hit more often and save more tokens,
+ * but it turns response time into an oracle: a fast answer would tell you that
+ * somebody else has already generated that exact idea.
+ *
+ * `prompt_version` is matched rather than ignored — a plan generated under v7 is
+ * not the answer a v8 request would get, and serving it would silently freeze
+ * the prompt for every caller who had asked before. Failed rows are excluded
+ * because the table keeps them on purpose and an error is not a cached answer.
+ *
+ * Never throws, for the same reason recordPlan does not: a cache is an
+ * optimisation. If the lookup fails, the request generates normally — which is
+ * exactly what it did before this stage existed.
+ */
+async function findCachedPlan(userId: string, hash: string): Promise<CachedPlan | null> {
+  try {
+    // ponytail: no dedicated index. The lookup rides the user_id prefix of
+    // plans_user_created_idx and then filters one caller's rows, which the daily
+    // quota bounds to 20 a day. Add `(user_id, request_hash)` if a user's
+    // history ever grows to where that scan shows up in a query plan.
+    const [row] = await sql<CachedPlan[]>`
+      select response, provider_used
+      from plans
+      where user_id = ${userId}
+        and request_hash = ${hash}
+        and status = 'ok'
+        and response is not null
+        and prompt_version = ${PROMPT_VERSION}
+      order by created_at desc
+      limit 1`;
+    return row ?? null;
+  } catch (error) {
+    // Not `logFailure`: nothing failed for the caller, and counting it as a
+    // request failure would make the route look like it was rejecting people.
+    console.error(
+      `scopecraft.cache_unavailable reason=${error instanceof Error ? error.name : "unknown"}`
     );
     return null;
   }

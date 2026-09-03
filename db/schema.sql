@@ -55,6 +55,11 @@ create table if not exists plans (
   capacity_points integer     not null,
   sprint_days     integer     not null,
 
+  -- sha256 over the request fields that actually change the answer, so a repeat
+  -- request can be served from this table instead of from a provider (Module A3).
+  -- Nullable: every row written before A3 has no hash, and simply never matches.
+  request_hash    text,
+
   -- the result
   status          text        not null default 'ok'
                               check (status in ('ok', 'failed')),
@@ -110,5 +115,6 @@ create index if not exists plans_user_created_idx
 -- `add column if not exists` makes each line idempotent, which is what lets
 -- this file stay the single source of truth instead of growing a migrations
 -- directory and a runner to walk it.
-alter table plans add column if not exists duration_ms integer;
-alter table plans add column if not exists attempts    integer;
+alter table plans add column if not exists duration_ms  integer;
+alter table plans add column if not exists attempts     integer;
+alter table plans add column if not exists request_hash text;
