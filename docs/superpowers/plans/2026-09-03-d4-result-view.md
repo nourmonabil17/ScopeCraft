@@ -732,13 +732,19 @@ describe("ResultView · MoSCoW and risk are encoded without hue", () => {
   // identity-obj-proxy makes styles.badgeMust the string "badgeMust", so a
   // leftover hue class is visible in the DOM even though no colour is. This
   // is the test that fails if the MoSCoW palette creeps back in.
+  //
+  // Scoped to the overview panel deliberately. InteractiveSprintBoard has its
+  // own .badgeMust..badgeWont, and identity-obj-proxy gives both stylesheets
+  // the identical class string — so an unscoped query would fail on the
+  // board's badges, which belong to D5 and are not this point's to remove.
   it("renders no hue-coded bucket or level class at all", () => {
-    const { container } = renderWithProviders(<ResultView data={FIXTURE} />);
+    renderWithProviders(<ResultView data={FIXTURE} />);
+    const overview = screen.getByTestId("result-panel-overview");
     for (const gone of [
       "badgeMust", "badgeShould", "badgeCould", "badgeWont",
       "impactHigh", "impactMedium", "impactLow",
     ]) {
-      expect(container.querySelector(`.${gone}`)).toBeNull();
+      expect(overview.querySelector(`.${gone}`)).toBeNull();
     }
   });
 
