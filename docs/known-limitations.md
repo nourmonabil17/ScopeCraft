@@ -1,6 +1,7 @@
 # Known limitations
 
 **Owner:** Yousef Mohmed Hasabo · **Last reviewed:** 2026-09-03 · **Commit:** see `git log` for this file
+**19 entries: 11 Accepted · 7 Open · 1 Closed.**
 
 Every limitation this project knows about, in one place, because the release gate asks for
 bounded limitations rather than a clean sales pitch. Until now they were spread across the
@@ -21,6 +22,7 @@ Each entry carries one of two states, and the distinction is the whole point of 
 |---|---|
 | **Accepted** | A deliberate trade-off. Someone weighed it, chose it, and signed it. It is not going to be fixed, and the reason is recorded. |
 | **Open** | A real gap with no decision yet, or a decision that has not been executed. It has an owner and a next step. |
+| **Closed** | It was Open, and it has been fixed. Kept, with its number, so the record of what was once true is not quietly deleted. |
 
 An **Accepted** entry that turns out to have no reasoning behind it is a bug in this document.
 An **Open** entry that has sat unowned for a month should either become Accepted or get done.
@@ -33,7 +35,7 @@ An **Open** entry that has sat unowned for a month should either become Accepted
 | 2 | Sessions cannot be revoked server-side | Accepted |
 | 3 | CSP `script-src` carries `'unsafe-inline'` | Accepted |
 | 4 | CSP `style-src` carries `'unsafe-inline'` | Accepted |
-| 5 | System rules and untrusted input share one message role | **Open** |
+| 5 | ~~System rules and untrusted input share one message role~~ | **Closed 2026-09-03** |
 | 6 | Container image carries 16 base-image CVEs; the fix is unverified | **Open** |
 | 7 | HSTS comes from Vercel, not from this application | Accepted |
 | 8 | Off-domain requests are refused by the model, after tokens are spent | Accepted |
@@ -113,19 +115,25 @@ The theme tokens ship as an inline `<style>` in the root layout and must stay in
 to apply before first paint, or the page flashes the wrong theme on every load. Trading a style
 CSP directive for a visible flash on every page load is not a trade worth making.
 
-### 5. System rules and untrusted input share one message role — *Open*
+### 5. System rules and untrusted input share one message role — *Closed 2026-09-03*
 
-`openAICompatibleGenerate` sends `SYSTEM_RULES` and the user's fenced idea jammed into a single
-`{role: "user"}` message ([`src/lib/ai/providers.ts`](../src/lib/ai/providers.ts)). There is no
-system role at all.
+**This entry is kept rather than deleted**, because it was true for the whole life of the
+project until this date and a limitations document that silently drops what it used to say is
+not a record of anything.
 
-**Why it matters:** instructions and untrusted data sharing a role is the condition prompt
-injection exploits. The fenced delimiters and the injection tests make it *harder*, but the
-structural separation the API offers is not being used.
+**What was true:** `openAICompatibleGenerate` sent `SYSTEM_RULES` and the user's fenced idea
+concatenated into a single `{role: "user"}` message. There was no system role at all, on any of
+the three providers. Instructions and untrusted data sharing a role is the condition prompt
+injection exploits; the fences made it harder but could not confer authority, because a
+delimiter is a convention the model may honour while a role boundary is structural.
 
-**Owner:** Yousef. **Next step:** Module A1 in `docs/upgrade-checklist.md` — split into a real
-system message and Gemini's `systemInstruction`. It is a small diff and a prerequisite for
-provider-side prompt caching.
+**What is true now:** `buildPrompt` returns `{system, user}`. The OpenAI-compatible providers
+send two messages; Gemini gets `systemInstruction`, which places the rules outside `contents`
+entirely. Prompt contract **v7**. Two of the four new tests assert the separation *at the wire*,
+because the others would pass if the halves were reassembled after `buildPrompt`, and both were
+confirmed to fail against the old request body before being kept.
+
+Decision-log entry 41; `docs/prompt-versions.md` for the contract change.
 
 ### 6. The container image carries 16 base-image CVEs, and the fix is unverified — *Open*
 
@@ -299,7 +307,7 @@ cleaner console for developers.
 
 ### 16. No test-coverage threshold — *Accepted*
 
-488 tests across 21 suites, and no coverage percentage is enforced.
+492 tests across 21 suites, and no coverage percentage is enforced.
 
 **Why accepted:** on a project this size a coverage number produces tests written to satisfy the
 number rather than to catch a defect. Every real bug found during the backend modules — the eager

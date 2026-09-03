@@ -109,7 +109,7 @@ in exactly one of `included` / `deferred` — both asserted by test.
 | Header | Meaning |
 |---|---|
 | `X-Provider-Used` | `nvidia` \| `groq` \| `gemini` — which tier answered |
-| `X-Prompt-Version` | prompt contract version (currently `v5`) |
+| `X-Prompt-Version` | prompt contract version (currently `v7`) |
 
 ### Error responses
 

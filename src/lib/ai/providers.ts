@@ -41,6 +41,28 @@ export {
 };
 export type { ProviderName };
 
+/**
+ * A prompt as two separately-addressed parts, never as one string.
+ *
+ * `system` is this application's instructions. `user` is the end user's text,
+ * fenced. They travel in different message roles because that is the only
+ * separation the model actually sees: delimiters are a convention the model may
+ * or may not honour, while the role boundary is structural. Merging them back
+ * into one string — however carefully fenced — puts the rules and the untrusted
+ * data at the same level of authority again, which is the condition prompt
+ * injection needs.
+ *
+ * Kept as an object rather than two positional strings so a caller cannot pass
+ * them the wrong way round; `{system, user}` is impossible to transpose by
+ * accident, `(a, b)` is not.
+ */
+export interface Prompt {
+  /** This application's rules. Never contains user-supplied text. */
+  system: string;
+  /** The end user's text, already fenced. Never contains rules. */
+  user: string;
+}
+
 export interface AIProvider {
   name: ProviderName;
   /**
@@ -48,7 +70,7 @@ export interface AIProvider {
    * `generateWithFallback` so the whole chain stays inside one deadline.
    * Optional so a direct caller (a script, a test) still works without it.
    */
-  generate(prompt: string, timeoutMs?: number): Promise<ModelReply>;
+  generate(prompt: Prompt, timeoutMs?: number): Promise<ModelReply>;
 }
 
 // ---- Typed errors ----
@@ -160,7 +182,7 @@ async function openAICompatibleGenerate(
   provider: ProviderName,
   url: string,
   apiKey: string,
-  prompt: string,
+  prompt: Prompt,
   timeoutMs?: number
 ): Promise<ModelReply> {
   const res = await fetchWithTimeout(url, {
@@ -171,7 +193,16 @@ async function openAICompatibleGenerate(
     },
     body: JSON.stringify({
       model: modelFor(provider),
-      messages: [{ role: "user", content: prompt }],
+      // Two roles, not one. Until 2026-09-03 this sent a single `user` message
+      // holding the rules and the user's idea concatenated, which meant the
+      // model had no structural reason to treat one as more authoritative than
+      // the other. The system role is also what makes the prefix byte-identical
+      // across requests, which is the condition provider-side prefix caching
+      // needs — see A2 in docs/upgrade-checklist.md.
+      messages: [
+        { role: "system", content: prompt.system },
+        { role: "user", content: prompt.user },
+      ],
       response_format: { type: "json_object" },
       temperature: 0.2,
       max_tokens: 4096,
@@ -191,7 +222,7 @@ async function openAICompatibleGenerate(
 // ---- NVIDIA NIM (primary) ----
 export const nvidiaProvider: AIProvider = {
   name: "nvidia",
-  async generate(prompt: string, timeoutMs?: number) {
+  async generate(prompt: Prompt, timeoutMs?: number) {
     const apiKey = process.env.NVIDIA_API_KEY;
     if (!apiKey) throw new Error("MISSING_NVIDIA_API_KEY");
 
@@ -208,7 +239,7 @@ export const nvidiaProvider: AIProvider = {
 // ---- Groq (fallback 1) ----
 export const groqProvider: AIProvider = {
   name: "groq",
-  async generate(prompt: string, timeoutMs?: number) {
+  async generate(prompt: Prompt, timeoutMs?: number) {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) throw new Error("MISSING_GROQ_API_KEY");
 
@@ -225,7 +256,7 @@ export const groqProvider: AIProvider = {
 // ---- Gemini (fallback 2) ----
 export const geminiProvider: AIProvider = {
   name: "gemini",
-  async generate(prompt: string, timeoutMs?: number) {
+  async generate(prompt: Prompt, timeoutMs?: number) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error("MISSING_GEMINI_API_KEY");
 
@@ -240,7 +271,12 @@ export const geminiProvider: AIProvider = {
           "x-goog-api-key": apiKey,
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          // Gemini's own field for the same separation the OpenAI-compatible
+          // providers get from the system role. It is not a stylistic mirror:
+          // instructions sent here are outside `contents`, so nothing the user
+          // wrote shares a container with them.
+          systemInstruction: { parts: [{ text: prompt.system }] },
+          contents: [{ parts: [{ text: prompt.user }] }],
           generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.2,
@@ -315,7 +351,7 @@ function isInvalidOutputError(error: unknown): boolean {
  * the final attempt aborted on the clock or the chain ran out of total budget.
  */
 export async function generateWithFallback(
-  prompt: string
+  prompt: Prompt
 ): Promise<{ result: ModelReply; providerUsed: ProviderName }> {
   const order = getProviderOrder();
 
