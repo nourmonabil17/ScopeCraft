@@ -1321,7 +1321,8 @@ In `docs/upgrade-checklist.md`, change `- [ ] **D4` to `- [x] **D4` and write
 the entry in the same voice as D2 and D3: what changed, what was verified and
 how, what it cost elsewhere, and — explicitly — what is **not** covered:
 
-- The board (D5), which still holds the largest legacy block at 33 references.
+- The board (D5), which still holds the largest legacy block at 37 references
+  — 33 is its line count, not its `var(--sc-` occurrence count.
 - `EvidencePanel`'s 12, including `--sc-could`.
 - The global `box-sizing` reset and the `.srOnly` consolidation, both still
   their own points.
@@ -1378,7 +1379,7 @@ git push origin dev && git push fork dev:main
 
 - **Add a colour role.** The `warning` gap is closed by the weight ramp. If a
   task finds itself editing `tokens.ts`, it has gone wrong — stop and report.
-- **Touch `InteractiveSprintBoard`.** It holds 33 legacy references and is D5.
+- **Touch `InteractiveSprintBoard`.** It holds 37 legacy references and is D5.
   Entry 34 binds it, but this point does not change it.
 - **Touch `EvidencePanel`.** 12 references, including `--sc-could`, which entry
   34 also binds. It is reached by D4's evidence tab but is not D4's scope.
