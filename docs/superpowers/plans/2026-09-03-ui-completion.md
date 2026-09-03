@@ -67,8 +67,8 @@ a real bug in this project.
 |---:|---|---|
 | ~~37~~ **0** | `InteractiveSprintBoard.module.css` | 1 ✅ |
 | ~~19~~ **0** | `ToggleControls.module.css` | 2 ✅ |
-| 26 | `HistoryList.module.css` | 3 |
-| 2 | `SavedPlanView.module.css` | 3 |
+| ~~26~~ **0** | `HistoryList.module.css` | 3 ✅ |
+| ~~2~~ **0** | `SavedPlanView.module.css` | 3 ✅ |
 | 16 | `LoginCard.module.css` | 4 |
 | 11 | `WelcomeModal.module.css` | 4 |
 | 13 | `StateViews.module.css` | 5 |
@@ -78,7 +78,7 @@ a real bug in this project.
 | 7 | `ExportActions.module.css` | 6 |
 | 3 | `BackLink.module.css` | 6 |
 | 2 | `layout.tsx` | 6 |
-| **169** → **113** | | Points 1–2 done |
+| **169** → **85** | | Points 1–3 done |
 
 The only three non-approved media queries left were `ToggleControls` (`max-width: 34rem`
 ×2) and `InteractiveSprintBoard` (`max-width: 42rem`) — which was exactly the two-entry
@@ -211,6 +211,34 @@ Raise to 44px. This is named in the checklist as D6's job, so it is in scope, no
 
 **Check:** `HistoryList.test.tsx` passes; duplicate and delete still work; the 44px
 target asserted in the test rather than left to the eye.
+
+**Done 2026-09-03, commit `be8b3fb`.** All three checks met. The 44px is asserted in
+two halves, because jsdom resolves no CSS: `HistoryList.test.tsx` proves both actions
+carry the `Button` class, and `design-tokens.test.ts` proves `Button` declares exactly
+one target size and that it is `2.75rem`.
+
+Delete needed a colour `Button` did not have, and it became a **`danger` variant**
+rather than a `className` override — both would be single-class selectors, so the winner
+would depend on CSS chunk load order. The confirming state reuses that variant instead
+of gaining a second one; the escalation is the label change, which was already the only
+signal a screen reader had. **The filled-red confirm is gone**, restorable in four
+lines.
+
+The status badges **stay local rather than becoming `Chip`** — they are a fault, a
+provenance flag and a provider name, not buckets, and "Failed" has a claim on `danger`
+that `Chip` must never grow.
+
+**The plan's file list was short by two again:** `history/page.tsx` and
+`history/[id]/page.tsx` also import this stylesheet for `.main`. Neither needed a
+change. That is the second consecutive point where the listed consumers were incomplete
+— worth assuming for Points 4 through 6 rather than rediscovering.
+
+**The capture cannot see this page.** It never visits `/scopecraft/history`. It was run
+as a gate and passed with no measured change, and the regenerated screenshots were
+deliberately **not committed** — their only difference is a different AI generation.
+Verified against the real server instead: 200 with a minted session, `Card` and `Button`
+classes present in the server-rendered HTML, and a per-module attribution of every
+`var(--sc-*)` in the page's shipped CSS showing neither rebuilt file.
 
 ---
 

@@ -429,10 +429,54 @@ One point per view. Each is rebuilt, then reviewed against
       layout of the board is asserted only as far as jsdom can — the strings,
       the weights and the group label — because the capture's overflow checks
       run on the idle page. Rendering every rebuilt view in Arabic is F2.
-- [ ] **D6 — History list.** Cards, stats strip, duplicate and delete. Fix the
-      32 px action-button targets while here — they clear the 24 px WCAG 2.5.8
-      floor but sit under the 44 px comfort target.
-- [ ] **D7 — Saved plan view.**
+- [x] **D6 — History list.** *Done 2026-09-03, commit `be8b3fb`.* Rows take
+      `Card` as a real `li`; the stats strip and every metric in the file move
+      onto the space and text scales. 26 legacy references to 0.
+
+      **The 32px targets are fixed**, which was this point's named job. Both row
+      actions take `Button`, so they inherit its 44px rather than declaring a
+      number of their own that could drift. Delete needed a colour `Button` did
+      not have, and it became a **`danger` variant** rather than a colour passed
+      in through `className`: both would be single-class selectors, so which one
+      won would depend on the order the CSS chunks happened to load — not a
+      thing to leave to chance on a delete button. Inside `Button.module.css`
+      the cascade is source order and settled.
+
+      **The three status badges stay local rather than becoming `Chip`.** Chip
+      encodes a bucket by weight and carries no hue by design (entry 34), and
+      these are not buckets: one is a fault, one a provenance flag, one a
+      provider's name. "Failed" has a legitimate claim on `danger`, which `Chip`
+      must never grow. Their surfaces took `--c-danger-surface` and
+      `--c-panel-recessed`, both pairs already asserted.
+
+      **The plan's file list was short by two.** `history/page.tsx` and
+      `history/[id]/page.tsx` also import this stylesheet, for `.main`. Neither
+      needed a change, but "one consumer" was wrong — the second point in a row
+      where that has been true.
+
+      **What it costs:** the filled-red confirming state is gone. The escalation
+      is now carried by the label changing to "Confirm delete?", which was
+      already the only signal a screen reader had and the only thing the tests
+      assert. Restoring the fill is four lines and a second variant.
+
+      **Not verified by the capture.** `npm run capture:ui` never visits
+      `/scopecraft/history` — its 17 screenshots are the login, idle, form,
+      loading, result, board, evidence, refusal and error screens. It was run
+      anyway as a gate and passed with **no measured change**: 18 contrast pairs
+      light and 20 dark, 0 below AA, 0 unnamed controls, identical overflow
+      results. The regenerated screenshots were **not committed**, because their
+      only difference is a different AI generation and filing them as evidence
+      for this point would misrepresent what they show. Verified instead against
+      the real server: `/scopecraft/history` returns 200 with a minted session
+      and its HTML carries `Card-module__card` on the rows and
+      `Button-module__secondary` / `__danger` on the actions; attributing every
+      `var(--sc-*)` in the page's shipped CSS back to its module leaves neither
+      rebuilt file in the list.
+- [x] **D7 — Saved plan view.** *Done 2026-09-03, commit `be8b3fb`.* Two
+      references, done alongside D6 because it is the same feature reached from
+      the same list. `border-bottom` became `border-block-end` and
+      `min-height` became `min-block-size` while there — physical properties in
+      a file that renders in both directions.
 - [ ] **D8 — Login and welcome modal.**
 - [ ] **D9 — Error, empty, refusal and validation states.** The end of the
       peak-end rule: a failed generation is an ending too.
