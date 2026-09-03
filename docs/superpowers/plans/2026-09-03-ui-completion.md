@@ -389,22 +389,42 @@ Point 7's F5 re-capture produces the coherent set.
 
 ## Point 7 — Verify and ship (1h 30m)
 
-- [ ] **F5 / F1** — `npm run capture:ui`. Build first, two servers (3200, and 3201
-      with bogus AI keys), env loaded as `set -a; . ./.env.local; set +a` —
-      `export $(grep ...)` breaks because `DATABASE_URL` contains an `&`.
-- [ ] **F2** — every rebuilt view in Arabic RTL. Not inferred; rendered.
-- [ ] **F3** — 1280 / 768 / 390px, both directions.
-- [ ] **F4** — full suite green; record the real number.
-- [ ] **H3** — the stale-number sweep. Test count, screenshot count, dependency count
-      and branch heads appear in ~6 files each. ~15 documents currently carry test
-      counts between 130 and 293.
-- [ ] **H2** — decision-log entries for the `--sc-*` deletion, the box-sizing reset,
-      and the `.srOnly` consolidation.
+- [x] **F5 / F1** — `npm run capture:ui`, exit 0, 17 screenshots. Commit `aff1cb3`.
+      **The quota is a rolling 24-hour window, not a calendar day**, so it does not
+      reset at midnight — Points 5 and 6 were blocked by it and this run raised
+      `DAILY_PLAN_LIMIT` locally, which is what that env knob exists for. Nothing
+      about the capture is less real for it; the two generations were live.
+- [~] **F2** — every rebuilt view in Arabic RTL. **Partially met, and not tickable
+      as written.** What was rendered in a real browser: the idle page in Arabic
+      (`05-arabic-rtl.png`) and the RTL overflow checks at all three widths. What was
+      *not*: the result view, sprint board, history list and saved plan in Arabic —
+      the capture's screenplay never visits them in `ar`, and no screenshot exists.
+      Those are covered in Arabic only by jsdom tests, which prove strings, roles and
+      structure but resolve no CSS. **Closing this properly needs the capture
+      extended to drive `ar`, which is its own change, not a tick.**
+- [x] **F3** — 1280 / 768 / 390px, both directions. No horizontal overflow in any of
+      the six combinations, measured from the live DOM.
+- [x] **F4** — **486 tests over 21 suites** — 222 node, 264 UI. Typecheck, lint and
+      build clean.
+- [x] **H3** — the stale-number sweep. `CLAUDE.md`, `README.md`, `HANDOFF.md`,
+      `AI_USAGE.md`, `local-development.md`, `project-plan.md` and
+      `evidence/README.md` now read 486/21 and 17 screenshots.
+      **Deliberately left**: `release-checklist.md` and `contribution-matrix.md` are
+      Nour's, dated and tied to a named commit — the first even asks to be kept
+      current, but that instruction is addressed to its owner. `defense-prep-backend`
+      (242) and `database-and-auth-design` (251) are historical narrative; rewriting
+      them would falsify the record. Plans, specs and the checklist's "Done" entries
+      are point-in-time by design.
+- [x] **H2** — decision-log entries **38** (the `--sc-*` deletion and the box-sizing
+      reset, including what it revealed about the 44px targets) and **39** (the
+      `.srOnly` consolidation, including that two copies had already drifted).
 - [ ] **G1 — Ship.** `git push origin dev && git push fork dev:main`.
       **Vercel builds from the FORK.** Pushing to `origin` alone never updates the
-      live site.
+      live site. **Not done — held for the owner.** `CLAUDE.md` §8 is explicit that
+      production pushes are not taken unasked, and this is the one step in the plan
+      that leaves the machine.
 - [ ] **G2 — Verify live** against `https://scope-craft-nine.vercel.app`, both
-      languages, both themes.
+      languages, both themes. Blocked on G1.
 
 ---
 

@@ -594,6 +594,14 @@ recorded here so they are not quietly added later.
 
 ## Module F — Verification
 
+> **F2 is partially met and is the one open verification item.** The capture renders
+> the idle page in Arabic and checks RTL overflow at 1280/768/390, but its screenplay
+> never visits the result view, sprint board, history list or saved plan in `ar`. Those
+> four are covered in Arabic by jsdom tests only, which prove strings, roles and
+> structure but resolve no CSS. Extending the capture to drive `ar` through the result
+> tabs is its own change and is not claimed here. Recorded 2026-09-03.
+
+
 - [ ] **F1 — Accessibility re-audit.** Full WCAG 2.2 AA pass on the rebuilt UI.
       Contrast measured. Every interactive control has an accessible name.
 - [ ] **F2 — Bilingual re-verification.** Every view checked in Arabic RTL, not
