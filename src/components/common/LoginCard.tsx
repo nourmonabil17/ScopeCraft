@@ -18,6 +18,8 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useLanguage } from "@/context/LanguageContext";
 import { Header } from "./Header";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import styles from "./LoginCard.module.css";
 
 // Which provider button is mid-redirect, if any. Two independent booleans
@@ -49,7 +51,7 @@ export function LoginCard({ providers = { github: true, google: true } }: LoginC
           before signing in. No `onReset` — there is nothing to reset here. */}
       <Header />
       <main className={styles.main} id="main-content" data-testid="login-card">
-        <div className={styles.card}>
+        <Card className={styles.card}>
           <span className={styles.mark} aria-hidden="true">
             SC
           </span>
@@ -57,10 +59,15 @@ export function LoginCard({ providers = { github: true, google: true } }: LoginC
           <p className={styles.subtitle}>{t("login.subtitle")}</p>
 
           {providers.github && (
-            <button
-              type="button"
-              className={styles.githubButton}
-              disabled={pending !== null}
+            <Button
+              variant="primary"
+              className={styles.providerButton}
+              // `busy`, not `disabled`. A disabled control leaves the tab
+              // order, so a keyboard user who was on this button when the
+              // redirect started loses their place and is told nothing. Both
+              // buttons go busy together, so neither can fire while the other
+              // is redirecting — which is what `disabled` was here for.
+              busy={pending !== null}
               data-testid="login-github"
               onClick={() => {
                 setPending("github");
@@ -69,14 +76,14 @@ export function LoginCard({ providers = { github: true, google: true } }: LoginC
             >
               <GitHubMark />
               {pending === "github" ? t("login.redirecting") : t("login.github")}
-            </button>
+            </Button>
           )}
 
           {providers.google && (
-            <button
-              type="button"
-              className={styles.googleButton}
-              disabled={pending !== null}
+            <Button
+              variant="secondary"
+              className={styles.providerButton}
+              busy={pending !== null}
               data-testid="login-google"
               onClick={() => {
                 setPending("google");
@@ -85,11 +92,11 @@ export function LoginCard({ providers = { github: true, google: true } }: LoginC
             >
               <GoogleMark />
               {pending === "google" ? t("login.redirecting.google") : t("login.google")}
-            </button>
+            </Button>
           )}
 
           <p className={styles.note}>{t("login.note")}</p>
-        </div>
+        </Card>
       </main>
     </>
   );

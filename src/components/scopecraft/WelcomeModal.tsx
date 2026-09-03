@@ -7,29 +7,23 @@
 // main page — and this popup carries the explanation instead of making a
 // signed-in visitor click through a page to reach the form they came for.
 //
-// Native <dialog>, not a hand-rolled overlay: `showModal()` gives focus
-// trapping, Escape-to-close, and a real top-layer backdrop for free. The one
-// thing it doesn't give is "don't show this again" — that's a plain
-// localStorage flag, checked once on mount.
-//
-// Not rendered at all until the mount effect decides it should be — rather
-// than always rendering a closed <dialog> and relying on `dialog:not([open])
-// { display: none }` to hide its content. A closed dialog's children are
-// still real DOM nodes, and that UA-stylesheet rule isn't something every
-// environment applies consistently. Rendering nothing until shown sidesteps
-// the question entirely.
+// The panel is the Dialog primitive, which owns showModal(), the native
+// <dialog>, the backdrop and the not-rendered-until-open rule. What stays here
+// is the one thing a primitive should not know: "don't show this again", a
+// plain localStorage flag checked once on mount.
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
+import { Button } from "@/components/ui/Button";
+import { Dialog } from "@/components/ui/Dialog";
 import styles from "./WelcomeModal.module.css";
 
 const SEEN_KEY = "scopecraft.welcomeSeen";
 
 export function WelcomeModal() {
   const { t } = useLanguage();
-  const ref = useRef<HTMLDialogElement>(null);
   const [shouldRender, setShouldRender] = useState(false);
 
   // Reading localStorage must happen after mount, not during render: this is
@@ -48,25 +42,17 @@ export function WelcomeModal() {
     setShouldRender(true);
   }, []);
 
-  // A second effect, not folded into the one above: `ref.current` is only
-  // non-null once the <dialog> has actually rendered, which only happens
-  // after `shouldRender` flips true and React commits that render.
-  useEffect(() => {
-    if (shouldRender) ref.current?.showModal();
-  }, [shouldRender]);
-
-  // Fires on every path a <dialog> can close through — the button below,
-  // and the browser's own Escape-key handling — so "seen" is recorded
-  // however the visitor dismissed it, not just on a button click.
+  // The second effect that called showModal() is gone — Dialog does that. So
+  // is the ref: the CTA below calls this directly rather than reaching for the
+  // element, and Escape still arrives through Dialog's own `close` handler.
+  // Both paths record "seen", which is the property that matters.
   function handleClose() {
     localStorage.setItem(SEEN_KEY, "1");
     setShouldRender(false);
   }
 
-  if (!shouldRender) return null;
-
   return (
-    <dialog ref={ref} className={styles.dialog} aria-labelledby="welcome-heading" onClose={handleClose}>
+    <Dialog open={shouldRender} onClose={handleClose} labelledBy="welcome-heading">
       <h2 id="welcome-heading" className={styles.heading}>
         {t("landing.heading")}
       </h2>
@@ -79,9 +65,7 @@ export function WelcomeModal() {
         <p className={styles.examplePrd}>{t("landing.examplePrd")}</p>
       </section>
 
-      <button type="button" className={styles.cta} onClick={() => ref.current?.close()}>
-        {t("landing.cta")}
-      </button>
-    </dialog>
+      <Button onClick={handleClose}>{t("landing.cta")}</Button>
+    </Dialog>
   );
 }

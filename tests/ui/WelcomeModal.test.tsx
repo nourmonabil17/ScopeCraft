@@ -58,3 +58,32 @@ describe("WelcomeModal", () => {
     expect(screen.getByRole("button", { name: "ابدأ الآن" })).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// D8: the modal is the Dialog primitive, not its own <dialog>
+// ---------------------------------------------------------------------------
+
+describe("WelcomeModal primitives", () => {
+  beforeEach(() => {
+    localStorage.removeItem(SEEN_KEY);
+  });
+
+  // Dialog owns the panel now. If a local .dialog rule ever comes back, the
+  // box-sizing fix documented in Dialog.module.css stops applying to it and
+  // the panel renders wider than the viewport again.
+  it("renders through the Dialog primitive's panel class", () => {
+    renderWithProviders(<WelcomeModal />);
+    const dialog = screen
+      .getByRole("heading", { name: "Turn a product idea into a sprint-ready plan." })
+      .closest("dialog") as HTMLDialogElement;
+    expect(dialog).toHaveClass("dialog");
+    expect(dialog).toHaveAttribute("aria-labelledby", "welcome-heading");
+  });
+
+  it("puts the call to action on the Button primitive", () => {
+    renderWithProviders(<WelcomeModal />);
+    const cta = screen.getByRole("button", { name: "Get started" });
+    expect(cta).toHaveClass("button");
+    expect(cta).toHaveClass("primary");
+  });
+});
