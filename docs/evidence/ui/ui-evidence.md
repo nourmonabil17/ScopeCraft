@@ -2,8 +2,15 @@
 
 **Row:** Product UI & Workflow Engineer (Joe). **Captured by:** Yousef, who authored the
 frontend in [PR #3](https://github.com/nourmonabil17/ScopeCraft/pull/3).
-**Captured:** 2026-08-24, at commit `4896897`, from a **production build** (`next start`)
-talking to live providers.
+**First captured:** 2026-08-24, at commit `4896897`, from a **production build**
+(`next start`) talking to live providers.
+
+**Re-captured in full 2026-09-04, at commit `f9c861f`** — the whole set of 22 in one run,
+never a partial refresh. Two earlier re-captures are folded into that: F5 on 2026-09-03,
+which took the set from 17 to 22 by adding the Arabic views, and this one, which was
+required because Module E2 changed how every state view enters. The measured accessibility
+results are unchanged between runs; what moved is the timestamp and the generated plan's
+capacity readout, which differs because it is a fresh generation.
 
 Until this capture the repository contained **zero** screenshots or recordings — a
 repo-wide search for `*.png`, `*.gif`, `*.mp4`, `*.mov` returned nothing, while the
@@ -159,7 +166,14 @@ dependencies before planning, instead of failing the whole request.
 ## What is **not** evidenced here
 
 - **No screen recording**, only stills. The seven states are each captured, but the
-  transitions between them are not.
+  transitions between them are not — and since E2 there is now a transition to miss: each
+  state view rises 4px into place as it mounts.
+- **Motion is deliberately disabled while these are taken.** The capture emulates
+  `prefers-reduced-motion: reduce`, so E1's token rule collapses every duration and each
+  frame is of a settled state. Without it a still can catch a view mid-transition, and the
+  header's status dot — which pulses on a 2.4s loop — lands at an arbitrary opacity in
+  every shot. These are therefore accurate stills of each state, not evidence of the motion
+  between states.
 - **No real screen-reader run.** The audit measures the DOM contract that assistive tech
   reads; it is not a substitute for driving VoiceOver or NVDA by hand.
 - **No automated `axe` scan** — the project has no such dependency. The audit in

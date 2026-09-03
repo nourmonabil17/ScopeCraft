@@ -682,8 +682,16 @@ recorded here so they are not quietly added later.
       `capture-ui-evidence.mjs` now emulates `prefers-reduced-motion: reduce`
       alongside the colour scheme (one call — `setEmulatedMedia` replaces the
       feature list rather than merging), so every shot is of a settled state by
-      construction rather than by out-running a sleep. **Not yet exercised — the
-      capture has not been re-run.**
+      construction rather than by out-running a sleep.
+
+      **Exercised 2026-09-04: all 22 re-captured in one run, exit 0**, generation
+      succeeding on the first attempt. The three views that carry the entry
+      effect were inspected individually — loading, provider error and the
+      result — and all three render at full opacity, so the frozen-timeline
+      failure the design guards against did not occur in this renderer. The
+      accessibility audit is unchanged: 18 light and 20 dark contrast pairs, 0
+      below AA, 0 unnamed controls, 0 heading skips, no horizontal overflow in
+      any of the six width/direction combinations.
 
       Three assertions added, one confirmed failing against an injected
       `opacity: 0` regression.

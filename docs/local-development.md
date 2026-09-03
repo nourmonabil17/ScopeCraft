@@ -214,3 +214,46 @@ docker compose ps
 From the host the hostname is `localhost`. From inside a container it is `db` — the
 compose service name. Using `localhost` inside a container points at the container itself,
 which is the most common version of this mistake.
+
+### `npm run capture:ui` writes only 13 screenshots and reports "expected a success state, got error"
+
+The capture user is over its daily generation quota. This wastes a full run and the symptom
+points at the wrong thing, so check it first.
+
+Every generation the capture makes is a `plans` row against one fixed account
+(`capture@scopecraft.local`), and `DAILY_PLAN_LIMIT` defaults to **20** over a rolling
+24-hour window. A capture spends roughly a dozen — a success, a domain refusal, the
+provider-failure run, plus up to four retries if the model returns `PLANNING_ERROR` — so
+**two captures in the same day exceed it.**
+
+What makes it misleading is where the quota check sits: stage 4b, *before* any provider is
+called. The route returns `429 RATE_LIMITED`, and the workflow page maps every code that is
+not `VALIDATION_ERROR` or `OUT_OF_DOMAIN` onto one "explain and offer retry" state. So an
+exhausted quota is indistinguishable, on screen, from all three providers being down —
+which is also what `14-provider-error.png` is *supposed* to show. The shot still gets
+written, and it is then a photograph of the wrong failure.
+
+`npm run smoke` reporting `200 OK` on all three providers, while the capture still fails,
+is the tell.
+
+Count what the window holds:
+
+```sql
+select count(*) from plans p join users u on u.id = p.user_id
+where u.email = 'capture@scopecraft.local'
+  and p.created_at > now() - interval '24 hours';
+```
+
+Fix by giving the capture servers headroom — both of them, so the provider-error instance
+fails for the reason it is meant to:
+
+```bash
+DAILY_PLAN_LIMIT=200 npx next start -p 3200
+```
+
+Raise it only on the local capture instances. It is a real limit that production wants; see
+[`architecture.md`](architecture.md) §4a.
+
+**Never commit the partial set.** A failed run leaves the shots directory half fresh and
+half stale — the nine success/refusal images keep whatever the previous build produced,
+which is exactly the mixed evidence the set exists to avoid. Re-run until it reports all 22.
