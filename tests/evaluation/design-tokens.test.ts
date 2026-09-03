@@ -5,6 +5,7 @@
 // darkens a muted grey or brightens an accent past the point where it still
 // clears AA — which is exactly the change that gets made by eye and shipped.
 
+import { readFileSync } from "node:fs";
 import { contrastRatio } from "@/lib/design/contrast";
 import { tokens } from "@/lib/design/tokens";
 import { tokenCss } from "@/lib/design/css";
@@ -167,5 +168,38 @@ describe("tokenCss", () => {
   // A bare prefers-color-scheme block would break that, silently.
   it("never defines colours inside a prefers-color-scheme media query", () => {
     expect(css).not.toContain("prefers-color-scheme");
+  });
+});
+
+// The invariant behind decision-log entry 31. D1 moved the header's two real
+// buttons onto the Button primitive at 44px while the controls beside them in
+// the same row stayed at 36px, leaving the signed-in header 8px uneven for
+// four points. Point 2 closed it by matching the number.
+//
+// It is asserted from the stylesheets rather than from a render because jsdom
+// resolves no CSS — identity-obj-proxy hands back the class name and nothing
+// else, so a rendered check here would pass whatever the values were.
+describe("header control target sizes", () => {
+  function minBlockSizes(file: string): string[] {
+    const css = readFileSync(file, "utf8");
+    return [...css.matchAll(/min-block-size:\s*([^;]+);/g)].map((m) => m[1].trim());
+  }
+
+  const buttonSizes = minBlockSizes("src/components/ui/Button.module.css");
+
+  it("Button states exactly one target size", () => {
+    expect(buttonSizes).toHaveLength(1);
+    expect(buttonSizes[0]).toBe("2.75rem");
+  });
+
+  // The Home link, the history link, the theme toggle and the language
+  // segmented control all live in this one file and all sit in the Button's
+  // row. Any one of them drifting is the mismatch reopening.
+  it("every toggle control matches the Button's target", () => {
+    const toggleSizes = minBlockSizes("src/components/common/ToggleControls.module.css");
+    expect(toggleSizes.length).toBeGreaterThan(0);
+    for (const size of toggleSizes) {
+      expect(size).toBe(buttonSizes[0]);
+    }
   });
 });
