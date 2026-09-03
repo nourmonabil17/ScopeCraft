@@ -159,7 +159,7 @@ pass, the accessibility fixes and the frontend rebuild each added tests.
 |---|---|---|
 | Lint | `npm run lint` | exit 0 — eslint `--max-warnings=0`, no output |
 | Types | `npx tsc --noEmit` | exit 0 — no diagnostics |
-| Tests | `npm test` | **503/503 passing**, 21 suites — 237 node (API · tools · evaluation) + 266 UI. Was 499/499 before the E4 hover-token assertions, 496/496 before the E2 entry-effect assertions, 492/492 before the E1 motion-token assertions, 488/488 before the v7 prompt split, 486/486 before the RTL fix, 245/245 on 2026-08-24 and 130/130 on 2026-08-23 |
+| Tests | `npm test` | **506/506 passing**, 21 suites — 240 node (API · tools · evaluation) + 266 UI. Was 503/503 before the B2 attempt-counting assertions, 499/499 before the E4 hover-token assertions, 496/496 before the E2 entry-effect assertions, 492/492 before the E1 motion-token assertions, 488/488 before the v7 prompt split, 486/486 before the RTL fix, 245/245 on 2026-08-24 and 130/130 on 2026-08-23 |
 | Live providers | `npm run smoke` | all three reachable and answering |
 | API evidence | `npm run capture:evidence` | 11/11 cases matched `docs/api-contracts.md` |
 | UI + a11y evidence | `npm run capture:ui` | 22 screenshots; 38 contrast pairs (18 light, 20 dark), 0 below WCAG AA; five rebuilt views rendered in Arabic RTL |

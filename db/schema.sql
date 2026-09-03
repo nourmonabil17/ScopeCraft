@@ -66,6 +66,26 @@ create table if not exists plans (
   provider_used   text,
   prompt_version  text,
 
+  -- how the generation went, not just what it produced (Module B2)
+  --
+  -- Both nullable, and both are null on rows written before these columns
+  -- existed. Any query over them has to say so — `avg(duration_ms)` silently
+  -- ignores nulls, which is right here, but `count(*)` over the same window is
+  -- not the denominator.
+  --
+  -- duration_ms is wall-clock around the generate step only: the provider
+  -- chain, the retry and the deterministic tools. It excludes session lookup,
+  -- validation and the quota query, all of which happen before the clock
+  -- starts, and excludes this insert, which happens after it stops.
+  --
+  -- attempts counts providers actually CALLED, so a provider skipped for a
+  -- missing key does not increment it. That distinction is the reason the
+  -- column exists: `provider_used = 'groq'` alone cannot say whether NVIDIA
+  -- failed or was never configured, and this repository has an open question
+  -- of exactly that shape.
+  duration_ms     integer,
+  attempts        integer,
+
   created_at      timestamptz not null default now(),
 
   constraint plans_ok_has_response
@@ -76,3 +96,19 @@ create table if not exists plans (
 -- rate-limit count over a recent window. One index, both jobs.
 create index if not exists plans_user_created_idx
   on plans (user_id, created_at desc);
+
+-- ------------------------------------------------------------ migrations ----
+-- Columns added after the first deployment.
+--
+-- These are not redundant with the table definition above, and deleting them as
+-- duplication would be a silent data bug. `create table if not exists` does
+-- nothing at all when the table already exists — it does not diff the
+-- definition — so on every database that already holds plans, the columns above
+-- would never appear. Re-running this file is how the schema is applied, and it
+-- has to work on a fresh database and an existing one from the same text.
+--
+-- `add column if not exists` makes each line idempotent, which is what lets
+-- this file stay the single source of truth instead of growing a migrations
+-- directory and a runner to walk it.
+alter table plans add column if not exists duration_ms integer;
+alter table plans add column if not exists attempts    integer;

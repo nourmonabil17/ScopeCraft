@@ -40,6 +40,7 @@ import {
 import {
   OutOfDomainError,
   PlanningError,
+  PROMPT_VERSION,
   SchemaViolationError,
   runScopeCraft,
 } from "@/lib/scopecraft/service";
@@ -62,6 +63,47 @@ export const maxDuration = 60;
 /** Sanitized server log. Code and status only — never payloads or credentials. */
 function logFailure(code: string, status: number): void {
   console.error(`scopecraft.request_failed code=${code} status=${status}`);
+}
+
+/**
+ * One line per generation that reached a provider (Module B2).
+ *
+ * WHY logfmt AND NOT JSON. Five other log lines in this codebase already use
+ * `scopecraft.<event> key=value` — request_failed above, persist_failed and
+ * quota_unavailable below, dependencies_dropped in the service. A JSON line
+ * would be no more machine-readable in practice and would mean this file emits
+ * two formats, so anything reading the logs has to handle both. Matching the
+ * existing shape is worth more than the format being fashionable.
+ *
+ * WHY IT DUPLICATES THE DATABASE ROW. Almost every field here is also written
+ * to `plans`, and the row is the better record — it is queryable and it is
+ * kept. This line exists for the one case the row cannot cover: when the insert
+ * itself fails. `recordPlan` deliberately never throws, so a persistence outage
+ * is otherwise invisible in the data, and the generation it silently dropped is
+ * the one you most want to know about.
+ *
+ * WHAT IS NOT HERE. No idea text, no constraints, no response, no user id. The
+ * first three are user data and the fourth identifies a person; none of them is
+ * needed to answer a latency or failover question, and a server log is not
+ * scoped to one request or one reader.
+ */
+function logGeneration(fields: {
+  status: "ok" | "failed";
+  durationMs: number;
+  attempts: number | null;
+  providerUsed?: string;
+  errorCode?: string;
+  persisted: boolean;
+}): void {
+  console.log(
+    `scopecraft.generation status=${fields.status} ` +
+      `duration_ms=${fields.durationMs} ` +
+      `attempts=${fields.attempts ?? "unknown"} ` +
+      `provider=${fields.providerUsed ?? "none"} ` +
+      `prompt=${PROMPT_VERSION} ` +
+      `code=${fields.errorCode ?? "none"} ` +
+      `persisted=${fields.persisted}`
+  );
 }
 
 function fail(
@@ -192,8 +234,16 @@ export async function POST(req: NextRequest) {
   }
 
   // ---- 5. Generate ----
+  //
+  // The clock starts here and not at the top of the handler, so `duration_ms`
+  // measures the provider chain and the deterministic tools rather than the
+  // session lookup, the validation and the quota query in front of them. Those
+  // are bounded and cheap; mixing them in would blur the number that is
+  // actually worth watching.
+  const startedAt = Date.now();
   try {
-    const { data, providerUsed, promptVersion } = await runScopeCraft(parsed.data);
+    const { data, providerUsed, promptVersion, attempts } = await runScopeCraft(parsed.data);
+    const durationMs = Date.now() - startedAt;
 
     // ---- 6. Record the success. ----
     const planId = await recordPlan(userId, parsed.data, {
@@ -201,6 +251,16 @@ export async function POST(req: NextRequest) {
       response: data,
       providerUsed,
       promptVersion,
+      durationMs,
+      attempts,
+    });
+
+    logGeneration({
+      status: "ok",
+      durationMs,
+      attempts,
+      providerUsed,
+      persisted: planId !== null,
     });
 
     return NextResponse.json(data, {
@@ -217,7 +277,16 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
+    const durationMs = Date.now() - startedAt;
     const response = mapGenerationError(error);
+    const errorCode = await readErrorCode(response);
+
+    // Known only when the chain itself gave up. A SchemaViolationError or a
+    // PlanningError means a provider DID answer and the failure came after it,
+    // so the count is not on the error and is recorded as unknown rather than
+    // guessed at — a wrong number here would be worse than a missing one,
+    // because it would average into the failover statistics as if it were real.
+    const attempts = error instanceof ProviderError ? error.attempts ?? null : null;
 
     // ---- 6. Record the failure too. ----
     // Only failures that got this far are recorded, and every one of them
@@ -225,9 +294,19 @@ export async function POST(req: NextRequest) {
     // what makes counting attempts fair: a malformed request still costs the
     // caller nothing, while a generation that burned tokens and then failed
     // counts against the quota.
-    await recordPlan(userId, parsed.data, {
+    const planId = await recordPlan(userId, parsed.data, {
       status: "failed",
-      errorCode: await readErrorCode(response),
+      errorCode,
+      durationMs,
+      attempts: attempts ?? undefined,
+    });
+
+    logGeneration({
+      status: "failed",
+      durationMs,
+      attempts,
+      errorCode,
+      persisted: planId !== null,
     });
 
     return response;
@@ -240,6 +319,10 @@ interface PlanOutcome {
   errorCode?: string;
   providerUsed?: string;
   promptVersion?: string;
+  durationMs?: number;
+  /** Omitted rather than zeroed when the count is not knowable — see the catch
+   *  block above. Null in the column means "not recorded", not "no providers". */
+  attempts?: number;
 }
 
 /**
@@ -261,7 +344,8 @@ async function recordPlan(
   try {
     const [row] = await sql<{ id: string }[]>`
       insert into plans (user_id, idea, constraints, capacity_points, sprint_days,
-                         status, error_code, response, provider_used, prompt_version)
+                         status, error_code, response, provider_used, prompt_version,
+                         duration_ms, attempts)
       values (${userId},
               ${request.idea},
               ${constraintsToText(request.constraints) ?? null},
@@ -271,7 +355,9 @@ async function recordPlan(
               ${outcome.errorCode ?? null},
               ${outcome.response ? sql.json(outcome.response as never) : null},
               ${outcome.providerUsed ?? null},
-              ${outcome.promptVersion ?? null})
+              ${outcome.promptVersion ?? null},
+              ${outcome.durationMs ?? null},
+              ${outcome.attempts ?? null})
       returning id`;
     return row?.id ?? null;
   } catch (error) {

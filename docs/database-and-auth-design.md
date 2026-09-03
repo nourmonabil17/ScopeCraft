@@ -64,10 +64,11 @@ be storage for something already available elsewhere.
 `users` — id, email (unique), name, image, created_at. No password column.
 
 `plans` — the request (idea, constraints, capacity, sprint length), the result (status,
-error_code, response JSONB, board JSONB), provenance (provider_used, prompt_version), and
-created_at. Full commentary in [`db/schema.sql`](../db/schema.sql).
+error_code, response JSONB, board JSONB), provenance (provider_used, prompt_version), how the
+generation went (duration_ms, attempts), and created_at. Full commentary in
+[`db/schema.sql`](../db/schema.sql).
 
-Two details that matter:
+Three details that matter:
 
 - **`board` is separate from `response`.** The model's output stays immutable; the human's
   edits live beside it. That keeps "what the AI said" distinguishable from "what the human
@@ -75,6 +76,13 @@ Two details that matter:
 - **`status` allows `'failed'` rows.** A generation that reaches a provider and *then* fails
   still costs tokens. If only successes were stored, a caller could burn quota on failures
   for free.
+- **`duration_ms` and `attempts` are the log** (Module B2). There is no separate logging
+  table, because `plans` is already exactly one row per generation that reached a provider —
+  a second store would have to be kept consistent with the first for no information gained,
+  which is the same argument that kept the rate limiter out of Redis. `attempts` counts
+  providers actually *called*, so a provider skipped for a missing key does not increment it;
+  that is what lets a row say whether the primary failed or was never configured. Both are
+  nullable and are null on every row written before 2026-09-04.
 
 ## Where it plugs into the existing route
 

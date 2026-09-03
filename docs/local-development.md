@@ -96,6 +96,52 @@ The credentials are readable defaults on purpose. The database is published on l
 only; there is nothing here worth protecting, and a developer who cannot guess the
 password cannot open a shell.
 
+### Applying the schema, including to a database that already has one
+
+```bash
+docker compose exec -T db psql -U scopecraft -d scopecraft -v ON_ERROR_STOP=1 -f - < db/schema.sql
+```
+
+Re-run it after pulling. `db/schema.sql` is the whole migration story — there is no runner
+and no versions directory — and it is written to be applied repeatedly to the same database.
+
+**The part that catches people:** `create table if not exists` does *nothing* when the table
+exists. It does not compare the definition, so a column added to the `create table` block
+never appears on a database that already holds rows. That is why the file ends with
+`alter table ... add column if not exists` statements. Those are not duplication and must not
+be tidied away; on an existing database they are the only lines that do anything.
+
+**Order matters against production.** Apply the file before deploying code that reads or
+writes a new column. `recordPlan` in the route swallows its own errors on purpose — a failed
+bookkeeping write must not destroy a plan someone already waited for — so an insert naming a
+column the database does not have fails *silently*, and plans simply stop being saved.
+Adding nullable columns first is always safe: the running code never names them.
+
+### Where the generation numbers live
+
+Since Module B2, latency and failover are recorded rather than measured by hand:
+
+```sql
+select status, provider_used, attempts,
+       count(*) as runs, round(avg(duration_ms))::int as avg_ms
+from plans
+where duration_ms is not null
+group by status, provider_used, attempts
+order by runs desc;
+```
+
+`attempts` counts providers actually **called**. A provider skipped for a missing key does
+not increment it, so `attempts = 1` with `provider_used = 'groq'` means NVIDIA was never
+configured, while `attempts = 2` means it was tried and failed. `where duration_ms is not
+null` is not optional — every row written before 2026-09-04 has neither column.
+
+The same facts appear once per generation in the server log, which is the only place a
+*failed persistence* is visible at all:
+
+```
+scopecraft.generation status=ok duration_ms=33738 attempts=2 provider=groq prompt=v7 code=none persisted=true
+```
+
 ### The one thing that will confuse you
 
 **`db/schema.sql` runs once.** Postgres executes everything in its init directory on first
@@ -146,7 +192,7 @@ URL on the same one.
 ```bash
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint --max-warnings=0
-npm test              # 503 tests, 21 suites
+npm test              # 506 tests, 21 suites
 npm run build
 ```
 

@@ -92,10 +92,25 @@ export type ProviderErrorCode =
 export class ProviderError extends Error {
   readonly code: ProviderErrorCode;
 
-  constructor(code: ProviderErrorCode) {
+  /**
+   * How many providers were actually called before the chain gave up.
+   *
+   * Carried on the error so the failure path can log the same failover fact the
+   * success path does (Module B2). Optional because a ProviderError can be
+   * constructed by a caller that never ran a chain, and because every existing
+   * throw site predates this field.
+   *
+   * Zero and one are not the same story: zero means nothing was configured,
+   * one means a single provider was tried and failed while the rest were
+   * skipped for want of a key.
+   */
+  readonly attempts?: number;
+
+  constructor(code: ProviderErrorCode, attempts?: number) {
     super(code);
     this.name = "ProviderError";
     this.code = code;
+    this.attempts = attempts;
   }
 }
 
@@ -352,7 +367,7 @@ function isInvalidOutputError(error: unknown): boolean {
  */
 export async function generateWithFallback(
   prompt: Prompt
-): Promise<{ result: ModelReply; providerUsed: ProviderName }> {
+): Promise<{ result: ModelReply; providerUsed: ProviderName; attempts: number }> {
   const order = getProviderOrder();
 
   // One deadline for the whole chain. Each attempt gets whichever is smaller:
@@ -381,7 +396,11 @@ export async function generateWithFallback(
 
     try {
       const result = await provider.generate(prompt, Math.min(getTimeoutMs(), remaining));
-      return { result, providerUsed: name };
+      // Counted here rather than at the top of the loop: `attempted` must mean
+      // "providers that were actually called", and the winning call is one of
+      // them. A provider skipped for a missing key never reaches this line and
+      // never increments — which is the whole point of the number.
+      return { result, providerUsed: name, attempts: attempted + 1 };
     } catch (error) {
       if (isMissingKeyError(error)) {
         // Not configured — skip silently, do not count as an attempt.
@@ -405,11 +424,11 @@ export async function generateWithFallback(
 
   if (attempted === 0) {
     console.error("No AI provider is configured.");
-    throw new ProviderError("not_configured");
+    throw new ProviderError("not_configured", 0);
   }
 
   console.error("AI provider fallback exhausted.");
-  if (sawTimeout) throw new ProviderError("timeout");
-  if (allInvalidOutput) throw new ProviderError("invalid_provider_output");
-  throw new ProviderError("all_providers_failed");
+  if (sawTimeout) throw new ProviderError("timeout", attempted);
+  if (allInvalidOutput) throw new ProviderError("invalid_provider_output", attempted);
+  throw new ProviderError("all_providers_failed", attempted);
 }

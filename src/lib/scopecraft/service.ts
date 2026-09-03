@@ -60,6 +60,16 @@ export interface ServiceResult {
   data: ScopeCraftResponse;
   providerUsed: ProviderName;
   promptVersion: string;
+  /**
+   * Provider calls this generation actually cost (Module B2).
+   *
+   * Summed across the schema-violation retry below, so it is the cost of the
+   * whole generation and not of its last attempt. A provider skipped for a
+   * missing key is not counted, which is what makes the number able to tell
+   * "NVIDIA is unconfigured" apart from "NVIDIA failed and we fell through" —
+   * two situations that look identical in `provider_used` alone.
+   */
+  attempts: number;
 }
 
 // ---------- Prompt construction ----------
@@ -164,9 +174,9 @@ ${fenceUserText(constraints ?? "none provided")}
 
 async function requestPlan(
   prompt: Prompt
-): Promise<{ reply: ProviderOutput | OutOfDomain; providerUsed: ProviderName }> {
-  const { result, providerUsed } = await generateWithFallback(prompt);
-  return { reply: result, providerUsed };
+): Promise<{ reply: ProviderOutput | OutOfDomain; providerUsed: ProviderName; attempts: number }> {
+  const { result, providerUsed, attempts } = await generateWithFallback(prompt);
+  return { reply: result, providerUsed, attempts };
 }
 
 export async function runScopeCraft(
@@ -177,6 +187,12 @@ export async function runScopeCraft(
   // One retry on schema violation: structured-output models occasionally emit a
   // stray token, and a single retry is far cheaper than failing the request.
   let attempt: Awaited<ReturnType<typeof requestPlan>>;
+  // Provider calls spent before the successful one, if the first pass threw.
+  // Kept outside the try so the retry can add to it rather than replace it: a
+  // generation that burned a chain, retried and then succeeded cost both, and
+  // reporting only the second would under-state it in exactly the case worth
+  // knowing about.
+  let priorAttempts = 0;
   try {
     attempt = await requestPlan(prompt);
   } catch (error) {
@@ -185,6 +201,7 @@ export async function runScopeCraft(
       (error as { code?: string }).code === "invalid_provider_output"
     ) {
       console.warn("Model output failed schema validation; retrying once.");
+      priorAttempts = (error as { attempts?: number }).attempts ?? 0;
       try {
         attempt = await requestPlan(prompt);
       } catch (retryError) {
@@ -202,6 +219,7 @@ export async function runScopeCraft(
   }
 
   const { reply, providerUsed } = attempt;
+  const attempts = priorAttempts + attempt.attempts;
 
   // Safe refusal: surfaced to the caller as a typed error, never as a fabricated plan.
   if (isOutOfDomain(reply)) {
@@ -293,5 +311,5 @@ export async function runScopeCraft(
     moscow,
   });
 
-  return { data, providerUsed, promptVersion: PROMPT_VERSION };
+  return { data, providerUsed, promptVersion: PROMPT_VERSION, attempts };
 }

@@ -163,12 +163,56 @@ The three findings from reading [`providers.ts`](../src/lib/ai/providers.ts) and
       create many accounts is not addressed. That belongs in
       `docs/known-limitations.md`.
 
-- [ ] **B2 — Structured generation logging.**
+- [x] **B2 — Structured generation logging. Done 2026-09-04.**
       `provider_used` and `prompt_version` are already persisted per plan, but
       every latency and failover fact this project has recorded was measured by
       hand in one-off runs. Log one structured line per generation so the numbers
       come from the system instead of from an afternoon of manual curling.
       *Check:* a query returns real rows after a real generation.
+
+      **No new table and no new write.** `plans` is already exactly one row per
+      generation that reached a provider, so this is two nullable columns on it —
+      `duration_ms` and `attempts` — set by the insert that was already running.
+      The same argument that kept the rate limiter out of Redis applies: a second
+      store would have to be kept consistent with the first for no information
+      gained.
+
+      **`attempts` counts providers actually called**, so one skipped for a
+      missing key does not increment it. That is the whole reason the column
+      exists: `provider_used = 'groq'` alone cannot say whether the primary
+      failed or was never configured, and this repository has an open question of
+      exactly that shape. Three assertions cover it, one confirmed failing
+      against a plausible wrong implementation (counting position in the chain
+      rather than calls made).
+
+      One `scopecraft.generation` line per generation as well, in the
+      `key=value` shape the five existing log lines already use rather than JSON,
+      so nothing reading these logs has to handle two formats. It duplicates the
+      row on purpose, for the one case the row cannot cover: `recordPlan` never
+      throws, so a persistence outage is otherwise invisible in the data. The
+      line carries `persisted=true|false` for that reason, and carries no idea
+      text, no response and no user id.
+
+      **Verified end to end against a real Postgres**, both paths: a served
+      generation wrote `duration_ms=33738 attempts=2 provider_used=groq`, and one
+      forced to fail on dead credentials wrote `duration_ms=1127 attempts=3
+      error_code=PROVIDER_ERROR`. The aggregate query and the matching server
+      lines are in
+      [`evidence/provider-fallback-log.md`](evidence/provider-fallback-log.md).
+      On its first real row the column already explained something: 33.7 seconds
+      looked like "generation is slow" and was in fact NVIDIA burning its full
+      30-second timeout before Groq answered in four.
+
+      **`db/schema.sql` must be re-applied before this code is deployed**, and
+      the ordering is not cosmetic. `create table if not exists` does nothing on
+      an existing database, so the columns come from the two
+      `alter table ... add column if not exists` statements at the foot of the
+      file. Deploy the code first and every insert fails on an unknown column —
+      and because `recordPlan` swallows its errors by design, plans would stop
+      persisting *silently*. Applying the file first is safe: two nullable
+      columns are additive and the old code never names them. Exercised on a
+      database that already held the pre-B2 table, then a second time to confirm
+      it is idempotent.
 
 *Not a point:* CI. `.github/workflows/ci.yml` already runs tests, typecheck,
 lint and build on every push and PR to `main` and `dev`. Earlier notes in this

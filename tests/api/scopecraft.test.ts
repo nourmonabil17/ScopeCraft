@@ -220,6 +220,51 @@ describe("AI provider fallback", () => {
     expect(warning.mock.calls.flat()).not.toContainEqual(expect.any(Error));
   });
 
+  // Module B2. `attempts` is persisted and logged as the failover fact, and the
+  // one way to get it wrong is to count providers the chain never called. That
+  // distinction is the reason the number exists: with only `provider_used`,
+  // "NVIDIA has no key" and "NVIDIA failed and we fell through" are the same
+  // row. These three cases are the difference.
+  describe("counting provider attempts", () => {
+    it("does not count a provider skipped for a missing key", async () => {
+      // No keys are set in this environment, so nvidia and groq raise
+      // MISSING_*_API_KEY and are skipped before any call is made.
+      jest.spyOn(geminiProvider, "generate").mockResolvedValue(fakeResponse);
+      const { providerUsed, attempts } = await generateWithFallback(DUMMY_PROMPT);
+      expect(providerUsed).toBe("gemini");
+      expect(attempts).toBe(1);
+    });
+
+    it("counts the failed attempts and the successful one", async () => {
+      jest.spyOn(console, "warn").mockImplementation();
+      const restoreKeys = withFakeKeys();
+      try {
+        jest.spyOn(nvidiaProvider, "generate").mockRejectedValue(new Error("down"));
+        jest.spyOn(groqProvider, "generate").mockResolvedValue(fakeResponse);
+        const { providerUsed, attempts } = await generateWithFallback(DUMMY_PROMPT);
+        expect(providerUsed).toBe("groq");
+        expect(attempts).toBe(2);
+      } finally {
+        restoreKeys();
+      }
+    });
+
+    it("carries the count on the error when the whole chain fails", async () => {
+      jest.spyOn(console, "warn").mockImplementation();
+      jest.spyOn(console, "error").mockImplementation();
+      const restoreKeys = withFakeKeys();
+      try {
+        for (const provider of [nvidiaProvider, groqProvider, geminiProvider]) {
+          jest.spyOn(provider, "generate").mockRejectedValue(new Error("down"));
+        }
+        await expect(generateWithFallback(DUMMY_PROMPT))
+          .rejects.toMatchObject({ code: "all_providers_failed", attempts: 3 });
+      } finally {
+        restoreKeys();
+      }
+    });
+  });
+
   it("falls back to Gemini when NVIDIA and Groq both fail", async () => {
     jest.spyOn(console, "warn").mockImplementation();
     jest.spyOn(nvidiaProvider, "generate").mockRejectedValue(new Error("NVIDIA down"));

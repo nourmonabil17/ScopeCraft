@@ -1468,3 +1468,71 @@ nonce or hash policy and saying so is more useful than closing the row.
     — but the harness available here cannot hold a pointer over an element, and
     the screenshot capture does not hover either. So the CSS is proven present
     and valid; the interaction itself is not proven.
+
+46. **The generation log is two columns on a table that already existed —
+    2026-09-04, Module B, B2.**
+
+    The point asked for "one structured line per generation" so latency and
+    failover facts stop being things measured by hand in one-off runs. The
+    obvious readings were a `generation_log` table or a JSON line to stdout.
+    Neither is what shipped, and the reasons are worth keeping.
+
+    **Not a table.** `plans` is already exactly one row per generation that
+    reached a provider — that is not a coincidence, it is the property the rate
+    limiter depends on, since the quota counts attempts rather than successes. A
+    second store would need to be kept consistent with the first, for a set of
+    facts the first is already the right home for. Two nullable columns,
+    `duration_ms` and `attempts`, are written by the insert that was already
+    running on both the success and the failure path. No new write, no new
+    failure mode, no new thing to keep in sync.
+
+    **Not JSON.** There is a stdout line as well, but in the `scopecraft.<event>
+    key=value` shape the five existing log lines already use. A JSON line would
+    be no more machine-readable in practice and would mean the route emits two
+    formats, so anything reading these logs has to handle both.
+
+    **Why a line at all, when the row is better.** The row is queryable and
+    kept; the line is neither. It exists for the one case the row cannot cover:
+    `recordPlan` deliberately never throws, because a failed bookkeeping write
+    must not destroy a plan the user already paid provider tokens for. So a
+    persistence outage is invisible in the data — the generations it drops leave
+    no row to be missing from. The line carries `persisted=true|false`, which is
+    the only place that failure is visible at all.
+
+    **`attempts` is the interesting half, and it is a counting decision.** It
+    counts providers *called*, not providers *considered*: one skipped for a
+    missing credential never reaches the increment. That distinction is why the
+    column earns its place. `provider_used = 'groq'` cannot say whether NVIDIA
+    failed and the chain fell through or NVIDIA has no key and was skipped —
+    two situations with completely different responses — and this repository has
+    had an open question of exactly that shape. The test that guards it was
+    confirmed failing against the wrong implementation someone would plausibly
+    write instead: counting the winner's position in the chain, which is right
+    whenever nothing is skipped and silently wrong the moment something is.
+
+    Summed across the schema-violation retry in `runScopeCraft`, not taken from
+    the last attempt. A generation that burned a chain, retried and then
+    succeeded cost both, and reporting only the second would under-state exactly
+    the case worth knowing about.
+
+    Recorded as `null` rather than guessed at when a provider answered and the
+    failure came afterwards — a `SchemaViolationError` or a `PlanningError`. A
+    wrong number would be worse than a missing one there, because it would
+    average into the failover statistics as if it were real.
+
+    **What it found on its first real row.** A served generation took 33.7
+    seconds, which alone reads as "generation is slow". `attempts=2` and the
+    warning line say otherwise: the NVIDIA tier spent its full 30-second timeout
+    before Groq answered in about four. Local only, and deliberately not
+    generalised — it says nothing about whether the production key is configured.
+
+    **The deploy ordering is a real hazard, so it is written in three places.**
+    `create table if not exists` does nothing on an existing database — it does
+    not diff the definition — so the columns arrive only via the two
+    `alter table ... add column if not exists` statements at the foot of
+    `db/schema.sql`. Ship the code before applying the file and every insert
+    fails on an unknown column; because `recordPlan` swallows its errors, plans
+    would stop persisting **silently**, which is the worst available failure
+    mode. Applying the file first is safe — two nullable columns are additive
+    and the old code never names them. Exercised against a database that already
+    held the pre-B2 table, and again to confirm idempotency.

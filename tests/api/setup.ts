@@ -57,6 +57,20 @@ export function signOut(): void {
   mockAuth.mockResolvedValueOnce(null);
 }
 
+// The route logs one `scopecraft.generation` line per generation (Module B2),
+// and the node suites drive the route 57 times. Left alone that is 57 lines of
+// noise on every `npm test`, which is how people stop reading test output.
+//
+// Filtered rather than blanket-silenced: only this one prefix is dropped, so a
+// stray console.log added later is still visible. The line stays under test —
+// the secret-leak guard spies on console.log directly, which replaces this
+// wrapper, and asserts no key or idea text reaches it.
+const realLog = console.log;
+console.log = (...args: unknown[]) => {
+  if (typeof args[0] === "string" && args[0].startsWith("scopecraft.generation ")) return;
+  realLog(...args);
+};
+
 beforeEach(() => {
   mockSql.mockClear();
   mockAuth.mockClear();

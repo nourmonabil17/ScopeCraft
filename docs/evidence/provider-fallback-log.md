@@ -152,3 +152,54 @@ by unit tests in [`tests/api/scopecraft.test.ts`](../../tests/api/scopecraft.tes
 [`api-contracts.md`](../api-contracts.md). `OUT_OF_DOMAIN` depends on the model choosing to
 emit the refusal envelope and is therefore not deterministic enough to assert in a capture
 run; it too is unit-tested (`returns 422 OUT_OF_DOMAIN instead of fabricating a plan`).
+
+---
+
+## Addendum — the chain now records itself (Module B2, 2026-09-04)
+
+Everything above was measured by hand. Since B2 the numbers come from the system: `plans`
+carries `duration_ms` and `attempts` per generation, and the route emits one
+`scopecraft.generation` line beside each row.
+
+**`attempts` is the column that makes the skip-versus-fail distinction above queryable.**
+That distinction has been stated in this document since it was written; it was not
+previously recorded anywhere, so `provider_used = 'groq'` could mean either "NVIDIA failed
+and we fell through" or "NVIDIA has no key and was skipped". `attempts` counts providers
+that were actually called, so the two now read differently in the data.
+
+Captured 2026-09-04 against a production build (`next start`) on a real Postgres — the
+local container, not Neon — after two real generations, one served and one forced to fail
+with dead credentials on all three tiers:
+
+```
+$ psql -c "select status, provider_used, attempts, count(*) as runs,
+           round(avg(duration_ms))::int as avg_ms
+           from plans where duration_ms is not null
+           group by status, provider_used, attempts order by runs desc"
+
+ status | provider_used | attempts | runs | avg_ms
+--------+---------------+----------+------+--------
+ ok     | groq          |        2 |    1 |  33738
+ failed |               |        3 |    1 |   1127
+```
+
+The matching server lines:
+
+```
+scopecraft.generation status=ok duration_ms=33738 attempts=2 provider=groq prompt=v7 code=none persisted=true
+AI provider failed: nvidia (timeout); trying next provider.
+```
+
+**Two runs is not a sample, and this table is not a statistic.** It is proof that the
+columns are written and queryable. Rate and latency claims need a real corpus, which is
+what shipping this makes possible rather than something it delivers.
+
+**One thing it did explain immediately.** The successful run took 33.7 seconds, which on its
+own looks like "generation is slow". `attempts=2` plus the warning line says it is not: the
+NVIDIA tier consumed its full 30-second timeout before Groq answered in about four. A
+number that turns an unexplained latency into a named cause on its first real row is the
+argument for the column.
+
+That is a **local** observation and is deliberately not generalised to production. It says
+nothing about the open question of whether `NVIDIA_API_KEY` is configured on Vercel — a
+missing key produces `attempts=1` there, and no production row has been read.
