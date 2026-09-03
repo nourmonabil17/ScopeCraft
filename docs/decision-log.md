@@ -1081,3 +1081,55 @@ nonce or hash policy and saying so is more useful than closing the row.
     would have passed whether the rule existed or not. The check reads the file
     and was confirmed to fail by breaking the rule before it was kept — the same
     method used for the header target sizes at Point 2.
+
+38. **The global `box-sizing` reset, and what it revealed — 2026-09-03, Module D, Point 6.**
+    Three stylesheets carried a local `box-sizing: border-box`, each with a
+    comment recording a measured bug it prevented: `InputForm`'s textarea pushing
+    the document ~10px past the viewport below ~800px; `Dialog`'s 491px content
+    box rendering 557px wide and forcing `margin-inline-end` to −28px; `Toast`'s
+    width cap overflowing itself. Two of those comments said explicitly that a
+    global reset was the right answer and that Module C was not allowed to add
+    one, because it would move every view that had not been rebuilt yet.
+
+    Every view has now been rebuilt, so the reset landed and the three local
+    declarations came out. **All three comments were read before any was
+    removed** — the plan insisted on that, and it was right to: the reasoning is
+    now kept in the global rule, because that rule is the only thing preventing
+    all three bugs at once. Anything setting its own `inline-size` depends on it.
+
+    **It was verified, not assumed.** No horizontal overflow at 1280, 768 or
+    390px in either direction — six combinations, measured from the live DOM.
+
+    **What it revealed.** The sticky header measured 79px before and 61px after.
+    Nothing shrank that should not have: controls declaring
+    `min-block-size: 2.75rem` were `content-box`, so they rendered 44px *plus*
+    padding and border — roughly 62px. They now render exactly 44px. The 44px
+    comfort target that Point 2 and Point 3 were written to hit was being
+    over-satisfied by accident, and is now hit deliberately. Compared against the
+    committed pre-change screenshot at 390px, the mobile header is tighter and
+    better; the three-row wrap at that width is unchanged and pre-existing.
+
+    **A trap worth recording, because it cost a round trip.** The gate for this
+    whole module is a tree-wide count of legacy custom-property references
+    reaching zero. Writing that command into a comment in `layout.tsx` made the
+    count report 1 — the grep matched its own documentation — so the gate could
+    never close. The comment now points at the checklist rather than quoting the
+    pattern, and the guard test builds the string from fragments for the same
+    reason.
+
+39. **Five copies of the screen-reader-only rule became one — 2026-09-03, Module D, Point 6.**
+    `.srOnly` was defined identically in `Field`, `InputForm`, `ExportActions`,
+    `InteractiveSprintBoard` and `LoadingState` — one per point that needed it,
+    none aware of the others. Two had already drifted: three used the deprecated
+    `clip: rect()` with physical `width`/`height`, two used `clip-path: inset(50%)`
+    with logical sizing. **`ExportActions`' copy had no consumer at all.**
+
+    They are now one global `.sc-sr-only` in `layout.tsx`, beside `.sc-skip-link`,
+    which was already a global utility — so this adds no new file and no new
+    import. Consumers use the plain class string rather than a CSS-module
+    reference.
+
+    This waited until Point 6 rather than being folded into a view rebuild
+    because it touches five stylesheets that four separate points produced.
+    Doing it inside any one of them would have made that point's diff span files
+    it had no business changing.

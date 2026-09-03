@@ -73,12 +73,12 @@ a real bug in this project.
 | ~~11~~ **0** | `WelcomeModal.module.css` | 4 ✅ |
 | ~~13~~ **0** | `StateViews.module.css` | 5 ✅ |
 | ~~13~~ **0** | `common/Toast.module.css` | 5 ✅ |
-| 12 | `EvidencePanel.module.css` | 6 |
-| 8 | `page.module.css` | 6 |
-| 7 | `ExportActions.module.css` | 6 |
-| 3 | `BackLink.module.css` | 6 |
-| 2 | `layout.tsx` | 6 |
-| **169** → **32** | | Points 1–5 done |
+| ~~12~~ **0** | `EvidencePanel.module.css` | 6 ✅ |
+| ~~8~~ **0** | `page.module.css` | 6 ✅ |
+| ~~7~~ **0** | `ExportActions.module.css` | 6 ✅ |
+| ~~3~~ **0** | `BackLink.module.css` | 6 ✅ |
+| ~~2~~ **0** | `layout.tsx` | 6 ✅ |
+| **169** → **0** | | **Points 1–6 done** |
 
 The only three non-approved media queries left were `ToggleControls` (`max-width: 34rem`
 ×2) and `InteractiveSprintBoard` (`max-width: 42rem`) — which was exactly the two-entry
@@ -341,13 +341,21 @@ five `.srOnly` definitions and three `box-sizing` declarations.
 
 **What changes:** 32 → **0 tree-wide.** Then, and only then:
 
-- [ ] **Delete the `--sc-*` block** from `src/app/layout.tsx` — the whole point of
-      the preceding six. Gate: `git grep -o 'var(--sc-' -- src | wc -l` returns `0`.
-- [ ] **Consolidate `.srOnly`.** Defined five times: `Field`, `InputForm`,
+- [x] **Delete the `--sc-*` block** from `src/app/layout.tsx` — the whole point of
+      the preceding six. Gate returns **0**. Both legacy `:root` blocks went,
+      including `--bg`/`--fg`, whose only consumer was `body`.
+- [x] **Consolidate `.srOnly`.** 5 → 1, as `.sc-sr-only` in `layout.tsx`.
+      Two copies had already drifted (`clip: rect()` vs `clip-path`), and
+      `ExportActions`' had no consumer. Entry 39.
+      *Original text:* Defined five times: `Field`, `InputForm`,
       `ExportActions`, `InteractiveSprintBoard`, `LoadingState`. One definition,
       in the generated token CSS or a single shared module. This touches four points'
       output, which is why it waits until they are all done.
-- [ ] **Add the global `box-sizing: border-box` reset** and remove the three local
+- [x] **Added the global `box-sizing: border-box` reset.** All three comments
+      read first. Verified: no overflow at 1280/768/390 in either direction. It
+      also made the declared sizes real — the header went 79px → 61px because
+      controls declaring 2.75rem were content-box and rendering ~62px. Entry 38.
+      *Original text:* and remove the three local
       declarations in `InputForm.module.css:53`, `Dialog.module.css:17`,
       `Toast.module.css:17`. Each carries a comment recording the bug it prevents —
       read all three before removing any, and keep the reasoning in the global rule.
@@ -357,6 +365,25 @@ five `.srOnly` definitions and three `box-sizing` declarations.
 
 **Check:** the count is 0; the app renders identically in both themes and both
 directions; no horizontal overflow appears anywhere from the box-sizing change.
+
+**Done 2026-09-03, commit `80850ac`.** Count is 0; overflow clean in all six
+combinations. "Renders identically" turned out to be the wrong bar and is recorded as
+such: the reset deliberately changes rendering, and the header moved 79px → 61px
+because controls were content-box and rendering ~62px against a declared 44px. Checked
+against the committed pre-change screenshot rather than by eye — the mobile header is
+tighter and better, and the three-row wrap at 390px is pre-existing.
+
+**The gate greps for its own pattern.** Quoting the command in a `layout.tsx` comment
+made the count report 1 and the gate could never close. The comment points at the
+checklist instead, and the guard test builds the string from fragments.
+
+**Four guards now hold the line**: no legacy property anywhere under `src`, the
+sr-only rule defined exactly once, `box-sizing` declared exactly once.
+
+**The capture is still quota-blocked** from Point 5 — the audit and the eleven
+non-generated screens ran and passed, which is what verifies the box-sizing change, but
+the generated screens did not regenerate, so the partial evidence was reverted again.
+Point 7's F5 re-capture produces the coherent set.
 
 ---
 
