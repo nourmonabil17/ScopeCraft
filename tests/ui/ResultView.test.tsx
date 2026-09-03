@@ -230,3 +230,53 @@ describe("ResultView · Arabic", () => {
     expect(within(screen.getByTestId("story-card-US-1")).getByText("يجب")).toBeInTheDocument();
   });
 });
+
+describe("ResultView · MoSCoW and risk are encoded without hue", () => {
+  // Four buckets, four weights, in descending commitment. The mapping is the
+  // assertion: if someone re-adds a colour-per-bucket, these still pass, which
+  // is why the sibling test below checks the colour classes are gone.
+  it.each([
+    ["US-1", "solid"],
+    ["US-2", "outline"],
+    ["US-3", "dashed"],
+    ["US-4", "faint"],
+  ])("gives %s the %s chip weight", (storyId, weight) => {
+    renderWithProviders(<ResultView data={FIXTURE} />);
+    const card = screen.getByTestId(`story-card-${storyId}`);
+    expect(card.querySelector(`.${weight}`)).not.toBeNull();
+  });
+
+  // Three levels reuse the top three weights; `faint` is a fourth bucket, not
+  // a fourth level, so it does not appear here.
+  it("gives the risk levels the top three weights", () => {
+    renderWithProviders(<ResultView data={FIXTURE} />);
+    const table = screen.getAllByRole("table")[0];
+    expect(within(table).getByText("high").className).toContain("solid");
+    expect(within(table).getAllByText("medium")[0].className).toContain("outline");
+    expect(within(table).getAllByText("low")[0].className).toContain("dashed");
+  });
+
+  // identity-obj-proxy makes styles.badgeMust the string "badgeMust", so a
+  // leftover hue class is visible in the DOM even though no colour is. This
+  // is the test that fails if the MoSCoW palette creeps back in.
+  //
+  // Scoped to the overview panel deliberately. InteractiveSprintBoard has its
+  // own .badgeMust..badgeWont, and identity-obj-proxy gives both stylesheets
+  // the identical class string — so an unscoped query would fail on the
+  // board's badges, which belong to D5 and are not this point's to remove.
+  it("renders no hue-coded bucket or level class at all", () => {
+    renderWithProviders(<ResultView data={FIXTURE} />);
+    const overview = screen.getByTestId("result-panel-overview");
+    for (const gone of [
+      "badgeMust", "badgeShould", "badgeCould", "badgeWont",
+      "impactHigh", "impactMedium", "impactLow",
+    ]) {
+      expect(overview.querySelector(`.${gone}`)).toBeNull();
+    }
+  });
+
+  it("puts every story card on the Card primitive", () => {
+    renderWithProviders(<ResultView data={FIXTURE} />);
+    expect(screen.getByTestId("story-card-US-1")).toHaveClass("card");
+  });
+});

@@ -115,12 +115,12 @@
   gap: 0.875rem;
 }
 
+/* Card supplies the surface: --c-panel, the hairline rule, the radius and the
+   padding. What is left here is the internal rhythm, which is this view's
+   business and not the primitive's. */
 .storyCard {
-  border: 1px solid var(--sc-border);
-  border-radius: 0.625rem;
-  padding: 1rem;
-  background: var(--sc-surface-raised);
-  box-shadow: var(--sc-shadow);
+  display: flex;
+  flex-direction: column;
 }
 
 .storyHeader {
@@ -143,23 +143,6 @@
   gap: 0.375rem;
   flex-wrap: wrap;
 }
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.1875rem 0.5rem;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 0.6875rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.badgeMust { color: var(--sc-must); background: var(--sc-must-surface); }
-.badgeShould { color: var(--sc-should); background: var(--sc-should-surface); }
-.badgeCould { color: var(--sc-could); background: var(--sc-could-surface); }
-.badgeWont { color: var(--sc-wont); background: var(--sc-wont-surface); }
 
 .storyStatement {
   margin: 0.625rem 0;
@@ -238,18 +221,6 @@
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
-
-.impactChip {
-  display: inline-flex;
-  padding: 0.0625rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.impactHigh { color: var(--sc-danger); background: var(--sc-danger-surface); }
-.impactMedium { color: var(--sc-warning); background: var(--sc-warning-surface); }
-.impactLow { color: var(--sc-text-muted); background: var(--sc-surface-subtle); }
 
 .tableScroll {
   overflow-x: auto;
