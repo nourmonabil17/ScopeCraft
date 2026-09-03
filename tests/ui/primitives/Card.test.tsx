@@ -60,4 +60,33 @@ describe("Card", () => {
     expect(container.firstElementChild).toHaveClass("wide");
     expect(container.firstElementChild).toHaveClass("card");
   });
+
+  // A story card is an <article>. An article with no accessible name is an
+  // unlabelled landmark-adjacent region, so the name has to be able to get in
+  // — and the name lives on a heading that is already inside the card.
+  it("names itself from an element inside it", () => {
+    render(
+      <Card as="article" labelledBy="story-US-1-heading" testId="story-card-US-1">
+        <span id="story-US-1-heading">US-1</span>
+      </Card>
+    );
+    const card = screen.getByTestId("story-card-US-1");
+    expect(card.tagName).toBe("ARTICLE");
+    expect(card).toHaveAttribute("aria-labelledby", "story-US-1-heading");
+  });
+
+  it("takes an id so something else can point at it", () => {
+    const { container } = render(<Card id="panel-1">body</Card>);
+    expect(container.firstElementChild).toHaveAttribute("id", "panel-1");
+  });
+
+  // The reason there is no {...rest} spread: it would carry onClick, and a
+  // clickable div is exactly what this component's header refuses to be.
+  it("emits no attribute for props that were not passed", () => {
+    const { container } = render(<Card>body</Card>);
+    const card = container.firstElementChild!;
+    expect(card).not.toHaveAttribute("id");
+    expect(card).not.toHaveAttribute("aria-labelledby");
+    expect(card).not.toHaveAttribute("data-testid");
+  });
 });

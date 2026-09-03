@@ -69,6 +69,15 @@ describe("design tokens meet WCAG 2.2 AA", () => {
     expect(contrastRatio(t.textFaint, t.ground)).toBeGreaterThanOrEqual(3);
   });
 
+  // The WON'T chip is faint text on a story card, not on the page ground.
+  // It measures 4.54:1 light / 5.88:1 dark, so it is held to the full 4.5
+  // rather than the 3:1 large-text floor it gets on ground — a bucket label
+  // nobody can read is a bucket label that is not doing its job.
+  it.each(themes)("%s: faint text on a panel clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.textFaint, t.panel)).toBeGreaterThanOrEqual(4.5);
+  });
+
   // SC 1.4.11: a rule that separates content is a non-text contrast target.
   it.each(themes)("%s: strong rule on ground clears 3:1", (theme) => {
     const t = tokens.color[theme];
