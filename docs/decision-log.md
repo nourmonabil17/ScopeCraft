@@ -864,6 +864,30 @@ nonce or hash policy and saying so is more useful than closing the row.
     the auth gate and were never seen rendered. The unit suite proves they use the primitive;
     nothing has yet confirmed how the mismatch actually looks.
 
+    **Closed 2026-09-03, Point 2, commit `596cea0`.** `ToggleControls.module.css` was
+    rebuilt onto the `--c-*` tokens and every box in it is now `2.75rem`, the number
+    `Button` states. `PRE_REBUILD_EXEMPT` is empty, so the condition this entry named
+    for its own closure — "it closes when the toggles are rebuilt and come off the
+    exemption list" — is met on both halves.
+
+    **And it has now been seen.** The paragraph above is the reason to say so
+    explicitly: the mismatch was recorded for four points without anyone having looked
+    at it. `docs/evidence/ui/shots/01-idle-desktop-light.png`, recaptured against this
+    build, shows the signed-in header — Home, Your plans, Sign out, the language
+    segmented control and the theme toggle — sitting on one line at one height. The
+    audit's own numbers moved with it: the Home link's contrast rose from 17.03 to 19.8
+    in light and 13.71 to 14.48 in dark, because its surface changed from the legacy
+    raised grey to `--c-panel`. Light dropped from 19 measured combinations to 18 — a
+    merge, not a loss, since the link's background is now identical to the ground it
+    sits on. Interactive controls stayed at 16 with 0 unnamed.
+
+    **What keeps it closed:** `tests/evaluation/design-tokens.test.ts` reads
+    `Button.module.css` and `ToggleControls.module.css` from disk and fails if any
+    control in the latter declares a different `min-block-size` from the former. jsdom
+    resolves no CSS — `identity-obj-proxy` returns the class name and nothing else — so
+    a rendered assertion would have passed whatever the values were. The check was
+    confirmed to fail by breaking it before it was kept.
+
 32. **The token set gained an error colour it never had — 2026-09-02, Module D2.**
     The ten roles approved in Module C carry no way to say "this is wrong".
     That went unnoticed because nothing had used them yet; D2 put a

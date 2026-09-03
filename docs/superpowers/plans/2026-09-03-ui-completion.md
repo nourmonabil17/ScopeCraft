@@ -66,7 +66,7 @@ a real bug in this project.
 | Occurrences | File | Point |
 |---:|---|---|
 | ~~37~~ **0** | `InteractiveSprintBoard.module.css` | 1 ✅ |
-| 19 | `ToggleControls.module.css` | 2 |
+| ~~19~~ **0** | `ToggleControls.module.css` | 2 ✅ |
 | 26 | `HistoryList.module.css` | 3 |
 | 2 | `SavedPlanView.module.css` | 3 |
 | 16 | `LoginCard.module.css` | 4 |
@@ -78,7 +78,7 @@ a real bug in this project.
 | 7 | `ExportActions.module.css` | 6 |
 | 3 | `BackLink.module.css` | 6 |
 | 2 | `layout.tsx` | 6 |
-| **169** → **132** | | Point 1 done |
+| **169** → **113** | | Points 1–2 done |
 
 The only three non-approved media queries left were `ToggleControls` (`max-width: 34rem`
 ×2) and `InteractiveSprintBoard` (`max-width: 42rem`) — which was exactly the two-entry
@@ -174,6 +174,24 @@ row sits uneven.
 
 **Check:** breakpoint audit passes with an empty exemption list. `ThemeAndLocale.test.tsx`
 passes unchanged.
+
+**Done 2026-09-03, commits `596cea0`, `051263f`.** Both checks met; the exemption list
+is `[]` and its assertion was kept rather than deleted, so the list cannot quietly
+reopen. `Header.tsx` and `HistoryLink.tsx` were also consumers of this stylesheet — the
+plan listed only the two toggles — but both use `.linkButton` through `className`, so
+neither needed a component change.
+
+Two things the plan did not anticipate. The controls **stay hand-rolled** rather than
+adopting `Button`: two of the four are not buttons (`.linkButton` is an `<a>`,
+`.segment` is a `role="radio"`), and promoting only the one real button would have
+recreated the mismatch this point exists to remove — so the invariant is enforced by a
+test that reads both stylesheets instead. And the condensed labels **must stay visually
+hidden rather than `display: none`**: `.segmentShort` is `aria-hidden`, so the full
+label is the only thing naming its radio, and removing it from the layout would leave
+the language control nameless on every phone.
+
+Entry 31 is closed, and the header was **looked at** for the first time — that entry had
+recorded the mismatch for four points while explicitly noting nobody had seen it.
 
 ---
 
