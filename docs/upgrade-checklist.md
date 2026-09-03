@@ -477,7 +477,52 @@ One point per view. Each is rebuilt, then reviewed against
       the same list. `border-bottom` became `border-block-end` and
       `min-height` became `min-block-size` while there — physical properties in
       a file that renders in both directions.
-- [ ] **D8 — Login and welcome modal.**
+- [x] **D8 — Login and welcome modal.** *Done 2026-09-03, commit `d6037d7`.*
+      27 legacy references to 0. `LoginCard` takes `Card`, which is what drops
+      `--sc-shadow`; `WelcomeModal` takes `Dialog`, which drops `--sc-shadow-lg`
+      and deletes the local `.dialog` rule along with the component's own ref,
+      `showModal()` effect and UA resets.
+
+      **The local `.dialog` rule going away matters beyond the count.** The
+      `box-sizing` declaration in `Dialog.module.css` carries a measured bug
+      behind it — a 491px content box rendering 557px wide and pushing
+      `margin-inline-end` to −28px — and a second panel rule in the consumer is
+      how the two drift apart. A test asserts the modal renders through the
+      primitive's class, so it cannot quietly grow its own again. That
+      declaration was **not** removed; it comes out with the global reset at
+      Point 6, as planned.
+
+      **Both provider buttons take `Button` and differ only by variant.** Google
+      is `secondary` rather than as a styling choice: its brand guidelines
+      require a neutral, non-brand-coloured button with the mark carrying the
+      colour, which is what `secondary` already is.
+
+      **`disabled` became `busy`.** A disabled control leaves the tab order, so
+      a keyboard user who was on the button when the redirect started loses
+      their place with nothing announced. `busy` keeps it reachable and
+      announced while suppressing the action. Both buttons go busy together, so
+      neither can start a second sign-in while the first is in flight — the
+      property `disabled` was actually there for, now asserted directly rather
+      than implied by the attribute.
+
+      **A stale caption in the capture script was fixed on the way.** It read
+      "GitHub is the only credential path". That is backwards: the page renders
+      a button per provider with configured credentials, and the capture machine
+      has only `AUTH_GOOGLE_*`, so the committed `00-login.png` shows a Google
+      button under a caption naming GitHub. Found by looking at the screenshot
+      rather than at the exit code.
+
+      **Verified by `npm run capture:ui`**, exit 0. Unlike D6, this page *is* in
+      the capture set, so `00-login.png` is real evidence of the rebuilt card —
+      shown here in Arabic RTL. 18 contrast pairs light and 20 dark with none
+      below AA, 0 unnamed controls, 0 heading skips, no horizontal overflow at
+      1280, 768 or 390px in both directions. Suite 467 → 472.
+
+      **Not covered by this point.** `tests/ui/WelcomeModal.test.tsx` emits one
+      React `act()` warning from the Escape test. It was verified to be
+      **pre-existing** — the same warning appears on unmodified `HEAD` — and is
+      test hygiene rather than a product fault, so it was left alone rather than
+      folded into a point about tokens.
 - [ ] **D9 — Error, empty, refusal and validation states.** The end of the
       peak-end rule: a failed generation is an ending too.
 

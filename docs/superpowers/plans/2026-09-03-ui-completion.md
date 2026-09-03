@@ -69,8 +69,8 @@ a real bug in this project.
 | ~~19~~ **0** | `ToggleControls.module.css` | 2 ✅ |
 | ~~26~~ **0** | `HistoryList.module.css` | 3 ✅ |
 | ~~2~~ **0** | `SavedPlanView.module.css` | 3 ✅ |
-| 16 | `LoginCard.module.css` | 4 |
-| 11 | `WelcomeModal.module.css` | 4 |
+| ~~16~~ **0** | `LoginCard.module.css` | 4 ✅ |
+| ~~11~~ **0** | `WelcomeModal.module.css` | 4 ✅ |
 | 13 | `StateViews.module.css` | 5 |
 | 13 | `common/Toast.module.css` | 5 |
 | 12 | `EvidencePanel.module.css` | 6 |
@@ -78,7 +78,7 @@ a real bug in this project.
 | 7 | `ExportActions.module.css` | 6 |
 | 3 | `BackLink.module.css` | 6 |
 | 2 | `layout.tsx` | 6 |
-| **169** → **85** | | Points 1–3 done |
+| **169** → **58** | | Points 1–4 done |
 
 The only three non-approved media queries left were `ToggleControls` (`max-width: 34rem`
 ×2) and `InteractiveSprintBoard` (`max-width: 42rem`) — which was exactly the two-entry
@@ -256,6 +256,24 @@ declaration prevents — do not remove it early.
 
 **Check:** the dialog still traps focus and closes on Escape;
 `installDialogPolyfill()` still supplies `showModal`/`close` in jsdom.
+
+**Done 2026-09-03, commit `d6037d7`.** Both met — the Escape test passes unchanged
+through `Dialog`'s own `close` handler, and the polyfill needed no change.
+
+The **watch held**: `Dialog.module.css`'s `box-sizing` was not touched, and the local
+`.dialog` rule in `WelcomeModal.module.css` was deleted rather than ported, so there is
+now exactly one panel rule instead of two that could drift. A test pins the modal to the
+primitive's class.
+
+Beyond the plan: both provider buttons took `Button` (Google as `secondary`, which its
+brand guidelines require) and moved from `disabled` to **`busy`** — a disabled control
+leaves the tab order, and `busy` keeps it reachable while still blocking a second
+sign-in. The CTA took `Button` too.
+
+**A stale caption in `capture-ui-evidence.mjs` was fixed on the way**: it claimed
+"GitHub is the only credential path" while the committed shot shows a Google button,
+because this machine has only `AUTH_GOOGLE_*`. Found by looking at the screenshot rather
+than the exit code.
 
 ---
 
