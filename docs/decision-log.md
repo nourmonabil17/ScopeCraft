@@ -1023,3 +1023,61 @@ nonce or hash policy and saying so is more useful than closing the row.
     this module have now carried a count or a mapping that did not survive
     contact with the tree; reading the file before trusting the plan is the
     only thing that has caught any of them.
+
+36. **The toast announcement moved from the container to each toast — 2026-09-03, Module D9.**
+    The viewport was a single `role="status" aria-live="polite"` region wrapping
+    every tone. That is a defensible design and its reasoning was written down
+    in `ToastContext.tsx`: a live region must exist before content changes or
+    assistive tech never registers it, and mounting a new region per message is
+    the classic mistake. The problem is that it made **every** tone polite, so
+    an error waited for a pause in speech. For a failed generation that can mean
+    acting on a plan that was never produced.
+
+    **What changed.** Each toast now carries its own role through the `Toast`
+    primitive — `alert` for an error, `status` otherwise — and the container
+    carries no live-region semantics at all, so those roles are never nested
+    inside a politer ancestor. Nesting is what made the error polite.
+
+    **Traded:** the guarantee that the region pre-existed the message.
+    **Against:** errors that announce when they happen rather than when the
+    speech queue drains.
+
+    **Why that is the right side of the trade, and where it is weakest.**
+    `role="alert"` is specified to be announced on insertion — that is the
+    entire reason the role exists — so the urgent case, the one that was broken,
+    is also the case with the strongest support for the new shape. Success and
+    info now rely on a freshly inserted `role="status"` being picked up, which is
+    less reliable than mutating inside a pre-registered region. **That is a real
+    weakening for the non-urgent tones and it is not measured**: this project has
+    no screen-reader test rig, so what is asserted is the role attributes and the
+    absence of nesting, not what a reader actually says. If a polite toast is
+    ever reported as silent, the fix is a persistent empty polite region beside
+    the alert path, not a return to wrapping everything in one.
+
+    **One existing test asserted the old shape and was rewritten rather than
+    deleted**, so the change is visible in the diff as a reversal rather than as
+    a disappearance. It now asserts the viewport is *not* a live region, that an
+    error is `alert` and a success is `status`, and that no toast sits inside
+    another live region.
+
+37. **The loading shimmer swept the wrong way in Arabic — 2026-09-03, Module D9.**
+    `LoadingState.module.css` animates its skeleton highlight with
+    `translateX(-100%) → translateX(100%)`. `transform` is physical; there is no
+    logical translate. So the sweep moved visually left-to-right regardless of
+    direction, against text that reads right-to-left.
+
+    Carried byte-identical from the pre-rebuild stylesheet, so it predates D3 and
+    was not introduced by the rebuild — D3 recorded it and left it, because D9
+    owns this file. It is decorative and `aria-hidden`, which is why it survived
+    four points of review without anyone noticing: nothing about it is wrong to a
+    screen reader, and nobody had watched the loading state in Arabic.
+
+    **The fix is one rule**: `animation-direction: reverse` under `[dir="rtl"]`.
+    The gradient is symmetric — transparent → highlight → transparent — so it
+    needs no counterpart flip, and reversing the keyframe is the whole change.
+
+    **Asserted from the stylesheet, not from a render.** jsdom resolves no CSS
+    and `identity-obj-proxy` returns the class name, so a rendered assertion
+    would have passed whether the rule existed or not. The check reads the file
+    and was confirmed to fail by breaking the rule before it was kept — the same
+    method used for the header target sizes at Point 2.

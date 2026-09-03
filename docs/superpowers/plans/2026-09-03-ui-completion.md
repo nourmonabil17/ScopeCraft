@@ -71,14 +71,14 @@ a real bug in this project.
 | ~~2~~ **0** | `SavedPlanView.module.css` | 3 ✅ |
 | ~~16~~ **0** | `LoginCard.module.css` | 4 ✅ |
 | ~~11~~ **0** | `WelcomeModal.module.css` | 4 ✅ |
-| 13 | `StateViews.module.css` | 5 |
-| 13 | `common/Toast.module.css` | 5 |
+| ~~13~~ **0** | `StateViews.module.css` | 5 ✅ |
+| ~~13~~ **0** | `common/Toast.module.css` | 5 ✅ |
 | 12 | `EvidencePanel.module.css` | 6 |
 | 8 | `page.module.css` | 6 |
 | 7 | `ExportActions.module.css` | 6 |
 | 3 | `BackLink.module.css` | 6 |
 | 2 | `layout.tsx` | 6 |
-| **169** → **58** | | Points 1–4 done |
+| **169** → **32** | | Points 1–5 done |
 
 The only three non-approved media queries left were `ToggleControls` (`max-width: 34rem`
 ×2) and `InteractiveSprintBoard` (`max-width: 42rem`) — which was exactly the two-entry
@@ -300,6 +300,31 @@ work D9 throws away. `--sc-shadow-lg` on the toast goes the way of every other s
 
 **Check:** an error toast announces immediately; one live region in the tree asserted
 by test; RTL shimmer verified in an `ar` render.
+
+**Done 2026-09-03, commit `5fdc3d5`.** Both bugs fixed; entries 36 and 37.
+
+Two notes where the check as written did not survive contact:
+
+**"One live region in the tree" is not literally achievable** alongside "give an error
+tone `role=\"alert\"`" — the viewport plus an alert is two. The intent was clearly
+*no nesting*, and that is what was built: the viewport carries no live-region semantics
+and each toast carries its own role. Asserted as "no toast sits inside another live
+region", which is the property that actually matters.
+
+**The RTL shimmer could not be "verified in an `ar` render".** jsdom resolves no CSS and
+`identity-obj-proxy` returns the class name, so a rendered assertion would pass whether
+the rule existed or not. It is asserted from the stylesheet instead, and the assertion
+was verified to fail by breaking the rule — the method Point 2 used for target sizes.
+
+**The capture could not complete**, for a reason unrelated to this point: the capture
+account hit its own `RATE_LIMITED` ceiling of 20 plans/day, this being the fourth run of
+the day at two generations each. The partial evidence was reverted rather than committed.
+Re-run after the quota resets.
+
+*Aside, not acted on:* tripping that limiter is live proof that **Module B's B1 is at
+least partly built already** — `src/lib/quota.ts` enforces 20/day and the endpoint
+returns a typed `RATE_LIMITED` envelope, not a bare 429. B1 is still unticked. Not this
+plan's to tick, but worth checking before it is worked.
 
 **Note:** `npm run capture:ui` **never renders any of these states** — it audits the
 idle `/scopecraft` page only. Every new contrast pair must be asserted in

@@ -523,8 +523,54 @@ One point per view. Each is rebuilt, then reviewed against
       **pre-existing** — the same warning appears on unmodified `HEAD` — and is
       test hygiene rather than a product fault, so it was left alone rather than
       folded into a point about tokens.
-- [ ] **D9 — Error, empty, refusal and validation states.** The end of the
-      peak-end rule: a failed generation is an ending too.
+- [x] **D9 — Error, empty, refusal and validation states.** *Done 2026-09-03,
+      commit `5fdc3d5`.* 26 legacy references to 0, and both bugs this point was
+      carrying.
+
+      **The nested live region.** The toast viewport was a single
+      `role="status" aria-live="polite"` wrapping every tone, so an error
+      announcement waited for a pause in speech. The announcement moved onto each
+      toast through the `Toast` primitive — `alert` for an error, `status`
+      otherwise — and the container now carries no live-region semantics, so
+      those roles are never nested inside a politer ancestor. What that trades,
+      and where it is weakest, is [`decision-log.md`](decision-log.md) entry 36.
+      **One existing test asserted the old shape and was rewritten rather than
+      deleted**, so the reversal is visible in the diff.
+
+      **The RTL shimmer.** `transform` is physical, so `translateX(100%)` swept
+      visually left-to-right in Arabic against right-to-left text. One rule
+      reverses it under `[dir="rtl"]`; the gradient is symmetric so it needs no
+      counterpart flip. Entry 37. Pre-existing and carried byte-identical from
+      before the rebuild — it survived four points of review because it is
+      decorative and `aria-hidden`, so nothing about it is wrong to a screen
+      reader and nobody had watched the loading state in Arabic.
+
+      **`.retryButton` and `.startOverButton` are gone**, replaced by `Button`
+      across all four state views. That is the work D3 explicitly deferred here
+      rather than porting something D9 would throw away. Nothing in
+      `StateViews.module.css` styles a control any more, asserted directly.
+
+      Both new checks read their stylesheet from disk, because jsdom resolves no
+      CSS, and **both were verified to fail by breaking the rule** before being
+      kept. Suite 472 → 482.
+
+      **The capture could not complete, and not because of this change.** The
+      run stopped at the generation step with `RATE_LIMITED` — the capture
+      account had used all 20 of its daily plans, this being the fourth capture
+      run of the day at two real generations each. `14-provider-error.png`,
+      which renders `ErrorState` and *is* one of this point's files, captured
+      cleanly before the quota bit; the audit passed with identical numbers, 18
+      contrast pairs light and 20 dark, none below AA. The partially regenerated
+      screenshots were **reverted rather than committed**: a set where six shots
+      are from an older run and eleven from a failed one is not evidence of
+      anything. The committed evidence remains the complete D8 capture.
+      **Re-run `npm run capture:ui` after the quota resets to close this.**
+
+      **Not covered by this point.** The four states are still absent from the
+      capture's screenplay apart from the provider error, so their contrast pairs
+      live in `design-tokens.test.ts` rather than in a measured audit — the limit
+      D3 first recorded and the reason this point leaned on token assertions.
+      `.srOnly` is still defined five times; that consolidation is Point 6.
 
 ---
 
