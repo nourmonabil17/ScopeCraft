@@ -93,11 +93,19 @@ The three findings from reading [`providers.ts`](../src/lib/ai/providers.ts) and
 
 ## Module B — Backend and API
 
-- [ ] **B1 — Rate-limit the anonymous endpoint.**
-      `POST /api/scopecraft` is anonymous and unmetered. This is documented and
-      deliberate for the MVP (known issue #6), so this point is about closing it
-      *knowingly*, not about calling the current state a bug. Per-IP or
-      per-session counter in Postgres, no new dependency.
+- [ ] **B1 — Rate-limit the authenticated endpoint.**
+      **Re-scoped 2026-09-03. The premise changed under this point.** It used to
+      read "rate-limit the anonymous endpoint", because `POST /api/scopecraft`
+      was anonymous and unmetered. It no longer is: the auth work put a session
+      check at stage 0 of the route, and an anonymous `POST` to production
+      returns `401 UNAUTHORIZED` before the body is read — confirmed live.
+
+      So the job is smaller than it was. This is no longer about closing an open
+      door; it is about stopping one signed-in account from spending the
+      project's provider budget in a loop. A per-session counter in Postgres is
+      now the obvious shape — `user_id` is already on every request, so there is
+      no need for the per-IP fallback the anonymous version would have required,
+      and no new dependency.
       *Check:* the limit trips in an integration test and returns a typed
       envelope, not a bare 429.
 

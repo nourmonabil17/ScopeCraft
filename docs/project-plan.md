@@ -827,13 +827,35 @@ hardest.
       [`security-review.md`](security-review.md).
 - [x] **8.1.7** Confirm `X-Powered-By` is still absent. **Absent** on the live response.
 - [ ] **8.1.8** Confirm the session cookie is `httpOnly`, `sameSite=lax`, and `secure` in
-      production. **Cannot be checked: there is no authentication in production.** `/login`
-      returns **404** and `/scopecraft` returns a cached prerender, so the deployed build
-      predates the auth work entirely. Blocked behind the deployment, not behind analysis.
-- [ ] **8.1.9** Confirm CSRF protection is active on the auth routes. **Not verified, and
-      deliberately not assumed.** Unreachable in production (no auth deployed) and
-      unreachable locally — `.env.local` has no `AUTH_SECRET` or `AUTH_GITHUB_*`, so the
-      auth routes cannot be exercised on this machine either.
+      production. **Mostly verified 2026-09-03; the last step needs a sign-in.** The old
+      blocker — no auth in production — is gone. `src/auth.ts` sets no `cookies` override, so
+      Auth.js defaults apply to every cookie it issues, and the two it issues to an
+      anonymous caller were read live off `GET /api/auth/csrf`:
+
+      ```
+      __Host-authjs.csrf-token=…;   Path=/; HttpOnly; Secure; SameSite=Lax
+      __Secure-authjs.callback-url=…; Path=/; HttpOnly; Secure; SameSite=Lax
+      ```
+
+      All three attributes correct on both, and the `__Host-` prefix is browser-enforced —
+      it cannot be set without `Secure` and `Path=/`, so production is demonstrably in
+      secure-cookie mode. **Left unticked deliberately:** the *session* cookie is only issued
+      after a successful OAuth callback, so it was not observed. It comes from the same
+      default config as the two above, but inferred is not measured. Ticking this needs one
+      browser sign-in and a look at `__Secure-authjs.session-token`.
+- [x] **8.1.9** Confirm CSRF protection is active on the auth routes. **Verified live
+      2026-09-03, both directions.** A sign-in `POST` with no CSRF token is rejected by name:
+
+      ```
+      POST /api/auth/signin/github  (no token)   302 → /login?error=MissingCSRF
+      POST /api/auth/signin/github  (cookie+token) 302 → github.com/login/oauth/authorize
+      ```
+
+      The negative case alone would not prove much — everything on that route answers `302`.
+      The positive case is what makes it evidence: the same request with a matching
+      `__Host-authjs.csrf-token` cookie and form token proceeds to the provider. Double-submit
+      is enforced, not merely issued. The authorize URL also carries
+      `code_challenge_method=S256`, so PKCE is on.
 - [x] **8.1.10** Confirm error responses leak nothing on **every** path. **All 21 `fail()`
       sites** across both routes reviewed. Every message is a static string; the only
       interpolations are the quota limit and count, both integers. Zod issues are mapped to
