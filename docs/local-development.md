@@ -146,7 +146,7 @@ URL on the same one.
 ```bash
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint --max-warnings=0
-npm test              # 492 tests, 21 suites
+npm test              # 496 tests, 21 suites
 npm run build
 ```
 

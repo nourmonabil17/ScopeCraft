@@ -1232,3 +1232,56 @@ nonce or hash policy and saying so is more useful than closing the row.
     would otherwise lose that with nothing to notice.
 
     Prompt contract bumped to **v7**; `X-Prompt-Version` reports it.
+
+42. **Reduced motion became a token, and the per-file blocks turned out to be
+    already dead — 2026-09-04, Module E, E1.**
+
+    The checklist framed E1 as "`prefers-reduced-motion` is honoured in three
+    files today; in the rebuild it is a token-level rule". Reading the four files
+    that actually carried it (the count was wrong too) showed the interesting
+    half: **three of the four blocks had no effect at all.**
+
+    `layout.tsx` already carried the standard global nuke —
+    `transition-duration: 0.001ms !important` on `*`. An author `!important`
+    declaration beats a non-important one whatever its specificity, so
+    `.entering { animation: none }` in Toast and `.skeletonRow::after
+    { animation: none }` in LoadingState, and InputForm's three `transition:
+    none` rules, were all overridden by the very rule they were duplicating.
+    They read as protection and provided none of their own. Deleted.
+
+    **What replaced them is one rule in the generated token CSS** collapsing the
+    duration scale under the same query, so every `var(--motion-*)` in the tree
+    — 15 declarations across 7 stylesheets — inherits the preference without its
+    own media query. It is generated from `tokens.motion` rather than listed by
+    hand, for the reason the colour block is: a token added later is covered
+    without anyone remembering to come back.
+
+    **Two blocks survived, and the reason each survived is the useful part.**
+    Header's is `prefers-reduced-motion: no-preference` — the inverse polarity,
+    adding the status pulse only when motion is welcome rather than removing it
+    after. InputForm's is one declaration: `.preset:hover { transform: none }`.
+    A transform has no duration to collapse, so with the transition neutralised
+    the button still *jumps* a pixel, instantly — which is the motion the
+    preference asks not to see. Neither the global nuke nor a duration token can
+    reach a property that was never animating in the first place. It is the only
+    hover transform in the tree; a second one needs the same treatment.
+
+    **The exception to a standing rule, stated so it is not read as a mistake.**
+    `layout.tsx` says every colour must be defined on `:root` and `:root.dark`
+    and **never** in a bare media query, because an explicit theme choice must
+    survive a disagreeing OS. This block is a bare media query. That is correct
+    here and not a crack in the rule: the colour rule exists because there *is*
+    an in-app choice for a media query to lose to. There is no "play animations
+    anyway" toggle, so the OS preference is the only input. If a motion toggle is
+    ever added, this has to become class-driven the same way `.dark` is, and the
+    comment in `css.ts` says so.
+
+    **Not zero.** The collapsed value is `0.01ms`, not `0s`. A zero-duration
+    transition never fires `transitionend`, so any handler awaiting one would
+    hang for exactly the users who asked for less motion.
+
+    Four assertions added to `design-tokens.test.ts`; three were confirmed to
+    fail with the override removed before being kept. One existing assertion had
+    to change with them — it required `--motion-base:` to appear exactly once,
+    which the override deliberately makes false. It now requires exactly two, so
+    deleting the override fails there as well.

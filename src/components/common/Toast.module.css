@@ -45,14 +45,6 @@
   }
 }
 
-/* Per-file rather than a token-level rule; making reduced motion a token
-   concern is E1's job. */
-@media (prefers-reduced-motion: reduce) {
-  .entering {
-    animation: none;
-  }
-}
-
 .icon {
   flex: 0 0 auto;
   font-weight: 700;

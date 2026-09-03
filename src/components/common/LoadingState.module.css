@@ -110,14 +110,6 @@
   animation-direction: reverse;
 }
 
-/* Carried across from StateViews.module.css unchanged. Making reduced-motion a
-   token-level rule rather than a per-file afterthought is E1's job, not D3's. */
-@media (prefers-reduced-motion: reduce) {
-  .skeletonRow::after {
-    animation: none;
-  }
-}
-
 .stepList {
   margin: 0;
   padding: 0;

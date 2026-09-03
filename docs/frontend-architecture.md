@@ -463,7 +463,7 @@ Target is WCAG 2.2 AA. The decisions that are not obvious:
 
 ## 11. What the tests cover
 
-492 tests across 21 suites, in two Jest projects (`jest.config.js`), split because they need
+496 tests across 21 suites, in two Jest projects (`jest.config.js`), split because they need
 different environments: `tests/api` and `tests/evaluation` run in Node, `tests/ui` in jsdom.
 
 | Suite | Covers |
@@ -517,9 +517,14 @@ Stated plainly rather than left for an examiner to find. Full entries are in
   instead — the route returns `401` before reading a body, verified live twice — but the
   client-side branch itself is unproven by the suite. Noted here rather than left to be
   discovered from a coverage report.
-- **`prefers-reduced-motion` is handled per-file, not at the token layer.** There is a global
-  block in `layout.tsx` plus per-file blocks in four stylesheets. Consolidating it into the
-  motion scale is Module E1 of the upgrade checklist — open, not done.
+- ~~**`prefers-reduced-motion` is handled per-file, not at the token layer.**~~ **Closed
+  2026-09-04 (E1).** The motion scale now collapses itself under the query, generated from
+  `tokens.motion` in `css.ts`, so every `var(--motion-*)` inherits the preference. Three of the
+  four per-file blocks turned out to have been dead already — overridden by the `!important`
+  backstop in `layout.tsx` they were duplicating — and were deleted. Two remain on purpose:
+  Header's `no-preference` opt-in for the status pulse, and one `transform: none` in
+  `InputForm.module.css`, because a hover transform has no duration to collapse and would still
+  jump. Decision-log entry 42.
 
 ---
 

@@ -302,13 +302,15 @@
   flex-wrap: wrap;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .control,
-  .preset,
-  .ringFill {
-    transition: none;
-  }
+/* The transition overrides that used to sit here are gone: the motion tokens
+   these three rules use collapse themselves under this same query since E1, and
+   the backstop in layout.tsx catches anything they miss.
 
+   This one cannot go. A transform has no duration to collapse — with the
+   transition neutralised the button still *jumps* a pixel on hover, instantly,
+   which is precisely the motion the preference asks not to see. It is the only
+   hover transform in the tree; a second one needs the same treatment. */
+@media (prefers-reduced-motion: reduce) {
   .preset:hover:not(:disabled) {
     transform: none;
   }

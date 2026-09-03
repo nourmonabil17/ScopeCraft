@@ -150,7 +150,8 @@ ${tokenCss()}
     background: var(--c-ground);
     color: var(--c-text);
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    transition: background-color 160ms ease, color 160ms ease;
+    transition: background-color var(--motion-base) var(--motion-ease),
+      color var(--motion-base) var(--motion-ease);
   }
 
   /* Arabic renders better with a face that has proper Arabic coverage; the
@@ -159,6 +160,19 @@ ${tokenCss()}
     font-family: "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif;
   }
 
+  /* The backstop, not the primary mechanism. Since E1 the motion tokens
+     collapse themselves under the same query (see src/lib/design/css.ts), which
+     covers every duration written as var(--motion-*).
+
+     This still earns its place, because a token cannot reach three things:
+     the two ambient keyframe animations whose durations are deliberately off
+     the scale (the header's 2.4s status pulse, the skeleton's 1.4s shimmer),
+     animation-iteration-count on anything infinite, and scroll-behavior.
+     Anything using a hardcoded duration also lands here rather than nowhere.
+
+     What it does NOT cover is a property with no duration at all — a hover
+     transform applies instantly whatever the transition says. Those are
+     neutralised where they are declared; InputForm.module.css has the only one. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.001ms !important;

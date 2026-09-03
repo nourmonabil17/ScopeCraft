@@ -635,9 +635,30 @@ interactive" — not drag-and-drop, not inline editing of story text, not
 side-by-side plan comparison. Those were offered and not chosen; they are
 recorded here so they are not quietly added later.
 
-- [ ] **E1 — Motion tokens and reduced-motion.** `prefers-reduced-motion` is
-      honoured in three files today. In the rebuild it is a token-level rule, not
-      a per-file afterthought.
+- [x] **E1 — Motion tokens and reduced-motion.** ~~`prefers-reduced-motion` is
+      honoured in three files today.~~ **Done 2026-09-04.** The count in that
+      sentence was wrong — it was four stylesheets plus the global block in
+      `layout.tsx`, five files — and the more useful finding is that **three of
+      the four were already dead**, overridden by the `!important` backstop they
+      duplicated. Deleted rather than migrated.
+
+      The token-level rule is now one block in the generated token CSS
+      (`src/lib/design/css.ts`) collapsing every duration in `tokens.motion`, so
+      all 15 `var(--motion-*)` declarations across 7 stylesheets inherit the
+      preference. Derived from the scale, not hand-listed.
+
+      Two per-file blocks survive deliberately: Header's `no-preference` opt-in
+      (inverse polarity — it adds the pulse rather than removing it), and
+      `.preset:hover { transform: none }` in `InputForm.module.css`, which is the
+      one thing neither a token nor the backstop can reach, because a transform
+      has no duration to collapse. `body`'s hardcoded `160ms` was moved onto the
+      scale at the same time.
+
+      Verified in the live CSSOM, not inferred: the served stylesheet carries
+      exactly three `prefers-reduced-motion` rules — the opt-in, the new token
+      override, and the backstop. Four assertions added to
+      `design-tokens.test.ts`, three confirmed failing with the override removed.
+      Decision-log entry 42.
 - [ ] **E2 — State transitions.** Idle → loading → result, and the skeleton to
       content handoff.
 - [ ] **E3 — View Transitions API** for route changes. Native, no dependency.
@@ -685,7 +706,8 @@ recorded here so they are not quietly added later.
       whose exemption list is now empty.
 - [x] **F4 — Test suite restored.** The rewrite replaced the components the
       292 tests of the time pointed at. **The real number is 492 over 21 suites**
-      — 226 node, 266 UI. Typecheck, lint and build clean.
+      — 226 node, 266 UI. Typecheck, lint and build clean. *(That was the count
+      at F4 and is left as F4's record; E1 later took it to 496 / 230 node.)*
 - [x] **F5 — UI evidence re-captured.** `npm run capture:ui`, exit 0. **22
       screenshots**, up from 17 when F2 added the five Arabic views. The count is
       corrected in `CLAUDE.md`, `README.md`, `HANDOFF.md`, `AI_USAGE.md`,

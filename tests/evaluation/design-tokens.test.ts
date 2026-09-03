@@ -162,7 +162,44 @@ describe("tokenCss", () => {
     expect(css.split("--space-4:").length - 1).toBe(1);
     expect(css.split("--text-base:").length - 1).toBe(1);
     expect(css.split("--radius-md:").length - 1).toBe(1);
-    expect(css.split("--motion-base:").length - 1).toBe(1);
+    // Motion is the exception, and deliberately so since E1: once in the scale,
+    // once again collapsed under prefers-reduced-motion. Asserted as 2 rather
+    // than loosened to "at least one", so deleting the override fails here.
+    expect(css.split("--motion-base:").length - 1).toBe(2);
+  });
+
+  // E1. Reduced motion is a token-level rule, so that a component inheriting
+  // var(--motion-*) inherits the preference too, without its own media query.
+  describe("reduced motion collapses the scale", () => {
+    const block = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+
+    it("emits the query at all", () => {
+      expect(css).toContain("@media (prefers-reduced-motion: reduce)");
+    });
+
+    it("collapses every duration token, not a hand-picked few", () => {
+      const durations = Object.entries(tokens.motion).filter(([, v]) => /(ms|s)$/.test(v));
+      // Guards the filter itself: if the scale ever holds no durations the loop
+      // below would pass by doing nothing at all.
+      expect(durations.length).toBeGreaterThan(0);
+      for (const [key] of durations) {
+        expect(block).toContain(`--motion-${key}: 0.01ms;`);
+      }
+    });
+
+    // A curve applied over no time is not a thing that needs overriding, and
+    // emitting it as a duration would produce `--motion-ease: 0.01ms`, which is
+    // an invalid timing function wherever it is used.
+    it("leaves the timing curve alone", () => {
+      expect(block).not.toContain("--motion-ease:");
+    });
+
+    // Not 0s: a zero-duration transition never fires `transitionend`, so any
+    // handler awaiting it would hang for exactly the users who asked for less
+    // motion.
+    it("uses a non-zero duration", () => {
+      expect(block).not.toMatch(/--motion-[a-z]+:\s*0s;/);
+    });
   });
 
   // The theming model requires an explicit light choice to survive a dark OS.
