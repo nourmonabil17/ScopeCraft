@@ -137,6 +137,59 @@ ${tokenCss()}
     border-width: 0;
   }
 
+  /* State entry (Module E2). One definition used by all six views that mount
+     when the workflow state changes — the five state cards and the result —
+     following the same one-global-utility shape as .sc-sr-only above rather
+     than repeating the same rule in six stylesheets.
+
+     What it is for: the seven states swap markup instantly, so a result and an
+     error card arrive with identical weight and nothing tells you which of the
+     two just happened. A short rise says "this is new" and stops there.
+
+     Deliberately an entry, not a crossfade. A crossfade needs the outgoing view
+     to stay mounted while it fades, which React gives no native way to do and
+     which is wrong in one direction anyway: regenerating goes success ->
+     loading, so a fading-out result means a stale plan is still on screen while
+     a new one is generated. An entry marks the change without ever showing two
+     answers at once.
+
+     TRANSFORM ONLY. IT DOES NOT FADE, AND THAT IS THE WHOLE POINT.
+     An entry effect that starts from opacity 0 has one catastrophic failure
+     mode: if the animation never advances, the element stays invisible. That is
+     not hypothetical — measured here in a real browser, twice. A document whose
+     visibilityState is "hidden" freezes both mechanisms:
+
+       - animation with a fill mode: playState "running", currentTime still 0
+         after 400ms, computed opacity pinned at 0;
+       - transition from @starting-style: identical, frozen at the start value.
+
+     A transition is NOT safer than an animation here; that was the first guess
+     and the probe disproved it. What makes it safe is the start value, not the
+     mechanism. So the only property that animates is one whose frozen state is
+     harmless: worst case this renders 4px low, which nobody can see and no
+     screenshot is wrong for containing. A frozen fade would have photographed
+     all six views as blank cards, and the screenshot set is how this project
+     evidences its UI.
+
+     If a fade is ever wanted back, it needs a mechanism that cannot leave the
+     element invisible — adding the class after mount, so a renderer that never
+     runs the callback simply never starts the effect.
+
+     translateY, not an inline offset: the movement is block-direction, so it
+     reads the same in Arabic and needs no logical-property equivalent.
+
+     No reduced-motion block here, and that is the E1 payoff: the duration is a
+     token, and the token collapses itself under prefers-reduced-motion. */
+  .sc-enter {
+    transform: translateY(0);
+    transition: transform var(--motion-base) var(--motion-ease);
+  }
+  @starting-style {
+    .sc-enter {
+      transform: translateY(0.25rem);
+    }
+  }
+
   /* Pointer ergonomics: removes the 300ms double-tap delay on touch and stops
      the grey flash on tap, which reads as a rendering glitch rather than
      feedback. Focus and hover styling carry the feedback instead. */

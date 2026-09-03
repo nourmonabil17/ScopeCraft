@@ -79,7 +79,7 @@ export function LoadingState({ label }: LoadingStateProps) {
   }, [stepIndex]);
 
   return (
-    <div className={styles.loadingCard} data-testid="loading-state">
+    <div className={`${styles.loadingCard} sc-enter`} data-testid="loading-state">
       <p className={styles.heading}>
         {label ?? t("state.loading.label")}…{" "}
         <span

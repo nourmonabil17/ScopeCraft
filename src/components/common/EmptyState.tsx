@@ -35,7 +35,7 @@ export function EmptyState({
   const { t } = useLanguage();
 
   return (
-    <div className={styles.emptyCard} data-testid="empty-state">
+    <div className={`${styles.emptyCard} sc-enter`} data-testid="empty-state">
       <span className={styles.icon} aria-hidden="true">
         🗒
       </span>

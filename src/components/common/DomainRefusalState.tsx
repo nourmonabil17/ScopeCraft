@@ -28,7 +28,7 @@ export function DomainRefusalState({ message, onEditIdea }: DomainRefusalStatePr
   const { t } = useLanguage();
 
   return (
-    <div className={styles.neutralCard} role="status" data-testid="domain-refusal-state">
+    <div className={`${styles.neutralCard} sc-enter`} role="status" data-testid="domain-refusal-state">
       <span className={styles.icon} aria-hidden="true">
         🧭
       </span>

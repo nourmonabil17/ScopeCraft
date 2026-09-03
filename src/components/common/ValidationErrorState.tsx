@@ -45,7 +45,7 @@ export function ValidationErrorState({
   };
 
   return (
-    <div className={styles.errorCard} role="alert" data-testid="validation-error-state">
+    <div className={`${styles.errorCard} sc-enter`} role="alert" data-testid="validation-error-state">
       <p className={styles.heading}>{message}</p>
       {issues.length > 0 && (
         <ul className={styles.issueList}>

@@ -122,10 +122,37 @@ async function viewport({ width, height, mobile = false }) {
   );
 }
 
+/**
+ * Sets the theme, and pins reduced motion on for the whole capture.
+ *
+ * Both features go in one call because `Emulation.setEmulatedMedia` REPLACES
+ * the feature list rather than merging into it — setting reduced motion in a
+ * second call would silently drop the theme and every "dark" screenshot would
+ * come out light.
+ *
+ * Why reduced motion at all (Module E2): the state views animate in over
+ * ~180ms, and a still photographed mid-animation is a still of a half-faded
+ * card. The script's fixed sleeps are longer than that today, so the shots
+ * would *probably* be clean — but "probably" is not a property an evidence set
+ * should have, and the margin would quietly erode the first time a duration
+ * grew. Under this flag E1's token rule collapses every tokenised duration to
+ * 0.01ms, so each shot is of a settled state by construction.
+ *
+ * It does not change what the screenshots depict. Reduced motion alters
+ * durations, not layout or colour; the only rule in the tree that changes a
+ * rendered value is a hover transform, and nothing here is captured mid-hover.
+ * It also removes a real source of noise — the header's status dot pulses on a
+ * 2.4s loop, so until now every shot caught it at an arbitrary opacity.
+ */
 async function colorScheme(value) {
   await send(
     "Emulation.setEmulatedMedia",
-    { features: [{ name: "prefers-color-scheme", value }] },
+    {
+      features: [
+        { name: "prefers-color-scheme", value },
+        { name: "prefers-reduced-motion", value: "reduce" },
+      ],
+    },
     session
   );
 }

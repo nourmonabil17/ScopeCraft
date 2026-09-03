@@ -28,7 +28,7 @@ export function ErrorState({ message, questions, onRetry }: ErrorStateProps) {
   const { t } = useLanguage();
 
   return (
-    <div className={styles.errorCard} role="alert" data-testid="error-state">
+    <div className={`${styles.errorCard} sc-enter`} role="alert" data-testid="error-state">
       <p className={styles.heading}>{message}</p>
       {questions && questions.length > 0 && (
         <ul className={styles.issueList}>

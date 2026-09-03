@@ -136,7 +136,7 @@ export function ResultView({
   }
 
   return (
-    <div className={styles.result} data-testid="result-view">
+    <div className={`${styles.result} sc-enter`} data-testid="result-view">
       <h2 className={styles.resultHeading}>{t("result.heading")}</h2>
 
       <div

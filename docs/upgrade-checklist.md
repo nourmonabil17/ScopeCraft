@@ -659,8 +659,34 @@ recorded here so they are not quietly added later.
       override, and the backstop. Four assertions added to
       `design-tokens.test.ts`, three confirmed failing with the override removed.
       Decision-log entry 42.
-- [ ] **E2 — State transitions.** Idle → loading → result, and the skeleton to
-      content handoff.
+- [x] **E2 — State transitions.** Idle → loading → result, and the skeleton to
+      content handoff. **Done 2026-09-04.** One global `.sc-enter` utility in
+      `layout.tsx` — the same one-definition shape as `.sc-sr-only` — applied at
+      the six points that mount on a state change: the five state cards and the
+      result. A CSS transition with `@starting-style`; no JavaScript, no
+      dependency, no per-component keyframe.
+
+      **It moves, it does not fade, and that is the finding.** The first version
+      faded in. Probed in a real browser, a document whose `visibilityState` is
+      `hidden` freezes the effect at its start value — `playState` still
+      "running", `currentTime` still 0 after 400ms, computed opacity pinned at
+      0. A transition from `@starting-style` behaves identically; the mechanism
+      is not what makes it safe, the start value is. A frozen fade photographs
+      all six views as **blank cards**, and the screenshot set is this project's
+      UI evidence. Animating transform alone makes the worst case a 4px offset.
+
+      No reduced-motion block: the duration is `var(--motion-base)`, which E1
+      collapses. Verified by redefining the token in a live page — 0.18s becomes
+      1e-05s and back.
+
+      `capture-ui-evidence.mjs` now emulates `prefers-reduced-motion: reduce`
+      alongside the colour scheme (one call — `setEmulatedMedia` replaces the
+      feature list rather than merging), so every shot is of a settled state by
+      construction rather than by out-running a sleep. **Not yet exercised — the
+      capture has not been re-run.**
+
+      Three assertions added, one confirmed failing against an injected
+      `opacity: 0` regression.
 - [ ] **E3 — View Transitions API** for route changes. Native, no dependency.
 - [ ] **E4 — Micro-interactions.** Buttons, cards, chips, toggles. Restraint is
       the point: motion that explains a change, not motion that decorates.

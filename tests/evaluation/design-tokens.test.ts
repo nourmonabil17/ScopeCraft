@@ -287,4 +287,45 @@ describe("the legacy token layer is gone", () => {
     const hits = sources.filter((f) => /box-sizing:\s*border-box/.test(readFileSync(f, "utf8")));
     expect(hits).toEqual(["src/app/layout.tsx"]);
   });
+
+  // E2. Same one-definition rule as the two above: six views share the entry
+  // effect, and a second copy in a component stylesheet is the drift.
+  it("defines the state-entry effect exactly once, globally", () => {
+    const hits = sources.filter((f) => /\.sc-enter\s*\{/.test(readFileSync(f, "utf8")));
+    expect(hits).toEqual(["src/app/layout.tsx"]);
+  });
+
+  // The invariant a reader would not guess, and the one this was measured into.
+  //
+  // The entry effect must never animate opacity. A document whose
+  // visibilityState is "hidden" freezes both a filled animation and a
+  // transition at their start value — verified in a browser, computed opacity
+  // pinned at 0 after 400ms with playState still "running". An entry that
+  // starts transparent therefore renders as an INVISIBLE card in any renderer
+  // that does not advance the timeline, and the screenshot set is how this
+  // project evidences its UI. A transform frozen the same way is 4px off, which
+  // costs nothing.
+  //
+  // Asserted against the whole block including @starting-style, because that is
+  // where a start value would be reintroduced.
+  it("never starts the entry effect from a transparent state", () => {
+    const layout = readFileSync("src/app/layout.tsx", "utf8");
+    const from = layout.indexOf(".sc-enter {");
+    const block = layout.slice(from, layout.indexOf("/* Pointer ergonomics", from));
+    expect(block).not.toMatch(/opacity/);
+  });
+
+  // The entry effect carries NO reduced-motion block of its own. It relies
+  // entirely on E1 collapsing --motion-base, verified in a browser: 0.18s
+  // becomes 1e-05s the moment the token is redefined. A hardcoded duration
+  // would still animate for a user who asked for no motion, and would do it
+  // silently — it looks correct in every review, because reviews are not run
+  // with the preference set.
+  it("drives the entry effect from a motion token, never a literal", () => {
+    const layout = readFileSync("src/app/layout.tsx", "utf8");
+    const rule = layout.slice(layout.indexOf(".sc-enter {"));
+    const declaration = rule.slice(0, rule.indexOf("}"));
+    expect(declaration).toContain("var(--motion-");
+    expect(declaration).not.toMatch(/\d+m?s/);
+  });
 });

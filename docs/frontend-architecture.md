@@ -350,11 +350,20 @@ well as the source. That grep command is deliberately not quoted in `layout.tsx`
 own pattern, so writing it into a comment makes the count report 1 and the gate can never close.
 It lives in [`upgrade-checklist.md`](upgrade-checklist.md).
 
-**Four globals live in `layout.tsx`, each for a reason that is written down there:** the
+**Five globals live in `layout.tsx`, each for a reason that is written down there:** the
 `box-sizing: border-box` reset (three separate overflow bugs traced to content-box sizing —
 `InputForm`'s textarea, `Dialog`, `Toast` — and this rule is now the only thing preventing all
 three), `.sc-sr-only` (one definition replacing five identical copies that had accumulated), the
-skip link, and `touch-action: manipulation` on interactive elements.
+skip link, `touch-action: manipulation` on interactive elements, and — since E2 — `.sc-enter`,
+the state-entry effect shared by the five state cards and the result.
+
+`.sc-enter` animates `transform` only and never `opacity`, which is a constraint rather than a
+stylistic choice. A document that does not advance its animation timeline
+(`visibilityState: "hidden"`) freezes **both** a filled animation and an `@starting-style`
+transition at their *start* value — measured, not assumed. So an entry effect that begins
+transparent renders as an invisible card in exactly the class of renderer that takes automated
+screenshots, while a frozen transform is 4px off and costs nothing. Decision-log entry 43; a
+test asserts the block contains no `opacity`, including inside `@starting-style`.
 
 ---
 
@@ -463,7 +472,7 @@ Target is WCAG 2.2 AA. The decisions that are not obvious:
 
 ## 11. What the tests cover
 
-496 tests across 21 suites, in two Jest projects (`jest.config.js`), split because they need
+499 tests across 21 suites, in two Jest projects (`jest.config.js`), split because they need
 different environments: `tests/api` and `tests/evaluation` run in Node, `tests/ui` in jsdom.
 
 | Suite | Covers |

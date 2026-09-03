@@ -1285,3 +1285,55 @@ nonce or hash policy and saying so is more useful than closing the row.
     to change with them — it required `--motion-base:` to appear exactly once,
     which the override deliberately makes false. It now requires exactly two, so
     deleting the override fails there as well.
+
+43. **The state-entry effect moves but does not fade, because a frozen fade is
+    an invisible card — 2026-09-04, Module E, E2.**
+
+    E2 asked for motion on idle → loading → result. The implementation is four
+    lines: one global `.sc-enter` utility applied at the six mount points, a CSS
+    transition with `@starting-style`, no JavaScript and no dependency. The
+    decision worth recording is not that, it is what the effect deliberately
+    does **not** do.
+
+    **The first version faded in** — `animation: sc-enter ... both`, opacity 0 to
+    1 plus a small rise, which is the ordinary way to write this. Probing it in a
+    real browser before trusting it turned up the reason not to: in a document
+    whose `visibilityState` is `hidden`, the animation timeline never advances.
+    Measured — `playState` "running", `currentTime` still 0 after 400ms, computed
+    opacity pinned at **0**.
+
+    **The second version was wrong for the same reason, and the first guess at
+    why was also wrong.** Rewriting it as a transition with `@starting-style` was
+    supposed to fix it, on the theory that a transition's base style is its final
+    state. The probe disproved that: the transition starts from the
+    `@starting-style` value and freezes there exactly as the animation did. The
+    mechanism is not what makes an entry effect safe. **The start value is.**
+
+    **So the only property that animates is one whose frozen state is harmless.**
+    A frozen `translateY` renders 4px low, which nobody can see and no screenshot
+    is wrong for containing. A frozen fade renders all six views as blank cards —
+    and the 22 screenshots are how this project evidences its UI, so that failure
+    would have been silent in review and visible only in the artefact a grader
+    looks at.
+
+    **Why this was findable at all:** the check was run in a browser rather than
+    reasoned about. Nothing in the CSS is incorrect, both versions pass every
+    test, and both look right in any environment that paints. The failure only
+    exists where the renderer does not advance a timeline, which is exactly the
+    class of environment that takes automated screenshots.
+
+    Two follow-ons, both recorded rather than assumed:
+
+    - `capture-ui-evidence.mjs` now emulates `prefers-reduced-motion: reduce`
+      alongside the colour scheme, in the same `setEmulatedMedia` call because
+      that command replaces the feature list rather than merging into it — a
+      second call would have silently dropped the theme and rendered every dark
+      screenshot light. Under that flag E1's token rule collapses the duration,
+      so shots are of settled states by construction instead of by out-running a
+      fixed sleep. **This is not yet exercised; the capture has not been re-run.**
+    - If a fade is ever wanted back, it needs a mechanism that cannot leave the
+      element invisible — adding the class after mount, so a renderer that never
+      runs the callback simply never starts the effect. Noted in the code.
+
+    A test asserts the entry block contains no `opacity` at all, including inside
+    `@starting-style`, and was confirmed to fail against an injected regression.
