@@ -726,11 +726,25 @@ recorded here so they are not quietly added later.
 - [ ] **H3 — Drifting numbers.** Test count, screenshot count, dependency count,
       branch heads, commit SHAs — each appears in roughly six files and all five
       move during this work.
-- [ ] **H4 — `frontend-architecture.md`.** Does not exist. The backend has three
-      architecture documents and the frontend has none, which is the single
-      largest gap in the document register. A ground-up rewrite is the right
-      moment to write it. Formally Joe's row in the contribution matrix —
-      **coordinate before writing**, do not author it on his behalf.
+- [x] **H4 — `frontend-architecture.md`.** ~~Does not exist.~~ **Written
+      2026-09-04.** The backend has three architecture documents and the frontend
+      had none, which was the single largest gap in the document register.
+
+      13 sections: routes and the server-side session gate; the component tree and
+      the three-directory split; where state lives, starting with the seven-state
+      union and why it is a union rather than seven booleans; the client/server
+      boundary; the two blocking pre-paint scripts; the `.dark`-over-media-query
+      theming decision; the generated-token / CSS-Modules model; the four
+      breakpoints and why the audit is a test; bilingual and RTL; accessibility;
+      what the tests cover; what is *not* covered; related documents.
+
+      **Authorship, on the row's own condition.** This row said to coordinate and
+      not to author it on Joe's behalf. It was written by Yousef on the owner's
+      explicit decision, and the reason is recorded in
+      `docs/contribution-matrix.md` rather than left implicit: Modules C and D —
+      the token layer, the six primitives, the breakpoint audit, the legacy-token
+      removal — were his work, and the components the document *describes* stay
+      credited where they were built.
 
 ---
 

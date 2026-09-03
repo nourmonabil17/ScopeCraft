@@ -80,3 +80,27 @@ flagging it here rather than writing a matrix that implies otherwise.
 | Live provider connectivity | All 3 providers reachable and verified with real `200 OK` responses (2026-08-24) |
 | Git parity | `main` and `dev` in sync at `4c6ff18` (local and remote) |
 | Deployment | Not yet live — see `docs/release-checklist.md` |
+
+---
+
+## Addendum — 2026-09-04: authorship of `docs/frontend-architecture.md`
+
+Recorded here rather than folded into the tables above, which are Nour's dated record from
+2026-08-24 and are left intact.
+
+**`docs/frontend-architecture.md` was written by Yousef Mohmed Hasabo.**
+
+The frontend row in this matrix is Joe's, and Module H4 of `docs/upgrade-checklist.md` says the
+document must not be authored on his behalf without coordination. It is written by Yousef
+anyway, deliberately, for two reasons stated so the credit is not ambiguous:
+
+1. The September rebuild the document describes — the design-token layer (`src/lib/design/`),
+   the six `src/components/ui/` primitives, the breakpoint audit, the token migration that
+   removed the legacy custom-property layer — was Yousef's work, under Modules C and D of the
+   upgrade checklist. Documenting it is part of that work, not a claim over Joe's.
+2. Scope for this project assigns Yousef the whole surface, frontend and documentation included.
+
+**What is *not* reassigned by this note.** The components the document describes remain credited
+where they were built: the seven-state union, `InputForm`, `ResultView`,
+`InteractiveSprintBoard`, `EvidencePanel` and `ExportActions` are Joe's, as the tables above and
+the file headers in `src/` both record. This addendum covers the authorship of one document.

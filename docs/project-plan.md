@@ -1014,7 +1014,7 @@ A graded row in its own right, not a subsection of the frontend.
 
 ## Module 11 — Documentation
 
-**38 documents.** 25 exist, 13 do not. Status is honest, not aspirational.
+**38 documents.** 29 exist, 9 do not. Status is honest, not aspirational.
 
 Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ missing**
 
@@ -1055,7 +1055,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 26 | Environment | ~~**Local development guide**~~ **WRITTEN 2026-08-27** | `docs/local-development.md` | ✅ Done in 1.3.4 — setup, the host/container split, evidence captures, five troubleshooting entries |
 | 27 | Environment | **Deployment guide** | `docs/deployment.md` | The fork-deploy trap lives only in `HANDOFF.md` and `CLAUDE.md`, neither team-facing |
 | 28 | Environment | **Environment variables reference** | `docs/environment-variables.md` | Eleven variables across three concerns; the README table is outgrowing itself |
-| 29 | Frontend | **Frontend architecture** | `docs/frontend-architecture.md` | **The biggest gap.** No component map, no state model, nothing on the seven-state union or the pre-paint theme/locale scripts. Backend has three documents; frontend has zero |
+| 29 | Frontend | ~~**Frontend architecture**~~ **WRITTEN 2026-09-04** | `docs/frontend-architecture.md` | ✅ Done in 11.4.2 — routes, component tree, the seven-state union, the pre-paint scripts, the `.dark` decision, the token/CSS-Modules model, the breakpoint audit, RTL, the client/server boundary, and what is not covered |
 | 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 492 tests with no document saying what is covered, what is not, and how manual QA runs |
 | 31 | QA | **Manual QA evidence** | `docs/evidence/qa/` | 6.5 produces findings with nowhere to live |
 | 32 | Operations | **Runbook / troubleshooting** | `docs/runbook.md` | What to do when providers fail, the database is down, or sign-in breaks. Every known finding is a runbook entry |
@@ -1097,17 +1097,32 @@ happen. Revisit if the team grows.)*
 
 ### 11.4 Write the missing documents
 
-Ordered by value. Not all thirteen have to ship — but skipping one should be a decision, not
+Ordered by value. Four of the thirteen are written; not all of the rest have to ship — but skipping one should be a decision, not
 the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest as optional.**
 
 - [x] **11.4.1** `docs/local-development.md` — prerequisites, `docker compose up`, the host
       vs container decision from 1.3.3, how to run the evidence captures (and why the UI one
       must run on the host), common failures. **Done 2026-08-27** (1.3.4).
-- [ ] **11.4.2** `docs/frontend-architecture.md` — **the highest-value missing document.**
+- [x] **11.4.2** `docs/frontend-architecture.md` — **the highest-value missing document.**
       Component tree; the seven-state discriminated union and why it is a union; the
       theme/locale pre-paint scripts and why they are blocking; the CSS Modules + custom
       properties model; the `.dark` class decision over `prefers-color-scheme`; the RTL
-      rules; the client/server boundary; where state lives and why.
+      rules; the client/server boundary; where state lives and why. **Done 2026-09-04.**
+      13 sections, written from the source rather than from memory — the rationale it
+      quotes is the rationale already in the file headers (`layout.tsx` on theming,
+      `Dialog.tsx` on the native element, `Card.module.css` on per-theme elevation,
+      `css.ts` on why the token CSS is generated, `breakpoint-audit.test.ts` on why the
+      audit is a test).
+
+      §12 states what is *not* covered and cross-links `known-limitations.md`: no
+      screen-reader run, no real-device test, hydration #418, the two `unsafe-inline` CSP
+      directives, no visual-regression testing, and `prefers-reduced-motion` still handled
+      per-file rather than at the token layer (Module E1, open).
+
+      **Authorship.** H4 marks this row formally Joe's and says not to write it on his
+      behalf. Written by Yousef on the owner's decision, and recorded as such in
+      `docs/contribution-matrix.md` — the components it describes stay credited where they
+      were built.
 - [ ] **11.4.3** `docs/deployment.md` — the fork trap in plain language, Vercel environment
       variables, what Docker is and is not for, how to roll back.
 - [ ] **11.4.4** `docs/qa-test-plan.md` — the two (or three) Jest projects and why, what

@@ -307,6 +307,7 @@ knowledge/scopecraft/                                   Approved corpus (Yasmin)
 tests/                                                  API, tools, evaluation, and UI suites
 next.config.js                                          Security headers + CSP (Youssef)
 docs/architecture.md                                    System architecture (Nour)
+docs/frontend-architecture.md                           Frontend architecture (Yousef)
 docs/contribution-matrix.md                             Verified per-member deliverables (Nour)
 docs/api-contracts.md                                   API + tool contracts (Yousef)
 docs/decision-log.md                                    Research source & decision log
