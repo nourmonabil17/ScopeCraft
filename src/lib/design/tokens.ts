@@ -23,6 +23,7 @@ export type ColorRole =
   | "textMuted"
   | "textFaint"
   | "accent"
+  | "accentHover"
   | "accentContrast"
   | "danger"
   | "dangerSurface";
@@ -51,6 +52,16 @@ export const tokens: DesignTokens = {
       textMuted: "#5f5f5f",
       textFaint: "#767676",
       accent: "#0f766e",
+      // Module E4. The primary button was the only variant in Button.module.css
+      // with no hover state at all — secondary, quiet and danger each had one —
+      // so the app's most important control was the one that gave no feedback.
+      //
+      // A token pair rather than a filter, and this is the reason: hover has to
+      // move AWAY from the page, and the two themes disagree about which way
+      // that is. Light's accent is dark on white, so it deepens; dark's accent
+      // is light on near-black, so it lifts. A single filter: brightness()
+      // would be correct in one theme and inverted in the other.
+      accentHover: "#115e59",
       accentContrast: "#ffffff",
 
       // Not in the original ten. The spec never discussed status colour, and
@@ -75,6 +86,8 @@ export const tokens: DesignTokens = {
       textMuted: "#9aa3b2",
       textFaint: "#8b95a6",
       accent: "#5eead4",
+      // Lighter, where light's deepens. See the note beside the light value.
+      accentHover: "#ccfbf1",
       accentContrast: "#0f1115",
 
       danger: "#fca5a5",

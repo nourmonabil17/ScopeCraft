@@ -120,7 +120,7 @@
   font-size: var(--text-sm);
 }
 
-/* Done is the accent, not a success green — the palette has twelve roles and
+/* Done is the accent, not a success green — the palette has thirteen roles and
    `success` is deliberately not one of them. A finished step is past, not a
    status the user has to act on, and the ✓ glyph already separates it from
    pending. See docs/decision-log.md. */

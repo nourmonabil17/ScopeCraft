@@ -111,6 +111,23 @@ describe("design tokens meet WCAG 2.2 AA", () => {
     expect(contrastRatio(t.accentContrast, t.accent)).toBeGreaterThanOrEqual(4.5);
   });
 
+  // The hovered primary button (E4) is the same obligation as the resting one:
+  // a label that thins out the moment the pointer arrives is worse than no
+  // hover state, because it only fails while someone is looking at it.
+  it.each(themes)("%s: text on the hovered accent fill clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.accentContrast, t.accentHover)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // A hover state nobody can see is not a hover state. 1.2:1 is deliberately a
+  // low bar — this is a fill changing under a pointer that is already there,
+  // not a distinction someone has to make at a glance — but it is not zero,
+  // which is what a copy-pasted value would measure.
+  it.each(themes)("%s: the hover fill is distinguishable from the resting one", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.accentHover, t.accent)).toBeGreaterThanOrEqual(1.2);
+  });
+
   // The error role is reinforcement for a message that already carries the
   // fault in words — but reinforcement nobody can read is not reinforcement,
   // so it takes the same 4.5:1 floor as body text.

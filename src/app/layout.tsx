@@ -190,6 +190,36 @@ ${tokenCss()}
     }
   }
 
+  /* Route changes (Module E3). React drives the transition — see
+     src/app/providers.tsx and the experimental.viewTransition flag in
+     next.config.js — and the browser supplies the default cross-fade. All this
+     does is put that cross-fade on the app's own timing.
+
+     Which is the whole reason it is written as tokens rather than as a
+     keyframe. These pseudo-elements sit in a separate tree hanging off the
+     root element, so the reduced-motion backstop at the bottom of this file
+     does NOT reach them: it selects *, *::before and *::after, and none of
+     those match ::view-transition-old. A custom property does reach them,
+     because the tree inherits from the root element the tokens are defined on.
+     So E1 covers this for free — under prefers-reduced-motion the duration
+     collapses to 0.01ms and the cross-fade is over before it is visible — and
+     a hand-written duration here would have needed its own media query and
+     been the one thing in the file that could drift from the scale.
+
+     The wildcard is not laziness, it is the fix for a measured bug. Naming
+     only (root) looked right and was not: React's default name of "auto"
+     assigns its own names to the wrapped nodes, so a single navigation runs
+     five groups, and getAnimations() showed (root) at the token's 180ms while
+     _t_0_ and _t_0__1 stayed on the browser default of 250ms. Since those are
+     the ones actually covering the page, styling (root) alone would have left
+     the visible animation untokenized — and therefore outside E1's reach under
+     prefers-reduced-motion, which is the failure that matters. */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: var(--motion-base);
+  }
+
   /* Pointer ergonomics: removes the 300ms double-tap delay on touch and stops
      the grey flash on tap, which reads as a rendering glitch rather than
      feedback. Focus and hover styling carry the feedback instead. */

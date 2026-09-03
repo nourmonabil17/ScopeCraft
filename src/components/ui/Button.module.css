@@ -57,6 +57,24 @@
   color: var(--c-accent-contrast);
 }
 
+/* Module E4. Until this landed, primary was the one variant with no hover
+   state — secondary, quiet and danger all had one — so the button the page is
+   built around was the only one that did not answer the pointer.
+
+   Fill only, and only within the ramp the token layer already defines. The
+   file's transition list at the top is what makes this a fade rather than a
+   flip; nothing here needs its own duration.
+
+   Deliberately no :active. A pressed state on a filled button is almost always
+   a 1px nudge, and a transform has no duration for prefers-reduced-motion to
+   collapse — InputForm.module.css already carries the one exception in this
+   tree and has to neutralise it by hand. Adding a second one to buy a hundred
+   milliseconds of feedback on a control the pointer is already inside is not a
+   trade worth making. */
+.primary:hover:not(:disabled) {
+  background: var(--c-accent-hover);
+}
+
 .secondary {
   background: transparent;
   color: var(--c-text);

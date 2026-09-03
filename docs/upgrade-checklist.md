@@ -695,9 +695,68 @@ recorded here so they are not quietly added later.
 
       Three assertions added, one confirmed failing against an injected
       `opacity: 0` regression.
-- [ ] **E3 — View Transitions API** for route changes. Native, no dependency.
-- [ ] **E4 — Micro-interactions.** Buttons, cards, chips, toggles. Restraint is
-      the point: motion that explains a change, not motion that decorates.
+- [x] **E3 — View Transitions API** for route changes. **Done 2026-09-04.**
+      Native, no dependency — one experimental Next flag
+      (`experimental.viewTransition`), one component, one CSS rule.
+
+      The two cheaper routes do not work and are recorded so nobody retries
+      them: `@view-transition { navigation: auto }` covers cross-document
+      navigation only and would never fire behind `next/link`, and wrapping
+      `router.push` in `document.startViewTransition` has no correct moment to
+      run, because the RSC payload is fetched before the DOM changes.
+
+      "Experimental" was checked, not assumed. `needsExperimentalReact` in the
+      installed Next lists `taint`, `transitionIndicator` and
+      `gestureTransition` — not this flag — so it does **not** move the app onto
+      React's experimental channel. Re-check that list on a Next upgrade.
+
+      **The real cost was a name.** Three copies of React disagree:
+      `node_modules/react` has no `ViewTransition` export, Next's vendored copy
+      spells it `ViewTransition`, `@types/react` declares
+      `unstable_ViewTransition`. Importing it by hand resolves in a Next build
+      and is `undefined` under Jest — **54 tests across 3 suites failed** before
+      that was understood. `src/components/common/ViewTransition.tsx` reads the
+      component off the namespace and falls back to rendering children
+      untouched.
+
+      **Exercised in a real browser, twice.** A soft navigation runs one
+      `startViewTransition` and nine animations, all at the token's 180ms.
+      Naming only `(root)` was measured wrong first — React's auto names
+      `_t_0_`/`_t_0__1` cover the page and stayed on the browser's 250ms — so
+      the rule uses `(*)`. Redefining `--motion-base` live moved all nine to
+      0.01ms, which is how E1 reaches pseudo-elements the `*` backstop cannot
+      select.
+- [x] **E4 — Micro-interactions.** Buttons, cards, chips, toggles. **Done
+      2026-09-04.** Restraint is the point, and two of the four got nothing.
+
+      **The board story-move was built and removed.** It is the one place motion
+      would carry information — committed and deferred cards look identical — so
+      each card got a `<ViewTransition>` and `handleToggle` got
+      `startTransition`. React applied `view-transition-name` to every card in
+      both the old and the new state, and the browser produced no group for any
+      of them; the whole page animated under E3's boundary instead. A control
+      experiment — one name on `<main>`, one on a card inside it — captured the
+      outer and not the inner. **An element nested inside a captured element is
+      never captured**, so a page-level view transition forbids every
+      per-element one beneath it. Reconciling them means threading
+      `transitionTypes` through every `Link`, where a link added later silently
+      loses the route transition. Not worth 180ms. Decision-log entry 45.
+
+      What shipped: **buttons** — `primary` was the only variant with no hover
+      state at all, fixed with an `accentHover` token pair (light deepens, dark
+      lifts; a single `filter: brightness()` would be inverted in one theme).
+      **Cards** — the history row highlights on `:has(.ideaLink:hover)`, not
+      `:hover`, so hovering *Delete* does not say "you are about to open this".
+      **Chips** — nothing; they are static labels. **Toggles** — nothing new;
+      already transitioning on `var(--motion-fast)`.
+
+      Four assertions added, two per theme; the dark hover value failed the
+      distinguishability one at 1.17 on the first attempt and was changed.
+
+      **Not verified:** neither hover was exercised with a real pointer. Both
+      rules were confirmed present and parsing in `document.styleSheets` with
+      their tokens resolving, and `:has()` is supported — but this harness
+      cannot hold a pointer over an element, and the capture does not hover.
 
 ---
 

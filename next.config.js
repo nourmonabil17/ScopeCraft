@@ -107,6 +107,24 @@ const nextConfig = {
   // reconnaissance. Turning it off costs nothing.
   poweredByHeader: false,
 
+  experimental: {
+    // Enables React's <ViewTransition> component (Module E3). It is the only
+    // way to get a View Transition out of an App Router navigation: the CSS
+    // `@view-transition { navigation: auto }` rule covers cross-document
+    // navigation only, and every link here is a client-side soft navigation,
+    // so that rule would never fire.
+    //
+    // Checked before enabling, because "experimental" covers two very
+    // different risks in Next: `needsExperimentalReact` in the installed
+    // version lists taint, transitionIndicator and gestureTransition — not
+    // this flag — so it does NOT pull the app onto React's experimental
+    // channel. It only exposes a component React already ships in the copy
+    // Next bundles. Re-check that list on a Next upgrade; if viewTransition
+    // joins it, this flag stops being cheap and the trade has to be made
+    // again.
+    viewTransition: true,
+  },
+
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },

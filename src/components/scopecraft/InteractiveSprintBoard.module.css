@@ -73,7 +73,7 @@
   overflow: hidden;
 }
 
-/* Two fills for three states, not three. The twelve roles carry no success and
+/* Two fills for three states, not three. The thirteen roles carry no success and
    no warning, and the two states that are NOT a fault share the accent: under
    capacity and approaching it are both fine. Over capacity is the only fault,
    and danger is the only status colour there is.
@@ -265,7 +265,7 @@
 
 /* A committed story depending on a deferred one is a fault, not a caution:
    the sprint as it stands cannot be delivered. Danger is the only status
-   colour among the twelve, and this is what it is for. */
+   colour among the thirteen, and this is what it is for. */
 .dependencyNote {
   font-size: var(--text-xs);
   color: var(--c-danger);

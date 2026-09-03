@@ -16,6 +16,7 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { ToastProvider } from "@/context/ToastContext";
 import { ToastViewport } from "@/components/common/Toast";
+import { ViewTransition } from "@/components/common/ViewTransition";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -23,7 +24,24 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <LanguageProvider>
         <ThemeProvider>
           <ToastProvider>
-            {children}
+            {/* Route changes cross-fade instead of cutting (Module E3).
+                The browser's View Transitions API only fires by itself for
+                cross-document navigation; every link in this app is a
+                client-side soft navigation, so it needs React to drive it —
+                which is what this component and the experimental.viewTransition
+                flag in next.config.js do together.
+
+                It wraps `children` and nothing else. The toast viewport below
+                is deliberately outside: a toast that is on screen when a
+                navigation starts is reporting something that just happened,
+                and cross-fading it out and back in would read as a second
+                event. The provider chain above is outside for the same reason
+                — none of it renders anything that changes on navigation.
+
+                No `name`: the default is "auto", which lets React assign the
+                transition names, so nothing here has to stay in sync with a
+                string written somewhere else. */}
+            <ViewTransition>{children}</ViewTransition>
             <ToastViewport />
           </ToastProvider>
         </ThemeProvider>

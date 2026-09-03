@@ -51,6 +51,25 @@
    themselves, which is how it already worked. */
 .item {
   display: block;
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+
+/* Module E4. The row is a card with a link in it, and until this landed the
+   only thing that said so was an underline on two lines of text — on a card
+   that is mostly whitespace, with the pointer usually nowhere near them.
+
+   :has, not :hover. Hovering the row is the wrong trigger: the row also holds
+   the open and delete controls, and lighting the whole card up when the
+   pointer is over Delete says "you are about to open this", which is the one
+   thing it must not say. The condition is the link being hovered, and :has is
+   what lets a rule ask that without a wrapper element or a JS handler.
+
+   It also settles the cascade. Card.module.css sets the resting border with a
+   single class, so a plain .item rule here would be a specificity tie decided
+   by whichever CSS chunk loaded last — the ordering hazard Button.module.css
+   documents. :has puts this two steps clear of that, deterministically. */
+.item:has(.ideaLink:hover) {
+  border-color: var(--c-rule-strong);
 }
 
 .ideaLink {

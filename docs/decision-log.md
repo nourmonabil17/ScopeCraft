@@ -1337,3 +1337,134 @@ nonce or hash policy and saying so is more useful than closing the row.
 
     A test asserts the entry block contains no `opacity` at all, including inside
     `@starting-style`, and was confirmed to fail against an injected regression.
+
+44. **View Transitions needed one experimental flag, and the flag turned out to
+    be the cheap half — 2026-09-04, Module E, E3.**
+
+    Route changes cross-fade instead of cutting. Three routes were considered
+    and only one of them works here, so the rejected two are worth writing down
+    before the next person reaches for them:
+
+    - **`@view-transition { navigation: auto }`.** Pure CSS, no config, no
+      dependency — and it does nothing in this app. That rule covers
+      *cross-document* navigation only, and every link here goes through
+      `next/link`, which is a client-side soft navigation. The rule would have
+      shipped, validated, and never fired once.
+    - **A hand-rolled `document.startViewTransition` around `router.push`.** The
+      callback has to resolve *after* the new DOM is in place, and an App Router
+      navigation fetches an RSC payload first, so there is no point at which
+      wrapping it is correct. `flushSync` does not help, because there is
+      nothing to flush yet.
+    - **`experimental.viewTransition: true` plus React's `<ViewTransition>`.**
+      What actually works.
+
+    "Experimental" was checked rather than assumed, because in Next it covers
+    two very different risks. `needsExperimentalReact` in the installed version
+    lists `taint`, `transitionIndicator` and `gestureTransition` — **not**
+    `viewTransition` — so this flag does not move the app onto React's
+    experimental channel. It exposes a component the vendored React already
+    ships. That distinction is the whole basis for accepting it, so it is
+    written into `next.config.js` beside the flag with an instruction to
+    re-check the list on a Next upgrade.
+
+    **The cost was not the flag; it was that three copies of React disagree
+    about the name.** `node_modules/react` (19.2.0) has no `ViewTransition`
+    export at all, `next/dist/compiled/react` exports `ViewTransition`, and
+    `@types/react` declares only `unstable_ViewTransition` under
+    `react/experimental`. Next vendors its own copy for the App Router, so an
+    import resolves inside a Next build and is `undefined` under Jest —
+    **54 tests across three suites failed on "Element type is invalid"** before
+    that was understood. The first fix was a `declare module "react"`
+    augmentation, which made the types agree and left the test failure
+    untouched, because the problem was never the types.
+
+    `src/components/common/ViewTransition.tsx` replaced it: read the component
+    off the React namespace, fall back to rendering children untouched. The
+    fallback is the honest behaviour in both places it can occur — a test
+    renderer with no view transitions, and any future React that renames the
+    export — and neither should take a page down for an effect that is
+    decoration.
+
+    **Timing is a token, not a keyframe, and the first attempt at that was
+    measured wrong.** Naming only `(root)` looked correct and was not:
+    `getAnimations()` during a real navigation showed `(root)` at the token's
+    180ms while React's auto-assigned `_t_0_` and `_t_0__1` — the groups
+    actually covering the page — stayed on the browser default of 250ms. The
+    rule uses `(*)` for that reason. It matters beyond tidiness: the
+    reduced-motion backstop in `layout.tsx` selects `*`, `*::before` and
+    `*::after`, none of which match a view-transition pseudo-element, so a
+    hardcoded duration there would have sat outside every reduced-motion
+    mechanism this project has. A custom property does reach them, because the
+    pseudo tree inherits from the root element. Verified the same way E1 was:
+    redefining `--motion-base` live moved all nine animations from 180ms to
+    0.01ms.
+
+45. **The page-level view transition makes per-element ones impossible, and that
+    killed the better half of E4 — 2026-09-04, Module E, E4.**
+
+    E4 was scoped as micro-interactions on buttons, cards, chips and toggles.
+    The one place in this app where motion would carry information rather than
+    polish is the sprint board: a story moved between "committed" and
+    "deferred" is the app's central interaction, the two columns look
+    identical, and with an instant swap the only evidence of what happened is
+    that a card you were reading is somewhere else. It was built — a
+    `<ViewTransition name={story-${storyId}}>` per card and `startTransition`
+    in `handleToggle`, since React only runs a view transition for an update it
+    can interrupt — and then removed.
+
+    **Why it was removed.** The board toggle did start a view transition, and
+    React did apply `view-transition-name: story-US-01` to every card, in both
+    the old and the new state — both confirmed by reading computed styles at
+    each point. The browser produced **no group for any of them**. What
+    animated instead was the whole page, under the auto-assigned names of the
+    E3 boundary in `providers.tsx`.
+
+    A control experiment settled it rather than leaving it to inference: two
+    `view-transition-name`s set by hand, one on `<main>` and one on a card
+    inside it, then a manual `startViewTransition`. `probe-outer` was captured;
+    `probe-inner` was not. **An element nested inside a captured element is
+    never captured itself.** A page-level view transition therefore forbids
+    every per-element one beneath it — the two features are mutually exclusive
+    as long as the boundary wraps the page.
+
+    They can be reconciled: Next's `<Link transitionTypes>` feeds React's
+    `addTransitionType`, and a boundary declared as
+    `update={{ "route-change": "auto", default: "none" }}` would take a name
+    only during navigation and stand aside otherwise. That was not built. It
+    threads a magic string through every `Link` in the app — four today — and a
+    link added later without it silently loses the route transition. Buying a
+    180ms morph with a failure mode that quiet is the wrong trade, and the
+    board already marks the change twice without motion: the capacity meter
+    recomputes, and focus follows the moved story to its new column.
+
+    **What E4 shipped instead**, deliberately small:
+
+    - **Buttons.** `primary` was the only variant in `Button.module.css` with no
+      hover state — `secondary`, `quiet` and `danger` all had one — so the
+      control the page is built around was the one that did not answer the
+      pointer. Fixed with a token pair rather than a `filter`, because hover has
+      to move *away* from the page and the themes disagree about which way that
+      is: light's accent deepens (`#0f766e` → `#115e59`), dark's lifts
+      (`#5eead4` → `#ccfbf1`). A single `brightness()` would have been correct in
+      one theme and inverted in the other. Two assertions per theme: the label
+      still clears 4.5:1 on the hovered fill, and the hover fill is
+      distinguishable from the resting one — the second exists because the
+      cheapest way to get this wrong is to paste the same value twice, and the
+      dark value failed it at 1.17 on the first try.
+    - **Cards.** The history row is a card containing a link, and the only thing
+      saying so was an underline on two lines of text. `:has(.ideaLink:hover)`,
+      not `:hover`: the row also holds the open and delete controls, and
+      lighting the whole card when the pointer is over *Delete* says "you are
+      about to open this", which is the one thing it must not say.
+    - **Chips.** Nothing. They are static labels with no interactive state to
+      report; motion on them would be decoration by definition.
+    - **Toggles.** Nothing new. `ToggleControls.module.css` already transitions
+      border and background on `var(--motion-fast)`, so they were already
+      inside E1's reduced-motion rule.
+
+    **Not verified:** neither hover state was exercised with a real pointer. The
+    rules were confirmed to ship and parse in the browser — both appear in
+    `document.styleSheets` with the tokens resolving, and `:has()` is supported
+    — but the harness available here cannot hold a pointer over an element, and
+    the screenshot capture does not hover either. So the CSS is proven present
+    and valid; the interaction itself is not proven.

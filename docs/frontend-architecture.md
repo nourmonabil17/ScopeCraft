@@ -316,10 +316,10 @@ user unable to tell what they are switching from.
 
 Two layers, and no third.
 
-**Layer 1 — tokens as data.** `src/lib/design/tokens.ts` holds twelve closed colour roles
+**Layer 1 — tokens as data.** `src/lib/design/tokens.ts` holds thirteen closed colour roles
 (`ground`, `panel`, `panelRecessed`, `rule`, `ruleStrong`, `text`, `textMuted`, `textFaint`,
-`accent`, `accentContrast`, `danger`, `dangerSurface`) plus the space, text, radius and motion
-scales. It is TypeScript rather than CSS because **a stylesheet cannot be asserted against**:
+`accent`, `accentHover`, `accentContrast`, `danger`, `dangerSurface`) plus the space, text,
+radius and motion scales. It is TypeScript rather than CSS because **a stylesheet cannot be asserted against**:
 holding the values here lets `tests/evaluation/design-tokens.test.ts` prove every light/dark
 pair actually clears its contrast obligation, which is the difference between "we measured
 contrast" and "we intended to".
@@ -350,12 +350,13 @@ well as the source. That grep command is deliberately not quoted in `layout.tsx`
 own pattern, so writing it into a comment makes the count report 1 and the gate can never close.
 It lives in [`upgrade-checklist.md`](upgrade-checklist.md).
 
-**Five globals live in `layout.tsx`, each for a reason that is written down there:** the
+**Six globals live in `layout.tsx`, each for a reason that is written down there:** the
 `box-sizing: border-box` reset (three separate overflow bugs traced to content-box sizing —
 `InputForm`'s textarea, `Dialog`, `Toast` — and this rule is now the only thing preventing all
 three), `.sc-sr-only` (one definition replacing five identical copies that had accumulated), the
-skip link, `touch-action: manipulation` on interactive elements, and — since E2 — `.sc-enter`,
-the state-entry effect shared by the five state cards and the result.
+skip link, `touch-action: manipulation` on interactive elements, `.sc-enter` — the state-entry
+effect shared by the five state cards and the result, since E2 — and, since E3, the
+`::view-transition-*` timing rule.
 
 `.sc-enter` animates `transform` only and never `opacity`, which is a constraint rather than a
 stylistic choice. A document that does not advance its animation timeline
@@ -364,6 +365,16 @@ transition at their *start* value — measured, not assumed. So an entry effect 
 transparent renders as an invisible card in exactly the class of renderer that takes automated
 screenshots, while a frozen transform is 4px off and costs nothing. Decision-log entry 43; a
 test asserts the block contains no `opacity`, including inside `@starting-style`.
+
+**The view-transition rule is written with a wildcard for a reason that is not tidiness.** The
+reduced-motion backstop at the foot of `layout.tsx` selects `*`, `*::before` and `*::after`, and
+a view-transition pseudo-element matches none of those — it lives in a separate tree hanging off
+the root element. A hardcoded duration there would therefore sit outside every reduced-motion
+mechanism this project has. A custom property does reach it, because that tree inherits from the
+root the tokens are defined on, so the rule sets `animation-duration: var(--motion-base)` and E1
+collapses it for free. Naming only `(root)` was measured wrong first: React's auto-assigned
+names cover the page and stayed on the browser's 250ms default while `(root)` alone obeyed the
+token. Decision-log entry 44.
 
 ---
 
@@ -472,7 +483,7 @@ Target is WCAG 2.2 AA. The decisions that are not obvious:
 
 ## 11. What the tests cover
 
-499 tests across 21 suites, in two Jest projects (`jest.config.js`), split because they need
+503 tests across 21 suites, in two Jest projects (`jest.config.js`), split because they need
 different environments: `tests/api` and `tests/evaluation` run in Node, `tests/ui` in jsdom.
 
 | Suite | Covers |
