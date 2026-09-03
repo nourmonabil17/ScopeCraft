@@ -204,16 +204,24 @@ describe("ResultView · PRD content", () => {
 
   // The level word is the information. If it ever stops being rendered as
   // text, impact and likelihood become colour-only — a WCAG 1.4.1 failure.
+  //
+  // Exact counts, not a floor: the three fixture risks carry six levels
+  // between them — high ×1, medium ×2 (R-1's likelihood, R-2's impact),
+  // low ×3 (R-2's likelihood, both of R-3's). A floor would still pass if a
+  // level silently stopped rendering, which is the failure being watched for.
   it("renders every risk level as a word, not only as a colour", () => {
     renderWithProviders(<ResultView data={FIXTURE} />);
-    expect(screen.getAllByText("high").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("medium").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText("low").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText("high")).toHaveLength(1);
+    expect(screen.getAllByText("medium")).toHaveLength(2);
+    expect(screen.getAllByText("low")).toHaveLength(3);
   });
 
+  // Five: one criterion on each of the four stories, plus the one top-level
+  // acceptance criterion. Same reasoning as the levels above — a floor of
+  // zero would pass with four of the five missing.
   it("prefixes each acceptance criterion with the Scenario keyword", () => {
     renderWithProviders(<ResultView data={FIXTURE} />);
-    expect(screen.getAllByText("Scenario:").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Scenario:")).toHaveLength(5);
     expect(screen.getByText("Every story is testable")).toBeInTheDocument();
   });
 });
