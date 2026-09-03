@@ -175,7 +175,7 @@ row sits uneven.
 **Check:** breakpoint audit passes with an empty exemption list. `ThemeAndLocale.test.tsx`
 passes unchanged.
 
-**Done 2026-09-03, commits `596cea0`, `051263f`.** Both checks met; the exemption list
+**Done 2026-09-03, commits `596cea0`, `de15d2c`.** Both checks met; the exemption list
 is `[]` and its assertion was kept rather than deleted, so the list cannot quietly
 reopen. `Header.tsx` and `HistoryLink.tsx` were also consumers of this stylesheet — the
 plan listed only the two toggles — but both use `.linkButton` through `className`, so
