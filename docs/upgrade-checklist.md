@@ -310,8 +310,66 @@ One point per view. Each is rebuilt, then reviewed against
       `tests/evaluation/design-tokens.test.ts`: 6.39:1 and 5.47:1 in light,
       6.98:1 and 12.01:1 in dark — all clear of the 4.5:1 floor, but not part
       of the regenerated evidence file.
-- [ ] **D4 — Result view.** The peak moment of the whole product. Largest single
-      point in this module.
+- [x] **D4 — Result view.** *Done 2026-09-03, commits `ff069c3`, `72c8517`,
+      `eadd24f`, `c75727b`.* `ResultView.module.css` is on the `--c-*` tokens
+      with zero legacy references, phone-first, with the story grid going to two
+      columns at `48rem`. Eleven of its legacy tokens had no `--c-*` equivalent
+      and were never going to get one — eight MoSCoW, two warning, one shadow —
+      so the buckets and the risk levels are encoded by `Chip`'s weight ramp
+      instead of by hue, and the story cards take `Card`, which is what removes
+      the shadow. That decision, and what it costs, is
+      [`decision-log.md`](decision-log.md) entry 34. `Chip` gained a fourth
+      weight, `faint`, dotted rather than a paler dashed; `Card` gained `id`,
+      `labelledBy` and `testId` as named props rather than a `...rest` spread,
+      because a spread would readmit the `onClick` that `Card` exists to refuse.
+
+      **The rebuild was fenced first.** 15 characterization tests were written
+      against the pre-rebuild component and all passed on the first run, which
+      was the point — they pin behaviour that a redesign can drop without
+      anyone noticing. The suite is 435 tests over 21 suites, up from 406 over
+      20. Legacy references fell 204 → 169, measured as
+      `git grep -o 'var(--sc-' -- src | wc -l`.
+
+      **A real RTL bug was fixed on the way.** Both tables were
+      `text-align: left`, a physical property, so every cell sat on the wrong
+      edge in Arabic. Two inline `style={{ }}` objects moved into classes, and
+      `.sprintTable` was renamed `.sequenceTable` — it was never about sprints.
+      The old MoSCoW badge is worth naming separately: it leaned on
+      `text-transform: uppercase` for emphasis, which is a no-op on Arabic
+      script, so half the users of a bilingual app never saw the emphasis at
+      all.
+
+      **Verified by `npm run capture:ui`**, exit 0: 17 screenshots and the audit
+      regenerated, 19 contrast pairs light and 20 dark with none below AA, 0
+      unnamed controls, 0 heading skips, and no horizontal overflow at 1280,
+      768 or 390px in both LTR and RTL. The breakpoint audit passes and
+      `PRE_REBUILD_EXEMPT` is unchanged at two entries — this file was never on
+      it.
+
+      **The metric trap caught the plan twice, and a third time during this
+      write-up.** A test-count estimate double-counted, and a legacy-reference
+      target subtracted a line count from an occurrence count; both were fixed
+      in the plan during execution. The third was the board's figure, planned as
+      33 — that is its line count, and 37 is its occurrence count. `var(--sc-`
+      occurrences, not lines and not the bare `--sc-` substring, is the number
+      that has to reach zero.
+
+      **Not covered by this point.** The board is D5 and still holds the largest
+      legacy block, 37 references including `--sc-warning`; `EvidencePanel`
+      holds 12, including `--sc-could`. Entry 34 binds both to the weight ramp,
+      but neither is touched here. The global `box-sizing` reset and the
+      `.srOnly` consolidation remain their own points by the owner's ruling.
+      `.tab` keeps its `2.5rem` (40px) target — clear of the 24px WCAG 2.5.8
+      floor, under the 44px comfort target that D6 raises for the history
+      actions; moving it here would change the header rhythm on a point that is
+      not about that. The file still has no `prefers-reduced-motion` block: its
+      only transition is a hover colour fade, and reduced motion becomes a
+      token-level rule at E1. And the automated audit renders the idle
+      `/scopecraft` page only — it never renders a result view, which is the
+      same limit D3 recorded for `LoadingState`. So the pair new to this point,
+      `--c-text-faint` on `--c-panel`, is not in the numbers above; it is
+      asserted in `tests/evaluation/design-tokens.test.ts` at 4.54:1 light and
+      5.88:1 dark.
 - [ ] **D5 — Interactive sprint board.** Rebuilt visual, **preserved decisions**:
       no drag-and-drop (WCAG 2.2 SC 2.5.7 needs a single-pointer alternative, and
       buttons already are one), and no delivery dates (a documented non-goal —

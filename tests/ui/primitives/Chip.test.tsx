@@ -19,9 +19,24 @@ describe("Chip", () => {
     expect(container.firstElementChild).toHaveClass("outline");
   });
 
-  it.each(["solid", "outline", "dashed"] as const)("applies the %s weight class", (weight) => {
-    const { container } = render(<Chip weight={weight}>bucket</Chip>);
-    expect(container.firstElementChild).toHaveClass(weight);
+  it.each(["solid", "outline", "dashed", "faint"] as const)(
+    "applies the %s weight class",
+    (weight) => {
+      const { container } = render(<Chip weight={weight}>bucket</Chip>);
+      expect(container.firstElementChild).toHaveClass(weight);
+    }
+  );
+
+  // WON'T is the fourth bucket and needed a fourth weight. It is dotted, not
+  // a second dashed in a paler grey: --c-text-muted and --c-text-faint are
+  // #5f5f5f and #767676 in light, which is not a distinction anyone can see.
+  // The border STYLE carries the step, so it survives greyscale — the same
+  // reason this component has no colour props at all.
+  it("gives the fourth bucket its own weight, not a paler third", () => {
+    const { container } = render(<Chip weight="faint">Won&apos;t</Chip>);
+    expect(container.firstElementChild).toHaveClass("faint");
+    expect(container.firstElementChild).not.toHaveClass("dashed");
+    expect(screen.getByText("Won't")).toBeInTheDocument();
   });
 
   // The guarantee, stated as a test: the bucket is readable text, so it

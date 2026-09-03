@@ -35,6 +35,8 @@ import { InteractiveSprintBoard, type BoardSnapshot } from "./InteractiveSprintB
 import type { BoardEdits } from "@/lib/scopecraft/schema";
 import { EvidencePanel } from "./EvidencePanel";
 import { ExportActions } from "./ExportActions";
+import { Card } from "@/components/ui/Card";
+import { Chip, type ChipProps } from "@/components/ui/Chip";
 import styles from "./ResultView.module.css";
 
 export interface ResultViewProps {
@@ -56,18 +58,22 @@ const MOSCOW_LABEL_KEY = {
   wont: "moscow.wont",
 } as const satisfies Record<string, TranslationKey>;
 
-const MOSCOW_BADGE_CLASS = {
-  must: styles.badgeMust,
-  should: styles.badgeShould,
-  could: styles.badgeCould,
-  wont: styles.badgeWont,
-} as const;
+// Buckets and levels are encoded by chip weight, not by hue — see
+// src/components/ui/Chip.tsx and docs/decision-log.md entry 34. The word is
+// always rendered too; the weight only reinforces it.
+const MOSCOW_WEIGHT = {
+  must: "solid",
+  should: "outline",
+  could: "dashed",
+  wont: "faint",
+} as const satisfies Record<string, NonNullable<ChipProps["weight"]>>;
 
-const IMPACT_CLASS = {
-  high: styles.impactHigh,
-  medium: styles.impactMedium,
-  low: styles.impactLow,
-} as const;
+// Three levels, the top three weights. Descending emphasis, same ramp.
+const LEVEL_WEIGHT = {
+  high: "solid",
+  medium: "outline",
+  low: "dashed",
+} as const satisfies Record<string, NonNullable<ChipProps["weight"]>>;
 
 const LEVEL_LABEL_KEY = {
   low: "level.low",
@@ -228,22 +234,19 @@ export function ResultView({
               const score = data.priority[story.id];
               const bucket = data.moscow[story.id];
               return (
-                <article
+                <Card
                   key={story.id}
+                  as="article"
+                  labelledBy={`story-${story.id}-heading`}
+                  testId={`story-card-${story.id}`}
                   className={styles.storyCard}
-                  aria-labelledby={`story-${story.id}-heading`}
-                  data-testid={`story-card-${story.id}`}
                 >
                   <div className={styles.storyHeader}>
                     <span id={`story-${story.id}-heading`} className={styles.storyId}>
                       {story.id}
                     </span>
                     <div className={styles.storyBadges}>
-                      {bucket && (
-                        <span className={`${styles.badge} ${MOSCOW_BADGE_CLASS[bucket]}`}>
-                          {t(MOSCOW_LABEL_KEY[bucket])}
-                        </span>
-                      )}
+                      {bucket && <Chip weight={MOSCOW_WEIGHT[bucket]}>{t(MOSCOW_LABEL_KEY[bucket])}</Chip>}
                     </div>
                   </div>
 
@@ -279,7 +282,7 @@ export function ResultView({
                       </li>
                     ))}
                   </ul>
-                </article>
+                </Card>
               );
             })}
           </div>
@@ -320,14 +323,14 @@ export function ResultView({
                     <td>{risk.id}</td>
                     <td>{risk.description}</td>
                     <td>
-                      <span className={`${styles.impactChip} ${IMPACT_CLASS[risk.impact]}`}>
+                      <Chip weight={LEVEL_WEIGHT[risk.impact]}>
                         {t(LEVEL_LABEL_KEY[risk.impact])}
-                      </span>
+                      </Chip>
                     </td>
                     <td>
-                      <span className={`${styles.impactChip} ${IMPACT_CLASS[risk.likelihood]}`}>
+                      <Chip weight={LEVEL_WEIGHT[risk.likelihood]}>
                         {t(LEVEL_LABEL_KEY[risk.likelihood])}
-                      </span>
+                      </Chip>
                     </td>
                   </tr>
                 ))}
@@ -367,11 +370,11 @@ export function ResultView({
 
           {data.sprint.length > 0 && (
             <details>
-              <summary className={styles.acLabel} style={{ cursor: "pointer" }}>
+              <summary className={`${styles.acLabel} ${styles.sequenceSummary}`}>
                 {t("prd.sprint.fullSequence")}
               </summary>
-              <div className={styles.tableScroll} style={{ marginTop: "0.625rem" }}>
-                <table className={styles.sprintTable}>
+              <div className={styles.sequenceScroll}>
+                <table className={styles.sequenceTable}>
                   <thead>
                     <tr>
                       <th scope="col">{t("prd.sprint.story")}</th>

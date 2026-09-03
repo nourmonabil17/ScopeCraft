@@ -36,3 +36,12 @@
   border-color: var(--c-text-muted);
   border-style: dashed;
 }
+
+/* WON'T. One step further back than COULD, by border style rather than by a
+   paler grey — see the component header. */
+.faint {
+  background: transparent;
+  color: var(--c-text-faint);
+  border-color: var(--c-text-faint);
+  border-style: dotted;
+}

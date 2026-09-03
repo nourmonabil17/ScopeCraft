@@ -912,3 +912,54 @@ nonce or hash policy and saying so is more useful than closing the row.
 
     **`.warningCard` was deleted, not ported.** No consumer referenced it, and
     it was the only reason this file mentioned `--sc-warning`.
+
+34. **MoSCoW and risk read by weight, not by hue — 2026-09-03, Module D4.**
+    The result view is where the missing status colours bite hardest: eight
+    MoSCoW badges, two `--sc-warning` risk levels, and a shadow, none of which
+    has a `--c-*` equivalent. The obvious fix was a `warning` role. It was not
+    taken. `Chip`'s weight ramp carries the level instead — must → solid,
+    should → outline, could → dashed, wont → the new `faint`; high → solid,
+    medium → outline, low → dashed. Entry 32 set the precedent when the
+    capacity ring's "ok" state took `--c-accent` rather than a green, entry 33
+    followed it for `.stepDone`, and this is the third application. The twelve
+    closed colour roles stay closed.
+
+    **Traded:** hue as a channel, for a ramp that survives greyscale, colour
+    blindness and a monochrome print of the defence deck. **Against:** a
+    thirteenth and fourteenth role — `warning` and its surface — whose only
+    consumers would have been these two spots, and which would have reopened a
+    decision the module has now declined three times.
+
+    **The fourth weight is dotted, not a paler dashed.** `--c-text-muted` and
+    `--c-text-faint` are `#5f5f5f` and `#767676` in light. That is one notch of
+    grey; the eye does not make the distinction at chip size, and it disappears
+    entirely once the two sit in different rows. Border *style* survives what
+    border *colour* does not, so `wont` is dotted and reads as a fourth step
+    rather than a slightly washed-out third. The new pair, `--c-text-faint` on
+    `--c-panel`, measures 4.54:1 light and 5.88:1 dark, asserted in
+    `tests/evaluation/design-tokens.test.ts`.
+
+    **The old badge's emphasis mechanism did not exist in Arabic.** It leaned on
+    `text-transform: uppercase`, which is a no-op on Arabic script — there is no
+    case. So the RTL rendering of the old design had the hue and nothing else,
+    and every claim about the badges being legible was a claim about the English
+    page. The weight ramp works in both scripts, which is not a side benefit;
+    it is the reason a bilingual app should not have shipped the old one.
+
+    **What it costs, plainly:** a high-impact risk no longer renders red. The
+    word "high" carries it, in the cell and in the accessible name, and nothing
+    else does. `--sc-danger` went the same way as `--sc-warning` here — the
+    result view is a report, not a form, and `danger` was added in entry 32 for
+    validation faults rather than for severity ratings. Someone scanning the
+    risk table for red will not find it. The alternative was reopening a closed
+    decision to colour a table.
+
+    **This binds D5 and `EvidencePanel`.** The board still holds 37 legacy
+    references and the evidence panel 12, and between them they carry
+    `--sc-could` and `--sc-warning` — the same two gaps, in the same shapes.
+    Both take the weight ramp when their points come up. Neither is changed
+    here. The board's figure was written as 33 while this point was planned;
+    33 is its *line* count and 37 its occurrence count under
+    `git grep -o 'var(--sc-' -- src | wc -l`, which is the third time these two
+    metrics have been mixed. The occurrence count is the one that has to reach
+    zero before the `--sc-*` block can be deleted.
