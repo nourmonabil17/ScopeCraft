@@ -10,9 +10,11 @@
 // session" means. The page's own work was always a client-side fetch to
 // /api/scopecraft, so nothing user-visible got slower.
 //
-// SCOPE: this protects the *page*. /api/scopecraft is still open — see
-// README "Unauthenticated Endpoint & Rate Limiting Boundary". Closing it is
-// stage 0 in docs/database-and-auth-design.md and a separate change.
+// SCOPE: this protects the *page*, and only the page. /api/scopecraft gates
+// itself — stage 0 of the route handler checks the session and returns 401
+// before it reads a body — so neither gate depends on the other, and removing
+// this one would not leave the endpoint exposed. Until 2026-08-27 the endpoint
+// genuinely was open and this note said so; it no longer is.
 
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
