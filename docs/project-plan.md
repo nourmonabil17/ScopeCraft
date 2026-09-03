@@ -886,10 +886,25 @@ hardest.
       cold `docker run` in **0.47 s**. Measured against the pre-hardening image; the npm/yarn
       removal in 8.1.11 should shrink it, but that rebuild is still blocked.
 - [ ] **9.1.6** Measure end-to-end generation latency **on the live site**. **Not done, and
-      not faked from local numbers.** The deployed build predates the auth work (8.1.8), so
-      any figure would describe an artifact the next push replaces. Local numbers on current
-      code, for later comparison: four generations at **10.8 s, 11.3 s, 13.5 s, 13.6 s**
-      against a local database. Redo this against production once it is current.
+      not faked from local numbers.** Local numbers on current code, for later comparison:
+      four generations at **10.8 s, 11.3 s, 13.5 s, 13.6 s** against a local database.
+
+      **Blocker replaced 2026-09-03 — the original one is gone.** This item used to say the
+      deployed build predated the auth work, so any live figure would describe an artifact
+      the next push replaced. That push has happened: `dev` was merged and pushed to both
+      remotes, and production now runs the auth build.
+
+      It is still blocked, for a different and narrower reason. `POST /api/scopecraft`
+      checks the session first and answers `401` to an anonymous caller, so no unauthenticated
+      request can generate anything. A session minted locally by `scripts/mint-session.mjs`
+      does not verify against production either — all four Auth.js cookie names return `401`,
+      which means production's `AUTH_SECRET` is not the local one. That is correct security
+      hygiene, not a fault, and it is not something to work around.
+
+      **What would unblock it:** a real session cookie taken from a browser sign-in on the
+      live site by whoever holds the account. Four timed generations would then finish this
+      item against the local baseline above. Know the cost before running it — four rows in
+      the production `plans` table and four real provider calls.
 - [x] **9.1.7** Confirm the app degrades rather than crashes. **All four exercised for real.**
       *Database down* (container stopped): `503 STORAGE_UNAVAILABLE` in **8 ms**, failing
       closed before any provider call, and `/scopecraft/history` still answered `200` with an
