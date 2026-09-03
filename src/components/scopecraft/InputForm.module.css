@@ -46,11 +46,8 @@
   padding-block: var(--space-3);
   padding-inline: var(--space-3);
   inline-size: 100%;
-  /* Without this the horizontal padding and border are added *outside* the
-     100% width, pushing the document 10px wider than the viewport and giving
-     the whole page a horizontal scrollbar below ~800px. Textareas default to
-     content-box, so this is not inherited from anywhere. */
-  box-sizing: border-box;
+  /* box-sizing comes from the global reset in layout.tsx, which records the
+     measured bug this used to prevent locally. */
   min-block-size: 2.75rem;
   transition: border-color var(--motion-fast) var(--motion-ease);
 }
@@ -303,22 +300,6 @@
   align-items: center;
   gap: var(--space-4);
   flex-wrap: wrap;
-}
-
-/* Visible only to screen readers — used for status announcements that would be
-   redundant noise on screen. */
-.srOnly {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  /* clip-path, not the deprecated clip: rect() — same visual result,
-     current syntax. Matches Field.module.css's copy of this rule. */
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border-width: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

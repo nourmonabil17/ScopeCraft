@@ -5,7 +5,8 @@
 // darkens a muted grey or brightens an accent past the point where it still
 // clears AA — which is exactly the change that gets made by eye and shipped.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { contrastRatio } from "@/lib/design/contrast";
 import { tokens } from "@/lib/design/tokens";
 import { tokenCss } from "@/lib/design/css";
@@ -201,5 +202,52 @@ describe("header control target sizes", () => {
     for (const size of toggleSizes) {
       expect(size).toBe(buttonSizes[0]);
     }
+  });
+});
+
+// The exit condition for Module D, made permanent. The legacy --sc-* layer was
+// deleted from layout.tsx at Point 6 once every view had been migrated; these
+// assertions are what stop it coming back one convenience at a time.
+describe("the legacy token layer is gone", () => {
+  function filesUnder(dir: string, ext: string[]): string[] {
+    const found: string[] = [];
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) found.push(...filesUnder(path, ext));
+      else if (ext.some((e) => entry.endsWith(e))) found.push(path);
+    }
+    return found;
+  }
+
+  const sources = filesUnder("src", [".css", ".ts", ".tsx"]);
+
+  it("finds sources to audit", () => {
+    expect(sources.length).toBeGreaterThan(0);
+  });
+
+  // Built from fragments so this assertion does not match itself: the file is
+  // under tests/ and the walk is over src/, but the same trap already cost a
+  // round trip once when the pattern was written into a comment in layout.tsx
+  // and the gate reported 1 forever.
+  const LEGACY = ["var(--", "sc-"].join("");
+
+  it("references no legacy custom property anywhere under src", () => {
+    const offenders = sources.filter((f) => readFileSync(f, "utf8").includes(LEGACY));
+    expect(offenders).toEqual([]);
+  });
+
+  // Five identical copies collapsed into one global utility. A sixth appearing
+  // is the drift this catches.
+  it("defines the screen-reader-only rule exactly once", () => {
+    const hits = sources.filter((f) => /\.sc-sr-only\s*\{/.test(readFileSync(f, "utf8")));
+    expect(hits).toEqual(["src/app/layout.tsx"]);
+  });
+
+  // Three local declarations became one global reset. Anything that sets its
+  // own inline-size now depends on that rule; a local re-declaration means
+  // someone hit the symptom again without finding the reset.
+  it("declares box-sizing exactly once, globally", () => {
+    const hits = sources.filter((f) => /box-sizing:\s*border-box/.test(readFileSync(f, "utf8")));
+    expect(hits).toEqual(["src/app/layout.tsx"]);
   });
 });

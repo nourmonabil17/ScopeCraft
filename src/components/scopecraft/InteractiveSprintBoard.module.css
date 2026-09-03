@@ -272,19 +272,3 @@
   margin: 0;
 }
 
-/* The capacity announcement's live region. This class was referenced by the
-   component but never defined here, so `styles.srOnly` resolved to undefined
-   and the announcement rendered as visible body text under the meter —
-   duplicating the caption on screen for every capacity change.
-   Consolidated with the other four definitions at Point 6. */
-.srOnly {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}

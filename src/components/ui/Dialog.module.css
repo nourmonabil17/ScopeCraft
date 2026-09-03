@@ -7,14 +7,8 @@
 .dialog {
   margin: auto;
 
-  /* Without this the inline-size below is content-box, so the 2rem padding and
-     the border are added on top of the cap and the panel ends up wider than
-     the viewport it was supposed to fit inside. Measured before the fix on a
-     529px viewport: a 491px content box rendered 557px wide and pushed
-     margin-inline-end to -28px. There is no global box-sizing reset in this
-     app — adding one would change existing views, which Module C may not do —
-     so each primitive that sets its own size sets this too. */
-  box-sizing: border-box;
+  /* box-sizing comes from the global reset in layout.tsx, which records the
+     measured bug this used to prevent locally. */
   inline-size: min(32rem, calc(100vw - var(--space-6)));
 
   background: var(--c-panel);

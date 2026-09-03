@@ -119,7 +119,7 @@ export function LoadingState({ label }: LoadingStateProps) {
 
       {/* The actual announcement: one short line per step, so a screen-reader
           user hears each transition once instead of the cumulative list. */}
-      <p className={styles.srOnly} role="status" aria-live="polite">
+      <p className="sc-sr-only" role="status" aria-live="polite">
         {t(STEP_KEYS[stepIndex])}
       </p>
     </div>

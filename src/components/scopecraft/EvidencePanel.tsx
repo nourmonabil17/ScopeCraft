@@ -19,6 +19,7 @@
 
 import { useLanguage } from "@/context/LanguageContext";
 import type { TranslationKey } from "@/lib/i18n/translations";
+import { Chip } from "@/components/ui/Chip";
 import styles from "./EvidencePanel.module.css";
 
 export interface EvidencePanelProps {
@@ -71,15 +72,14 @@ export function EvidencePanel({
 
       <div className={styles.boundary}>
         <p className={styles.boundaryRow}>
-          <span className={`${styles.boundaryLabel} ${styles.labelModel}`}>
-            {t("evidence.label.model")}
-          </span>
+          <Chip weight="outline">{t("evidence.label.model")}</Chip>
           <span>{t("evidence.model.body")}</span>
         </p>
         <p className={styles.boundaryRow}>
-          <span className={`${styles.boundaryLabel} ${styles.labelDeterministic}`}>
-            {t("evidence.label.deterministic")}
-          </span>
+          {/* Solid against the model's outline: the arithmetic is the
+              authoritative half of this boundary, and weight says so without
+              a second hue. */}
+          <Chip weight="solid">{t("evidence.label.deterministic")}</Chip>
           <span>
             {/* The formula is rendered as code, and left in symbols — it reads
                 identically in both locales and is not prose to translate. */}
@@ -92,7 +92,7 @@ export function EvidencePanel({
       </div>
 
       <div>
-        <p className={styles.title} style={{ marginBottom: "0.375rem" }}>
+        <p className={styles.sourcesTitle}>
           {t("evidence.sources")}
         </p>
         <ul className={styles.sources}>

@@ -3,10 +3,11 @@
  * Rebuilt at Point 4 (D8) on the --c-* tokens.
  *
  * The `.dialog` rule that used to be here is gone: the Dialog primitive owns
- * the panel, the backdrop and the UA resets now, which is what removes
- * --sc-shadow-lg from this file. Do not re-add a local dialog rule — the
- * box-sizing declaration in Dialog.module.css is load-bearing and documented,
- * and a second panel rule here is how the two drift apart.
+ * the panel, the backdrop and the UA resets now, which is what removes the
+ * shadow token from this file. Do not re-add a local dialog rule — a second
+ * panel rule is how the two drift apart, and the border-box sizing the panel
+ * depends on now comes from the global reset in layout.tsx rather than from a
+ * declaration beside it.
  */
 
 .heading {

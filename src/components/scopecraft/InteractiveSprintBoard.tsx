@@ -396,7 +396,7 @@ export function InteractiveSprintBoard({
           {capacity.state === "ok" &&
             t("board.capacity.ok", { count: capacity.remainingPoints })}
         </p>
-        <div className={styles.srOnly} role="status" aria-live="polite">
+        <div className="sc-sr-only" role="status" aria-live="polite">
           {announcement}
         </div>
       </div>

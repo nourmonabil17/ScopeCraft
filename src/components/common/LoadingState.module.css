@@ -145,22 +145,3 @@
   color: var(--c-text-muted);
 }
 
-/* Visible only to screen readers. One of five copies of this rule in the
-   codebase (Field, InputForm, ExportActions, InteractiveSprintBoard, and
-   here) — this point moved the copy that used to live in StateViews rather
-   than adding a new one, so the count is unchanged. Consolidating them into
-   one utility touches five stylesheets across four separate points, so it is
-   its own point — like the global box-sizing reset — rather than smuggled
-   into a view rebuild. Copied from the D2 version, which uses logical
-   properties and clip-path rather than the deprecated clip: rect(). */
-.srOnly {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border-width: 0;
-}

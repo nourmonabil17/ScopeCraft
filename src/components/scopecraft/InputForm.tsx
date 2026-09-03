@@ -295,7 +295,7 @@ export function InputForm({ onSubmit, isLoading = false, initialValues }: InputF
       aria-busy={isLoading}
       aria-labelledby={id("heading")}
     >
-      <h2 id={id("heading")} className={styles.srOnly}>
+      <h2 id={id("heading")} className="sc-sr-only">
         {t("form.heading")}
       </h2>
 
@@ -524,7 +524,7 @@ export function InputForm({ onSubmit, isLoading = false, initialValues }: InputF
 
       {/* Polite, low-traffic announcements: preset applied, form cleared.
           Deliberately not used for the character counter. */}
-      <div className={styles.srOnly} role="status" aria-live="polite">
+      <div className="sc-sr-only" role="status" aria-live="polite">
         {announcement}
       </div>
     </form>

@@ -33,6 +33,7 @@ import {
   emptyFormValues,
   type IntakeFormValues,
 } from "@/components/scopecraft/presets";
+import { Button } from "@/components/ui/Button";
 import styles from "./page.module.css";
 
 /** Matches the X-Provider-Used header the API sets. NVIDIA is the primary
@@ -332,9 +333,9 @@ export default function ScopeCraftPage() {
                 {saveState === "failed" && t("board.saveFailed")}
                 {saveState === "idle" && planId === null && t("board.saveUnavailable")}
               </p>
-              <button type="button" className={styles.clearButton} onClick={handleClear}>
+              <Button variant="secondary" onClick={handleClear}>
                 {t("result.clear")}
-              </button>
+              </Button>
             </div>
 
             <ResultView
