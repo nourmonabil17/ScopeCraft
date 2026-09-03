@@ -214,6 +214,45 @@ async function seed({ theme = "system", locale = "en" } = {}) {
   `);
 }
 
+/**
+ * Switches language the way a visitor does — through the header toggle — rather
+ * than by writing localStorage and reloading. The result view holds its data in
+ * client state, so a reload would throw the generated plan away and the Arabic
+ * captures would cost a second provider call each.
+ */
+async function setLocale(locale) {
+  const ok = await evaluate(`
+    (() => {
+      const btn = document.querySelector('[data-testid="language-option-${locale}"]');
+      if (!btn) return false;
+      btn.click();
+      return true;
+    })()
+  `);
+  if (!ok) throw new Error(`language toggle for "${locale}" not found on ${await evaluate("location.pathname")}`);
+  await sleep(500);
+  return evaluate(`document.documentElement.dir`);
+}
+
+/** Horizontal overflow for the view currently on screen. The audit at the end
+ *  only ever measures the idle page; these are the rebuilt views it never
+ *  reaches, and sideways scroll is the failure RTL actually produces. */
+async function overflowOf(label) {
+  const r = await evaluate(`
+    (() => {
+      const d = document.documentElement;
+      return JSON.stringify({ w: d.scrollWidth, v: d.clientWidth, dir: d.dir });
+    })()
+  `);
+  const { w, v, dir } = JSON.parse(r);
+  const clean = w <= v;
+  rtlFindings.push(`  ${label.padEnd(34)} ${dir} : scrollWidth ${w} vs viewport ${v} — ${clean ? "no horizontal scroll" : "OVERFLOW"}`);
+  if (!clean) rtlFailures += 1;
+  return clean;
+}
+
+const rtlFindings = [];
+let rtlFailures = 0;
 let shotCount = 0;
 let generationAttempts = 0;
 let capacityReadout = '';
@@ -579,6 +618,38 @@ try {
     await showResult();
     await shot("13-success-mobile", "same result at 390px");
 
+    // --- F2: the rebuilt views in Arabic, rendered rather than inferred ------
+    //
+    // These reuse the plan already in client state, so they cost no extra
+    // provider call. Until this existed, no browser had ever rendered the
+    // result view, the board, the evidence panel, the history list or a saved
+    // plan in RTL — they were covered by jsdom only, which resolves no CSS and
+    // therefore cannot see a layout that lands on the wrong edge.
+    await viewport({ width: 1280, height: 900 });
+    await sleep(300);
+    const resultDir = await setLocale("ar");
+    console.log(`\n[3c/5] Rebuilt views in Arabic (dir=${resultDir}) — the F2 gap`);
+
+    await showResult();
+    await shot("17-result-arabic-rtl", "PRD Overview in Arabic RTL");
+    await overflowOf("result overview (ar/rtl)");
+
+    await openTab("backlog");
+    await shot("18-sprint-board-arabic-rtl", "Sprint board in Arabic RTL — buckets by chip weight");
+    await overflowOf("sprint board (ar/rtl)");
+
+    await openTab("evidence");
+    await shot("19-evidence-arabic-rtl", "Evidence panel in Arabic RTL — model vs deterministic by weight");
+    await overflowOf("evidence panel (ar/rtl)");
+
+    // The history list and the saved plan need a navigation, which would throw
+    // away the result state that "15-empty-cleared" below still depends on —
+    // and regenerating it would cost a second provider call for a screenshot.
+    // So those two run at the very end of the script instead, where nothing is
+    // left to disturb. Here we only put the language back.
+    await setLocale("en");
+    await showResult();
+
     // State 4 — empty. Reached by clearing a result, which must show the
     // "cleared" placeholder rather than the wizard's own idle copy.
     await viewport({ width: 1280, height: 900 });
@@ -669,6 +740,36 @@ try {
     console.error(`  ✗ no failing instance on ${BAD_BASE} (${e.message}); skipping`);
     failed = true;
   }
+
+  // ---- the two Arabic views that need a navigation ----
+  //
+  // Last, deliberately: reaching them discards whatever result is on screen,
+  // and by this point nothing else needs one. Both read plans the run above
+  // already saved, so neither costs a provider call.
+  console.log("\n[4b/5] History and saved plan in Arabic — the rest of the F2 gap");
+  await viewport({ width: 1280, height: 900 });
+  await goto(`${BASE}/scopecraft/history`, "h1");
+  const historyDir = await setLocale("ar");
+  await sleep(400);
+  await shot("20-history-arabic-rtl", `Your plans, dir=${historyDir} — cards and 44px actions`);
+  await overflowOf("history list (ar/rtl)");
+
+  const openedSavedPlan = await evaluate(`
+    (() => {
+      const link = document.querySelector('a[href^="/scopecraft/history/"]');
+      if (!link) return false;
+      link.click();
+      return true;
+    })()
+  `);
+  if (openedSavedPlan) {
+    await sleep(1500);
+    await shot("21-saved-plan-arabic-rtl", "A saved plan reopened in Arabic RTL");
+    await overflowOf("saved plan (ar/rtl)");
+  } else {
+    console.log("  · no saved plan to open — the history list was empty");
+  }
+  await setLocale("en");
 
   // ---- measured accessibility audit, light and dark ----
   console.log("\n[5/5] Accessibility audit — measured from the live DOM");
@@ -775,6 +876,19 @@ try {
       if (!clean) failed = true;
     }
   }
+  // The overflow block above measures the idle page at three widths. These are
+  // the rebuilt views it never reaches — recorded here rather than only printed,
+  // because "F2 verified" is a claim that has to survive being checked later.
+  report.push("");
+  report.push("REBUILT VIEWS IN ARABIC RTL (each rendered, not inferred)");
+  report.push("");
+  if (rtlFindings.length === 0) {
+    report.push("  none captured — the Arabic pass did not run");
+  } else {
+    for (const line of rtlFindings) report.push(line);
+  }
+  if (rtlFailures > 0) failed = true;
+
   report.push("");
   report.push(`Sprint board capacity readout in the committed screenshot: ${capacityReadout}`);
 

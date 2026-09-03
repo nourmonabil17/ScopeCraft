@@ -157,7 +157,7 @@ All four before every commit. A commit that breaks one does not get made.
 ```bash
 npm run smoke             # are all three providers reachable right now?
 npm run capture:evidence  # API and failover evidence
-npm run capture:ui        # 17 screenshots + the accessibility audit
+npm run capture:ui        # 22 screenshots + the accessibility audit
 ```
 
 Both capture scripts run **on the host**, not in a container. `capture:ui` drives Chrome

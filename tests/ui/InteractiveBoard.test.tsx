@@ -487,6 +487,31 @@ describe("InteractiveSprintBoard · Arabic", () => {
     expect(screen.getByTestId("board-badge-US-3")).toHaveClass("faint");
   });
 
+  // Found by rendering the board in Arabic for the first time at F2, not by
+  // reading the code. "points" was a hardcoded English literal — the one
+  // user-facing string that never went through t(), which is exactly why the
+  // type system could not catch it: the en/ar completeness check only sees
+  // keys, and this was never a key.
+  it("translates the capacity unit instead of hardcoding English", () => {
+    setupArabic();
+    const readout = screen.getByTestId("capacity-meter-numbers");
+    expect(readout).toHaveTextContent("نقطة");
+    expect(readout.textContent).not.toMatch(/points/i);
+  });
+
+  // The second half of the same bug. The mixed run reordered under RTL and
+  // displayed "29 / 30 points" as "points 30 / 29" — capacity where committed
+  // should be. <bdi> isolates the fraction so it reads left-to-right whatever
+  // the paragraph direction is.
+  it("isolates the numeric fraction so RTL cannot reverse it", () => {
+    setupArabic();
+    const readout = screen.getByTestId("capacity-meter-numbers");
+    const bdi = readout.querySelector("bdi");
+    expect(bdi).not.toBeNull();
+    // 8 committed of 20 capacity, in that order, inside the isolate.
+    expect(bdi!.textContent!.replace(/\s+/g, " ").trim()).toBe("8 / 20");
+  });
+
   it("still labels the capacity group in Arabic", () => {
     setupArabic();
     expect(screen.getByRole("group", { name: /سعة السبرنت/ })).toBeInTheDocument();

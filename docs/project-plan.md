@@ -1042,7 +1042,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 18 | Defense | Backend defense prep | `docs/defense-prep-backend.md` | ⚠️ auth + DB sections | 13.4.1 |
 | 19 | Evidence | API / curl evidence | `docs/evidence/curl-evidence.md` | ⚠️ | 6.4.7 |
 | 20 | Evidence | Provider fallback log | `docs/evidence/provider-fallback-log.md` | ⚠️ | 6.4.7 |
-| 21 | Evidence | UI evidence | `docs/evidence/ui/ui-evidence.md` | ✅ 17 screenshots | 11.3.9 |
+| 21 | Evidence | UI evidence | `docs/evidence/ui/ui-evidence.md` | ✅ 22 screenshots | 11.3.9 |
 | 22 | Evidence | Accessibility checklist | `docs/evidence/ui/accessibility-checklist.md` | ✅ measured | 10.1.5 |
 | 23 | Evidence | Raw captures | `docs/evidence/raw/` | ✅ | 6.4.6 |
 | 24 | Historical | Session 1–4 lead checklists | `docs/session[1-4]-lead-checklist.md` | ✅ dated records | **do not rewrite** |

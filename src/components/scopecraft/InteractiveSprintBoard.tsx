@@ -371,7 +371,21 @@ export function InteractiveSprintBoard({
           <span>{t("board.capacity.title")}</span>
           <span className={styles.meterNumbersGroup}>
             <span className={styles.meterNumbers} data-testid="capacity-meter-numbers">
-              {capacity.committedPoints} / {capacity.capacityPoints} points
+              {/* Two bugs lived on this line until the Arabic capture rendered it.
+                  "points" was a hardcoded English literal — the one user-facing
+                  string in the app with no `ar` entry, which the type system
+                  cannot catch because it never went through t(). And the mixed
+                  run reordered under RTL: "29 / 30 points" displayed as
+                  "points 30 / 29", putting capacity where committed should be.
+
+                  <bdi> is the native fix for the second half: it isolates the
+                  fraction so it always reads left-to-right, whatever the
+                  paragraph direction around it. The unit word then follows in
+                  the reader's own direction. */}
+              <bdi>
+                {capacity.committedPoints} / {capacity.capacityPoints}
+              </bdi>{" "}
+              {t("history.points")}
             </span>
             <span className={styles.meterPercent} data-testid="capacity-meter-percent">
               {percent}%

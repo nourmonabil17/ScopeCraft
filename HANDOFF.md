@@ -284,7 +284,7 @@ npm run dev              # localhost:3000/scopecraft
 
 # regenerate evidence (both make real, billable provider calls)
 npm run build && npm run capture:evidence     # API + failover evidence, port 3100
-npm run capture:ui                            # 17 screenshots + a11y audit
+npm run capture:ui                            # 22 screenshots + a11y audit
                                               # needs servers on 3200 (good keys)
                                               # and 3201 (deliberately invalid keys)
                                               # and AUTH_SECRET matching both — see §1.4a
