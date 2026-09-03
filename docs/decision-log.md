@@ -963,3 +963,39 @@ nonce or hash policy and saying so is more useful than closing the row.
     `git grep -o 'var(--sc-' -- src | wc -l`, which is the third time these two
     metrics have been mixed. The occurrence count is the one that has to reach
     zero before the `--sc-*` block can be deleted.
+
+35. **The capacity meter shows three states in two colours — 2026-09-03, Module D5.**
+    Entry 34 bound the board to the weight ramp and it was applied without
+    incident. The meter was the part that did not fit. It has three states —
+    `ok`, `warning`, `over` — and a filled bar has no border style to ramp: a
+    fill is a fill. The twelve roles carry no `success` and no `warning`, so
+    three states had two colours available.
+
+    **Which two share, and why.** `ok` and `warning` share `--c-accent`. Under
+    capacity and approaching capacity are both *not a fault*; over capacity is
+    the only fault on the board, and `danger` is what entry 32 added faults for.
+    Splitting `ok` from `warning` by hue would have needed the thirteenth role
+    this module has now declined four times.
+
+    **What carries the distinction instead.** The caption below the bar, in
+    words — "2 points of headroom left" against "over by 3" — stepped up by
+    weight: `--c-text-muted` at `ok`, full `--c-text` at 600 for `warning`,
+    `--c-danger` at 700 for `over`. The track itself is `aria-hidden="true"`
+    and always was, so it was never the accessible channel; this makes the
+    visual channel agree with the one screen readers already had.
+    `.meterFillWarning` was deleted rather than mapped to something.
+
+    **What it costs, plainly:** the bar no longer turns amber as a sprint fills
+    up. A Product Owner glancing at the colour alone gets two states, not
+    three, and has to read the caption for the third. That is a real reduction
+    in at-a-glance information and it is the price of the closed palette.
+
+    **The plan had this token wrong, which is how it was found.** The D5 plan
+    recorded `--sc-warning` as "used twice, for the over-capacity state". It
+    was used three times, and over-capacity was already on `--sc-danger` — the
+    token was the *approaching*-capacity state and the dependency note. The
+    note is a genuine fault (a committed story depending on a deferred one
+    cannot be delivered) and took `--c-danger` on its own merits. Four plans in
+    this module have now carried a count or a mapping that did not survive
+    contact with the tree; reading the file before trusting the plan is the
+    only thing that has caught any of them.

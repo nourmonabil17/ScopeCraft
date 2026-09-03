@@ -65,7 +65,7 @@ a real bug in this project.
 
 | Occurrences | File | Point |
 |---:|---|---|
-| 37 | `InteractiveSprintBoard.module.css` | 1 |
+| ~~37~~ **0** | `InteractiveSprintBoard.module.css` | 1 ✅ |
 | 19 | `ToggleControls.module.css` | 2 |
 | 26 | `HistoryList.module.css` | 3 |
 | 2 | `SavedPlanView.module.css` | 3 |
@@ -78,11 +78,12 @@ a real bug in this project.
 | 7 | `ExportActions.module.css` | 6 |
 | 3 | `BackLink.module.css` | 6 |
 | 2 | `layout.tsx` | 6 |
-| **169** | | |
+| **169** → **132** | | Point 1 done |
 
-The only three non-approved media queries left are `ToggleControls` (`max-width: 34rem`
-×2) and `InteractiveSprintBoard` (`max-width: 42rem`) — which is exactly the two-entry
-`PRE_REBUILD_EXEMPT` list. Points 1 and 2 clear both.
+The only three non-approved media queries left were `ToggleControls` (`max-width: 34rem`
+×2) and `InteractiveSprintBoard` (`max-width: 42rem`) — which was exactly the two-entry
+`PRE_REBUILD_EXEMPT` list. Point 1 cleared the board's; `PRE_REBUILD_EXEMPT` is down to
+one entry and Point 2 empties it.
 
 ---
 
@@ -91,15 +92,19 @@ The only three non-approved media queries left are `ToggleControls` (`max-width:
 D4's five tasks are committed on `feat/d4-result-view` (7 commits) and individually
 reviewed. Its final whole-branch review was interrupted and the branch is unmerged.
 
-- [ ] Run the final whole-branch review over `757cea5..HEAD`.
-- [ ] Address anything Critical or Important; park Minors in the ledger.
-- [ ] Merge to `dev` with a merge commit, matching D1–D3
-      (`Merge D4: result view onto the new tokens, buckets by weight`).
-- [ ] **Do not push.** Shipping is Point 7.
+- [x] Run the final whole-branch review over `757cea5..HEAD`. Nothing Critical or
+      Important. No orphan classes, no stale tokens, authorship and trailers clean.
+- [x] Address anything Critical or Important; park Minors in the ledger. The one
+      deferred Minor was **closed rather than parked** — see below.
+- [x] Merge to `dev` with a merge commit, matching D1–D3 — `70aa590`.
+- [x] **Do not push.** Shipping is Point 7.
 
-One deferred Minor is already on the ledger: `tests/ui/ResultView.test.tsx` uses
-`toBeGreaterThanOrEqual` where the fixture makes counts deterministic (high=1,
-medium=2, low=3, `Scenario:`=5). Triage it here.
+One deferred Minor was on the ledger: `tests/ui/ResultView.test.tsx` used
+`toBeGreaterThanOrEqual` where the fixture makes counts deterministic. Rather than
+assume the fixture, the assertions were tightened and run: high=1, medium=2, low=3 and
+`Scenario:`=5 all pass exactly. Closed in `1fff2b2` — a floor of `>= 1` would have
+passed with four of the five criteria missing, which is the failure the test exists to
+catch.
 
 ---
 
@@ -121,9 +126,15 @@ languages. That is worse than either state alone.
 - `@media (max-width: 42rem)` at line 92 inverts to phone-first `min-width: 48rem`.
   42rem is not on the approved scale; 48rem is, and its documented intent is
   "Tablet. **Two-column board**" — which is what this query is for.
-- `--sc-warning` (used twice, for the over-capacity state) has no `--c-*` equivalent.
+- ~~`--sc-warning` (used twice, for the over-capacity state) has no `--c-*` equivalent.
   It takes `--c-danger`: over capacity is a fault, not a caution, and `danger` is the
-  only status colour among the twelve.
+  only status colour among the twelve.~~
+  **Corrected during execution.** `--sc-warning` is used **three** times and is the
+  *approaching*-capacity state plus the dependency note — over capacity was already on
+  `--sc-danger`. The note took `--c-danger` on its own merits; the caption steps up by
+  weight, not hue; and the meter fill ends with two colours for three states, `ok` and
+  `warning` sharing the accent because neither is a fault. `.meterFillWarning` was
+  deleted rather than mapped. Recorded as decision-log entry 35.
 - The two deferred/included columns take `Card` with `recessed` and `muted` — the
   props exist for exactly this and have had no consumer.
 - `PRE_REBUILD_EXEMPT` drops to 1 entry; its `toHaveLength` assertion updates.
@@ -134,6 +145,14 @@ single-pointer alternative and the buttons already are one), and no delivery dat
 
 **Check:** `InteractiveBoard.test.tsx` passes unchanged; capacity maths untouched;
 breakpoint audit passes with one exemption left.
+
+**Done 2026-09-03, commits `463b7e5`, `76686cb`.** All three checks met. Beyond the
+list above: story cards also took `Card` (leaving them hand-rolled would have rebuilt
+the very inconsistency this point exists to close), the toggle took `Button` — 32px to
+44px for free — `Card`'s `as` union gained `"section"` so the columns kept their two
+named landmarks, and `Chip` gained `testId`. `data-moscow` was dropped; nothing read
+it. Suite 435 → 455; capture re-run at exit 0. Written up in
+[`upgrade-checklist.md`](../../upgrade-checklist.md) under D5.
 
 ---
 

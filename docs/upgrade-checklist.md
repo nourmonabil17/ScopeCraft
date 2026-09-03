@@ -370,10 +370,65 @@ One point per view. Each is rebuilt, then reviewed against
       `--c-text-faint` on `--c-panel`, is not in the numbers above; it is
       asserted in `tests/evaluation/design-tokens.test.ts` at 4.54:1 light and
       5.88:1 dark.
-- [ ] **D5 — Interactive sprint board.** Rebuilt visual, **preserved decisions**:
-      no drag-and-drop (WCAG 2.2 SC 2.5.7 needs a single-pointer alternative, and
-      buttons already are one), and no delivery dates (a documented non-goal —
-      it shows capacity, not calendar commitments).
+- [x] **D5 — Interactive sprint board.** *Done 2026-09-03, commits `463b7e5`,
+      `76686cb`.* The largest legacy holdout, 37 occurrences to 0, and it closes
+      an inconsistency D4 opened: the overview tab rendered MoSCoW as `Chip`
+      weights while the backlog tab, one click away, rendered the same four
+      buckets in red/amber/blue/grey. `MOSCOW_BADGE_CLASS` is gone and the badge
+      is a `Chip` on entry 34's mapping. The two columns take `Card` — the
+      deferred one with `recessed` and `muted`, whose documented meaning is
+      "content that is present but not committed to" and which had shipped in
+      Module C with no consumer. Story cards take `Card` as an `li`; the toggle
+      takes `Button`, which raises it from 32px to the 44px comfort target.
+
+      **Preserved decisions**: no drag-and-drop (WCAG 2.2 SC 2.5.7 needs a
+      single-pointer alternative, and buttons already are one), and no delivery
+      dates (a documented non-goal — it shows capacity, not calendar
+      commitments). The capacity maths in `client-recalc.ts` was not touched and
+      `InteractiveBoard.test.tsx`'s existing cases pass unchanged.
+
+      **The plan was wrong about `--sc-warning` and the plan is what changed.**
+      It recorded the token as "used twice, for the over-capacity state". It is
+      used three times, and it is the *approaching*-capacity state plus the
+      dependency note — over-capacity was already on `--sc-danger`. The
+      dependency note is a fault and took `--c-danger`; the caption steps up by
+      weight instead of hue, muted grey to full text. The meter fill ends with
+      two colours for three states: `ok` and `warning` share the accent because
+      neither is a fault, and the track is `aria-hidden` decoration, so the
+      caption carries the three-way distinction in words. `.meterFillWarning`
+      was deleted rather than mapped. **This is the fourth time a metric or a
+      token count in a plan has not survived contact with the tree.**
+
+      **`@media (max-width: 42rem)` inverted to `min-width: 48rem`**, whose
+      recorded intent in `breakpoints.ts` is "Tablet. **Two-column board**" —
+      written for this board. `PRE_REBUILD_EXEMPT` drops to one entry;
+      `ToggleControls` is the last, and comes off at the next point.
+
+      **Two primitives grew, each for a stated reason.** `Card`'s `as` union
+      gains `"section"`: a named `<section>` is a landmark and a `<div>` is not,
+      so the columns would have lost two named regions to satisfy a type.
+      `Chip` gains `testId`, the same named-prop trade `Card` made at D4 —
+      a `{...rest}` spread would also admit `style`, which is the one hole a hue
+      could return through. `data-moscow` was dropped; it had no reader anywhere
+      in the tree.
+
+      **Verified by `npm run capture:ui`**, exit 0: 17 screenshots and the audit
+      regenerated, 19 contrast pairs light and 20 dark with none below AA, 0
+      unnamed controls, 0 heading skips, and no horizontal overflow at 1280, 768
+      or 390px in both LTR and RTL. The suite is 455 tests over 21 suites, up
+      from 435.
+
+      **Not covered by this point.** The meter keeps its own surface rather than
+      taking `Card`: it needs `role="group"` and `aria-label`, and `Card`
+      deliberately has no spread to carry them. A named `role` prop would buy
+      one consumer and reopen the door `Card` exists to hold shut, so this pays
+      four duplicated declarations instead. The points input stays a bare
+      `<input>` rather than taking `Field` — it has its own `<label>` wrapper and
+      restructuring it is not what this point is about. `.srOnly` is still
+      defined here, one of five; that consolidation is Point 6. The visual RTL
+      layout of the board is asserted only as far as jsdom can — the strings,
+      the weights and the group label — because the capture's overflow checks
+      run on the idle page. Rendering every rebuilt view in Arabic is F2.
 - [ ] **D6 — History list.** Cards, stats strip, duplicate and delete. Fix the
       32 px action-button targets while here — they clear the 24 px WCAG 2.5.8
       floor but sit under the 44 px comfort target.
