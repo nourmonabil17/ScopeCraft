@@ -78,6 +78,18 @@ describe("Button", () => {
     expect(screen.getByRole("button", { name: "Reset" })).toHaveClass("secondary");
   });
 
+  // Added at Point 3 for the history list's delete action. It is a variant
+  // rather than a colour passed in through className because both would be
+  // single-class selectors, and which one won would depend on the order the
+  // CSS chunks loaded — not something to leave to chance on a delete button.
+  it.each(["primary", "secondary", "quiet", "danger"] as const)(
+    "applies the %s variant as a class",
+    (variant) => {
+      renderWithProviders(<Button variant={variant}>Delete</Button>);
+      expect(screen.getByRole("button", { name: "Delete" })).toHaveClass(variant);
+    }
+  );
+
   it("keeps a caller's own className alongside its own", () => {
     renderWithProviders(<Button className="pinned">Save</Button>);
     const button = screen.getByRole("button", { name: "Save" });

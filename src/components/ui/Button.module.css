@@ -73,3 +73,18 @@
   background: var(--c-panel-recessed);
   color: var(--c-text);
 }
+
+/* Destructive actions. A variant here rather than a colour override passed in
+   through `className` from the consumer's own stylesheet: both would be
+   single-class selectors, so which one wins would depend on the order the CSS
+   chunks happen to load, and that is not a thing to leave to chance on the
+   delete button. Inside this file the cascade is source order and settled. */
+.danger {
+  background: transparent;
+  color: var(--c-danger);
+  border-color: var(--c-danger);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--c-danger-surface);
+}

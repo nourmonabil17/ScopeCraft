@@ -100,3 +100,60 @@ describe("HistoryList delete action", () => {
     ).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// D6/D7: primitives, and the 44px target the checklist named
+// ---------------------------------------------------------------------------
+
+describe("HistoryList primitives", () => {
+  // The checklist's actual ask for this point was "fix the 32px action-button
+  // targets". jsdom resolves no CSS, so the size itself cannot be measured
+  // here — what can be proved is that both controls are the Button primitive,
+  // and design-tokens.test.ts separately asserts Button declares exactly one
+  // target size and that it is 2.75rem. The two together are the check.
+  it("puts both row actions on the Button primitive", () => {
+    renderWithProviders(<HistoryList plans={[makePlan()]} />);
+    expect(screen.getByRole("button", { name: "Duplicate" })).toHaveClass("button");
+    expect(screen.getByRole("button", { name: "Delete" })).toHaveClass("button");
+  });
+
+  it("gives delete the danger variant and duplicate the secondary one", () => {
+    renderWithProviders(<HistoryList plans={[makePlan()]} />);
+    expect(screen.getByRole("button", { name: "Delete" })).toHaveClass("danger");
+    expect(screen.getByRole("button", { name: "Duplicate" })).toHaveClass("secondary");
+  });
+
+  // The confirming state keeps the danger variant: the escalation is carried
+  // by the label changing to "Confirm delete?", which is also the only signal
+  // a screen reader ever had.
+  it("keeps the danger variant while confirming", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<HistoryList plans={[makePlan()]} />);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("button", { name: "Confirm delete?" })).toHaveClass("danger");
+  });
+
+  it("puts every row on the Card primitive as a real li", () => {
+    renderWithProviders(<HistoryList plans={[makePlan({ id: "a" }), makePlan({ id: "b" })]} />);
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row).toHaveClass("card");
+    }
+  });
+});
+
+// A check that runs LTR only is not a passing check on a bilingual app.
+describe("HistoryList · Arabic", () => {
+  it("renders the actions and the row in Arabic", () => {
+    renderWithProviders(<HistoryList plans={[makePlan()]} />, { locale: "ar" });
+    // The row still renders as a Card, and the actions are still Buttons —
+    // neither primitive depends on direction, which is the point of checking.
+    expect(screen.getByRole("listitem")).toHaveClass("card");
+    const buttons = screen.getAllByRole("button");
+    expect(buttons).toHaveLength(2);
+    for (const button of buttons) {
+      expect(button).toHaveClass("button");
+    }
+  });
+});

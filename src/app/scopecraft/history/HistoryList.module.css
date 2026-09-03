@@ -1,27 +1,41 @@
-/* Logical properties throughout — this list renders in both directions. */
+/* src/app/scopecraft/history/HistoryList.module.css
+ *
+ * Rebuilt at Point 3 (D6) on the --c-* tokens. Logical properties throughout —
+ * this list renders in both directions.
+ *
+ * Shared by three files, not one: HistoryList.tsx, history/page.tsx and
+ * history/[id]/page.tsx all import it. The last two use only `.main`, which is
+ * why the page shell metrics live here rather than in a component file.
+ *
+ * Card supplies the row surface and Button supplies the two actions, which is
+ * what takes those actions from 32px to the 44px comfort target.
+ */
 
 /* Matches .main in ../page.module.css. Shared metrics rather than a shared
    class because the two pages have different shells; what must not differ is
-   the measure and the gutter, or navigating between them shifts the content. */
+   the measure and the gutter, or navigating between them shifts the content.
+   ../page.module.css is still on the legacy tokens until Point 6 — the numbers
+   here are the ones that have to keep matching, and they have not changed. */
 .main {
-  max-width: 52rem;
+  max-inline-size: 52rem;
   margin-inline: auto;
-  padding: 2.5rem 1rem 4rem;
+  padding-block: var(--space-7) var(--space-8);
+  padding-inline: var(--space-4);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-5);
 }
 
 .title {
-  font-size: 1.5rem;
-  margin-block: 0 0.25rem;
+  font-size: var(--text-2xl);
+  margin-block: 0 var(--space-1);
 }
 
 .subtitle {
-  margin-block: 0 1.5rem;
-  color: var(--sc-text-muted);
-  font-size: 0.875rem;
+  margin-block: 0 var(--space-5);
+  color: var(--c-text-muted);
+  font-size: var(--text-base);
 }
 
 .list {
@@ -29,21 +43,21 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
+/* Card supplies the surface, the rule, the radius and the padding. Nothing is
+   left here — the row's internal rhythm is carried by the margins on the parts
+   themselves, which is how it already worked. */
 .item {
-  border: 1px solid var(--sc-border);
-  border-radius: 0.75rem;
-  padding: 1rem;
-  background: var(--sc-surface-raised);
+  display: block;
 }
 
 .ideaLink {
   color: inherit;
   text-decoration: none;
   display: block;
-  margin-block-end: 0.5rem;
+  margin-block-end: var(--space-2);
 }
 
 .ideaLink:hover .idea {
@@ -51,13 +65,13 @@
 }
 
 .ideaLink:focus-visible {
-  outline: 2px solid var(--sc-accent);
+  outline: 2px solid var(--c-accent);
   outline-offset: 2px;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-sm);
 }
 
 .idea {
-  margin-block: 0 0.5rem;
+  margin-block: 0 var(--space-2);
   font-weight: 600;
   /* An idea can be 2000 characters. Clamp rather than truncate with an
      ellipsis, so the full text stays selectable and reachable by a reader. */
@@ -69,95 +83,64 @@
 
 .meta {
   margin-block: 0;
-  font-size: 0.8125rem;
-  color: var(--sc-text-muted);
+  font-size: var(--text-sm);
+  color: var(--c-text-muted);
 }
 
 .badges {
-  margin-block: 0.625rem 0;
+  margin-block: var(--space-2) 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
+  gap: var(--space-1);
 }
 
 .badges:empty {
   display: none;
 }
 
+/* These stay local rather than becoming Chip. Chip encodes a *bucket* by
+   weight and carries no hue by design — see decision-log entry 34 — and these
+   three are not buckets: one is a fault, one is a provenance flag, one is a
+   provider's name. "Failed" in particular has a legitimate claim on danger,
+   which Chip must never grow.
+   Sharp corners, not pills: Direction A. */
 .badgeFailed,
 .badgeEdited,
 .badgeProvider {
-  font-size: 0.75rem;
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
+  font-size: var(--text-xs);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
 }
 
 .badgeFailed {
-  color: var(--sc-danger);
-  background: var(--sc-danger-surface);
+  color: var(--c-danger);
+  background: var(--c-danger-surface);
 }
 
+/* The one flag worth showing: a plan the human reshaped. Accent on the
+   recessed surface — the pair D5 introduced and asserted. */
 .badgeEdited {
-  color: var(--sc-accent);
-  background: var(--sc-accent-subtle);
+  color: var(--c-accent);
+  background: var(--c-panel-recessed);
 }
 
 .badgeProvider {
-  color: var(--sc-text-muted);
-  background: var(--sc-surface-subtle);
-  border-color: var(--sc-border);
+  color: var(--c-text-muted);
+  background: var(--c-panel-recessed);
+  border-color: var(--c-rule);
 }
 
 .stats {
-  margin-block: 0 0.5rem;
-  font-size: 0.875rem;
-  color: var(--sc-text-muted);
+  margin-block: 0 var(--space-2);
+  font-size: var(--text-base);
+  color: var(--c-text-muted);
 }
 
 .cardActions {
-  margin-block-start: 0.75rem;
+  margin-block-start: var(--space-3);
   display: flex;
-  gap: 0.5rem;
-}
-
-.duplicateButton,
-.deleteButton,
-.deleteButtonConfirming {
-  font: inherit;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  border-radius: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  min-height: 2rem;
-  cursor: pointer;
-  transition: border-color 140ms ease, background 140ms ease;
-}
-
-.duplicateButton {
-  color: var(--sc-text);
-  background: var(--sc-surface-raised);
-  border: 1px solid var(--sc-border);
-}
-
-.duplicateButton:hover {
-  border-color: var(--sc-border-strong);
-  background: var(--sc-surface-subtle);
-}
-
-.deleteButton {
-  color: var(--sc-danger);
-  background: var(--sc-surface-raised);
-  border: 1px solid var(--sc-border);
-}
-
-.deleteButton:hover {
-  border-color: var(--sc-danger);
-  background: var(--sc-danger-surface);
-}
-
-.deleteButtonConfirming {
-  color: var(--sc-accent-contrast);
-  background: var(--sc-danger);
-  border: 1px solid var(--sc-danger);
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
