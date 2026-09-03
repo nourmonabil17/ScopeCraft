@@ -273,7 +273,13 @@ One point per view. Each is rebuilt, then reviewed against
       `LoadingState.module.css` split out of `StateViews.module.css` on the
       `--c-*` tokens, phone-first, with the three skeleton widths moved out of
       inline `style={{ width }}` into `nth-child` rules. Dead `.warningCard`
-      deleted. Legacy references fell 214 → 204.
+      deleted. Legacy references fell 214 → 204, measured as
+      `git grep -o 'var(--sc-' -- src | wc -l`. The pattern matters: a bare
+      `--sc-` substring also matches the prose in comments that *describe* the
+      legacy block, which is why three people counting this during D3 got three
+      different answers. `var(--sc-` counts references actually in use, and it
+      is that number — not the substring count — that has to reach 0 before the
+      `--sc-*` block can be deleted from `src/app/layout.tsx`.
 
       Verified by `npm run capture:ui`, exit 0: 19 contrast pairs light / 20
       dark, none below AA; 0 unnamed controls; 0 heading skips; no
