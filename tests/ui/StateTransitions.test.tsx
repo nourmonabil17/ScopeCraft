@@ -7,11 +7,14 @@
 // `global.fetch` is mocked per scenario to return the exact response shape
 // the backend contract promises for that state.
 
+import { readFileSync } from "node:fs";
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "./render-helpers";
 import ScopeCraftPage from "@/app/scopecraft/page";
 import { LoadingState } from "@/components/common/LoadingState";
+import { EmptyState } from "@/components/common/EmptyState";
+import { ErrorState } from "@/components/common/ErrorState";
 import { TRANSLATIONS } from "@/lib/i18n/translations";
 import type { ScopeCraftResponse } from "@/lib/scopecraft/schema";
 import { DEFAULT_TEAM_CAPACITY_POINTS } from "@/lib/scopecraft/schema";
@@ -309,6 +312,24 @@ describe("State 2 · loading timing", () => {
       });
     }
     expect(status).toHaveTextContent(TRANSLATIONS.ar["state.loading.step5"]);
+  });
+
+  // The shimmer swept left-to-right in Arabic, against text that reads
+  // right-to-left. `transform` is physical — there is no logical translate —
+  // so translateX(100%) moves visually right whatever the direction is.
+  //
+  // Read from the stylesheet rather than from a render: jsdom resolves no CSS
+  // and identity-obj-proxy hands back the class name, so a rendered assertion
+  // here would pass whether the rule existed or not. This is the same reason
+  // the header's target sizes are asserted from disk.
+  it("reverses the skeleton shimmer under RTL", () => {
+    const css = readFileSync("src/components/common/LoadingState.module.css", "utf8");
+
+    expect(css).toMatch(/\[dir="rtl"\]\s+\.skeletonRow::after\s*\{[^}]*animation-direction:\s*reverse/);
+
+    // The LTR keyframe is still the one being reversed; if it stops using a
+    // physical translate the rule above is solving a problem that moved.
+    expect(css).toMatch(/@keyframes shimmer\s*\{[^@]*translateX/);
   });
 });
 
@@ -712,5 +733,49 @@ describe("ScopeCraftPage duplicate prefill", () => {
     expect(screen.getByLabelText(/product idea/i)).toHaveValue("");
     expect(screen.getByLabelText(/team capacity/i)).toHaveValue(DEFAULT_TEAM_CAPACITY_POINTS);
     expect(sessionStorage.getItem(DUPLICATE_PREFILL_STORAGE_KEY)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// D9: the four state views take the Button primitive
+// ---------------------------------------------------------------------------
+
+describe("State views · primitives", () => {
+  // D3 deliberately left .retryButton and .startOverButton hand-rolled rather
+  // than porting work this point would throw away. Both classes are gone now;
+  // nothing in StateViews.module.css styles a control.
+  it("builds the error state's retry from Button", () => {
+    renderWithProviders(<ErrorState message="Generation failed" onRetry={() => {}} />);
+    const retry = screen.getByRole("button", { name: "Retry generation" });
+    expect(retry).toHaveClass("button");
+    expect(retry).toHaveClass("primary");
+  });
+
+  it("builds the empty state's start-over from Button", () => {
+    renderWithProviders(<EmptyState onStartOver={() => {}} />);
+    const startOver = screen.getByRole("button");
+    expect(startOver).toHaveClass("button");
+    expect(startOver).toHaveClass("secondary");
+  });
+
+  it("leaves no hand-rolled control classes in the stylesheet", () => {
+    // Comments stripped first — this file's own header explains that those two
+    // classes were removed, and matching the prose would fail for the opposite
+    // of the reason this test exists.
+    const css = readFileSync("src/components/common/StateViews.module.css", "utf8").replace(
+      /\/\*[\s\S]*?\*\//g,
+      ""
+    );
+    expect(css).not.toMatch(/\.retryButton|\.startOverButton/);
+    // And no legacy tokens, which is this point's actual target.
+    expect(css).not.toContain("var(--sc-");
+  });
+
+  // The error card is danger text on the danger surface; the retry button sits
+  // on top of it as an accent fill. Both pairs are asserted in
+  // design-tokens.test.ts — the capture never renders this state.
+  it("keeps the error state announced as an alert", () => {
+    renderWithProviders(<ErrorState message="Generation failed" onRetry={() => {}} />);
+    expect(screen.getByTestId("error-state")).toHaveAttribute("role", "alert");
   });
 });

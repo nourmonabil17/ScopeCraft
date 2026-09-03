@@ -18,14 +18,20 @@ import styles from "./Toast.module.css";
 export interface ToastProps {
   tone?: "success" | "error" | "info";
   className?: string;
+  testId?: string;
   children: ReactNode;
 }
 
-export function Toast({ tone = "info", className, children }: ToastProps) {
+export function Toast({ tone = "info", className, testId, children }: ToastProps) {
   return (
     <div
       className={[styles.toast, styles[tone], className].filter(Boolean).join(" ")}
       role={tone === "error" ? "alert" : "status"}
+      // Emitted here rather than passed in: the component already knows its
+      // tone, and a consumer repeating it as a prop is a second source of
+      // truth that can disagree with the role above it.
+      data-tone={tone}
+      data-testid={testId}
     >
       {children}
     </div>

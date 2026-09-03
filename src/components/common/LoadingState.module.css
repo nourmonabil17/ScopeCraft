@@ -99,6 +99,17 @@
   }
 }
 
+/* `transform` is physical — there is no logical translate — so translateX(100%)
+   moves visually right whatever the document direction is, and the sweep ran
+   left-to-right in Arabic against text that reads right-to-left. Carried
+   byte-identical from the pre-rebuild file, so it predates D3; this is the
+   point that touches the file.
+   Reversing the animation is the whole fix: the gradient is symmetric
+   (transparent → highlight → transparent), so it needs no counterpart flip. */
+[dir="rtl"] .skeletonRow::after {
+  animation-direction: reverse;
+}
+
 /* Carried across from StateViews.module.css unchanged. Making reduced-motion a
    token-level rule rather than a per-file afterthought is E1's job, not D3's. */
 @media (prefers-reduced-motion: reduce) {

@@ -38,15 +38,50 @@ function ToastDriver() {
 }
 
 describe("Toast system", () => {
-  it("renders the live region before any toast exists", () => {
+  // REPLACED at Point 5. This test used to assert the viewport was itself a
+  // `role="status" aria-live="polite"` region, on the reasoning that a live
+  // region must pre-exist to be registered. That reasoning is sound for a
+  // polite announcement, but it also made every error polite — an error toast
+  // waited for a pause in speech, which for a failed generation can mean
+  // acting on a plan that was never produced. The announcement moved onto each
+  // toast instead. See decision-log entry 36 for what that trades.
+  it("keeps the viewport free of live-region semantics", () => {
     renderWithProviders(<ToastDriver />);
 
-    // Mounting a live region only once a message arrives is the classic
-    // mistake — assistive tech never registers it, so nothing is announced.
+    // Not a live region: if it were, every toast role below would be nested
+    // inside a politer ancestor, which is the bug this replaced.
     const viewport = screen.getByTestId("toast-viewport");
-    expect(viewport).toHaveAttribute("aria-live", "polite");
-    expect(viewport).toHaveAttribute("role", "status");
+    expect(viewport).not.toHaveAttribute("aria-live");
+    expect(viewport).not.toHaveAttribute("role");
     expect(within(viewport).queryByTestId("toast")).not.toBeInTheDocument();
+  });
+
+  // The bug, stated as a test. `alert` is assertive and interrupts; `status`
+  // is polite and waits.
+  it("announces an error assertively and a success politely", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ToastDriver />);
+
+    await user.click(screen.getByRole("button", { name: /raise error/i }));
+    expect(screen.getByTestId("toast")).toHaveAttribute("role", "alert");
+
+    await user.click(screen.getByRole("button", { name: /dismiss notification/i }));
+    await user.click(screen.getByRole("button", { name: /raise success/i }));
+    expect(screen.getByTestId("toast")).toHaveAttribute("role", "status");
+  });
+
+  // Nesting is what made the error polite in the first place. One region per
+  // toast, none of them inside another.
+  it("nests no live region inside another", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ToastDriver />);
+
+    await user.click(screen.getByRole("button", { name: /raise success/i }));
+    await user.click(screen.getByRole("button", { name: /raise error/i }));
+
+    for (const toast of screen.getAllByTestId("toast")) {
+      expect(toast.parentElement?.closest("[aria-live], [role=status], [role=alert]")).toBeNull();
+    }
   });
 
   it("shows a toast with its message and tone", async () => {
