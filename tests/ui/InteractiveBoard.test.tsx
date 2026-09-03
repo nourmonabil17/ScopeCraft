@@ -362,3 +362,133 @@ describe("loading a saved board", () => {
     expect(screen.getByText(new RegExp(PRIORITY["US-2"].toFixed(2)))).toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// D5: the board and the overview tab now speak one visual language
+// ---------------------------------------------------------------------------
+
+/** The shared fixture carries only `should` and `wont`. All four buckets are
+ *  needed to prove the ramp, so this block brings its own map. */
+const ALL_BUCKETS: Record<string, MoscowBucket> = {
+  "US-1": "must",
+  "US-2": "could",
+  "US-3": "wont",
+};
+
+function setupWithAllBuckets() {
+  renderWithProviders(
+    <InteractiveSprintBoard
+      stories={STORIES}
+      priority={PRIORITY}
+      moscow={ALL_BUCKETS}
+      sprintPlan={SPRINT_PLAN}
+    />
+  );
+}
+
+describe("InteractiveSprintBoard · buckets are encoded without hue", () => {
+  // Before D5 this tab rendered the four buckets in red/amber/blue/grey while
+  // the overview tab, one click away, rendered the same four as chip weights.
+  // Same data, two visual languages. These four assertions are what stops that
+  // reopening.
+  it.each([
+    ["US-1", "solid"],
+    ["US-2", "dashed"],
+    ["US-3", "faint"],
+  ])("gives %s the %s chip weight", (id, weight) => {
+    setupWithAllBuckets();
+    expect(screen.getByTestId(`board-badge-${id}`)).toHaveClass(weight);
+  });
+
+  // identity-obj-proxy returns the key as the class name, so a leftover
+  // hue-coded badge would still be visible here by its own name.
+  it("renders no hue-coded bucket class at all", () => {
+    setupWithAllBuckets();
+    for (const id of ["US-1", "US-2", "US-3"]) {
+      const badge = screen.getByTestId(`board-badge-${id}`);
+      expect(badge.className).not.toMatch(/badgeMust|badgeShould|badgeCould|badgeWont/);
+      expect(badge).toHaveClass("chip");
+    }
+  });
+
+  it("still renders the bucket as a word, which is what carries the meaning", () => {
+    setupWithAllBuckets();
+    expect(screen.getByTestId("board-badge-US-1")).toHaveTextContent(/must/i);
+    expect(screen.getByTestId("board-badge-US-2")).toHaveTextContent(/could/i);
+    expect(screen.getByTestId("board-badge-US-3")).toHaveTextContent(/won.?t/i);
+  });
+});
+
+describe("InteractiveSprintBoard · primitives", () => {
+  it("puts every story card on the Card primitive", () => {
+    setup();
+    for (const id of ["US-1", "US-2", "US-3"]) {
+      const card = screen.getByTestId(`board-card-${id}`);
+      expect(card.tagName).toBe("LI");
+      expect(card).toHaveClass("card");
+    }
+  });
+
+  // A <section> with an accessible name is a landmark; a <div> is not. The
+  // columns were named regions before D5 and have to still be after it.
+  it("keeps both columns as named regions", () => {
+    setup();
+    const committed = screen.getByRole("heading", { name: /committed to sprint 1/i }).closest("section")!;
+    const deferred = screen.getByRole("heading", { name: /deferred backlog/i }).closest("section")!;
+
+    expect(committed).toHaveAttribute("aria-labelledby", "board-included-heading");
+    expect(deferred).toHaveAttribute("aria-labelledby", "board-deferred-heading");
+
+    // Deferred is present but not committed to, which is exactly what Card's
+    // `muted` means. `recessed` sinks the surface behind it.
+    expect(deferred).toHaveClass("recessed");
+    expect(deferred).toHaveClass("muted");
+    expect(committed).not.toHaveClass("muted");
+  });
+
+  it("gives the commit/defer control the 44px Button target", () => {
+    setup();
+    const toggle = screen.getByRole("button", { name: /Move US-1 to the deferred backlog/i });
+    expect(toggle).toHaveClass("button");
+    expect(toggle).toHaveClass("secondary");
+  });
+});
+
+// A check that runs LTR only is not a passing check on a bilingual app. This
+// proves the strings and the structure survive an Arabic render; the visual
+// RTL layout is verified against a real browser at Point 7 (F2/F3), which is
+// the only place it can be.
+describe("InteractiveSprintBoard · Arabic", () => {
+  function setupArabic() {
+    renderWithProviders(
+      <InteractiveSprintBoard
+        stories={STORIES}
+        priority={PRIORITY}
+        moscow={ALL_BUCKETS}
+        sprintPlan={SPRINT_PLAN}
+      />,
+      { locale: "ar" }
+    );
+  }
+
+  it("renders both column headings in Arabic", () => {
+    setupArabic();
+    expect(screen.getByRole("heading", { name: /ملتزم به في السبرنت الأول/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /قائمة الأعمال المؤجلة/ })).toBeInTheDocument();
+  });
+
+  // The old badge leaned on text-transform: uppercase for its emphasis, which
+  // is a no-op on Arabic script — so half the users of a bilingual app never
+  // saw it. Chip's border ramp is visible in any script.
+  it("keeps the bucket weights, which uppercase never gave Arabic", () => {
+    setupArabic();
+    expect(screen.getByTestId("board-badge-US-1")).toHaveClass("solid");
+    expect(screen.getByTestId("board-badge-US-2")).toHaveClass("dashed");
+    expect(screen.getByTestId("board-badge-US-3")).toHaveClass("faint");
+  });
+
+  it("still labels the capacity group in Arabic", () => {
+    setupArabic();
+    expect(screen.getByRole("group", { name: /سعة السبرنت/ })).toBeInTheDocument();
+  });
+});

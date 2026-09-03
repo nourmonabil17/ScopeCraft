@@ -78,10 +78,30 @@ describe("design tokens meet WCAG 2.2 AA", () => {
     expect(contrastRatio(t.textFaint, t.panel)).toBeGreaterThanOrEqual(4.5);
   });
 
+  // Three pairs new at D5, none of which the capture can reach: it renders the
+  // idle page only and never a board. The recessed surface is the deferred
+  // column and the capacity percentage pill.
+  it.each(themes)("%s: accent on a recessed panel clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.accent, t.panelRecessed)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(themes)("%s: muted text on a recessed panel clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.textMuted, t.panelRecessed)).toBeGreaterThanOrEqual(4.5);
+  });
+
   // SC 1.4.11: a rule that separates content is a non-text contrast target.
   it.each(themes)("%s: strong rule on ground clears 3:1", (theme) => {
     const t = tokens.color[theme];
     expect(contrastRatio(t.ruleStrong, t.ground)).toBeGreaterThanOrEqual(3);
+  });
+
+  // The points input's border is the only thing marking it as a field, and it
+  // sits on a card rather than on the page ground.
+  it.each(themes)("%s: strong rule on a panel clears 3:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.ruleStrong, t.panel)).toBeGreaterThanOrEqual(3);
   });
 
   it.each(themes)("%s: text on the accent fill clears 4.5:1", (theme) => {

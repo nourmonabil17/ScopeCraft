@@ -35,6 +35,9 @@ import {
 import { useLanguage } from "@/context/LanguageContext";
 import type { TranslationKey } from "@/lib/i18n/translations";
 import type { BoardEdits } from "@/lib/scopecraft/schema";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
+import { Chip, type ChipProps } from "@/components/ui/Chip";
 import styles from "./InteractiveSprintBoard.module.css";
 
 /** What the board reports upward on every change, so a parent (export
@@ -63,12 +66,16 @@ const MOSCOW_LABEL_KEY: Record<MoscowBucket, TranslationKey> = {
   wont: "moscow.wont",
 };
 
-const MOSCOW_BADGE_CLASS: Record<MoscowBucket, string> = {
-  must: styles.badgeMust,
-  should: styles.badgeShould,
-  could: styles.badgeCould,
-  wont: styles.badgeWont,
-};
+// Buckets are encoded by chip weight, not by hue — the same mapping the
+// overview tab uses. Until D5 these two tabs rendered the same four buckets in
+// two visual languages a single click apart: weights here, red/amber/blue/grey
+// there. See src/components/ui/Chip.tsx and docs/decision-log.md entry 34.
+const MOSCOW_WEIGHT = {
+  must: "solid",
+  should: "outline",
+  could: "dashed",
+  wont: "faint",
+} as const satisfies Record<MoscowBucket, NonNullable<ChipProps["weight"]>>;
 
 /**
  * The generated plan, with the human's saved edits laid over it.
@@ -271,12 +278,11 @@ export function InteractiveSprintBoard({
 
   const percent = Math.round(capacity.utilization * 100);
 
-  const meterFillClass =
-    capacity.state === "over"
-      ? styles.meterFillOver
-      : capacity.state === "warning"
-        ? styles.meterFillWarning
-        : "";
+  // Two fills for three states. "ok" and "warning" share the accent because
+  // neither is a fault; only "over" is. The caption below carries the
+  // three-way distinction in words, which is the channel that matters — the
+  // track itself is aria-hidden. See the stylesheet.
+  const meterFillClass = capacity.state === "over" ? styles.meterFillOver : "";
 
   const meterCaptionClass =
     capacity.state === "over"
@@ -293,7 +299,12 @@ export function InteractiveSprintBoard({
     const bucket = moscowFor(story.storyId);
 
     return (
-      <li key={story.storyId} className={styles.card} data-testid={`board-card-${story.storyId}`}>
+      <Card
+        key={story.storyId}
+        as="li"
+        testId={`board-card-${story.storyId}`}
+        className={styles.card}
+      >
         <div className={styles.cardTop}>
           <div>
             <p className={styles.cardTitle}>{story.storyId}</p>
@@ -301,13 +312,9 @@ export function InteractiveSprintBoard({
               {t("board.card.statement", { asA: story.asA, iWant: story.iWant })}
             </p>
           </div>
-          <span
-            className={`${styles.badge} ${MOSCOW_BADGE_CLASS[bucket]}`}
-            data-testid={`board-badge-${story.storyId}`}
-            data-moscow={bucket}
-          >
+          <Chip weight={MOSCOW_WEIGHT[bucket]} testId={`board-badge-${story.storyId}`}>
             {t(MOSCOW_LABEL_KEY[bucket])}
-          </span>
+          </Chip>
         </div>
 
         <div className={styles.cardMeta}>
@@ -339,8 +346,8 @@ export function InteractiveSprintBoard({
               aria-label={t("board.card.pointsLabel", { id: story.storyId })}
             />
           </label>
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             id={`toggle-${story.storyId}`}
             className={styles.toggleButton}
             onClick={() => handleToggle(story.storyId)}
@@ -351,9 +358,9 @@ export function InteractiveSprintBoard({
             }
           >
             {story.column === "included" ? t("board.action.defer") : t("board.action.commit")}
-          </button>
+          </Button>
         </div>
-      </li>
+      </Card>
     );
   }
 
@@ -374,7 +381,9 @@ export function InteractiveSprintBoard({
         <div className={styles.meterTrack} aria-hidden="true">
           <div
             className={`${styles.meterFill} ${meterFillClass}`}
-            style={{ width: `${Math.min(100, percent)}%` }}
+            // inlineSize, not width: the bar has to grow from the inline-start
+            // edge, which is the right-hand side in Arabic.
+            style={{ inlineSize: `${Math.min(100, percent)}%` }}
           />
         </div>
         <p className={`${styles.meterCaption} ${meterCaptionClass}`}>
@@ -393,7 +402,11 @@ export function InteractiveSprintBoard({
       </div>
 
       <div className={styles.columns}>
-        <section className={styles.column} aria-labelledby="board-included-heading">
+        <Card
+          as="section"
+          labelledBy="board-included-heading"
+          className={styles.column}
+        >
           <h4 id="board-included-heading" className={styles.columnHeader}>
             {t("board.column.committed")}
             <span className={styles.columnCount}>{included.length}</span>
@@ -403,9 +416,19 @@ export function InteractiveSprintBoard({
           ) : (
             <ul className={styles.cardList}>{included.map(renderCard)}</ul>
           )}
-        </section>
+        </Card>
 
-        <section className={styles.column} aria-labelledby="board-deferred-heading">
+        {/* recessed + muted: a sunken surface behind a dashed rule. Card's own
+            doc for `muted` is "content that is present but not committed to",
+            which is the definition of this column. Both props shipped in
+            Module C with no consumer until now. */}
+        <Card
+          as="section"
+          recessed
+          muted
+          labelledBy="board-deferred-heading"
+          className={styles.column}
+        >
           <h4 id="board-deferred-heading" className={styles.columnHeader}>
             {t("board.column.deferred")}
             <span className={styles.columnCount}>{deferred.length}</span>
@@ -415,7 +438,7 @@ export function InteractiveSprintBoard({
           ) : (
             <ul className={styles.cardList}>{deferred.map(renderCard)}</ul>
           )}
-        </section>
+        </Card>
       </div>
     </div>
   );

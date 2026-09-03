@@ -8,9 +8,15 @@
 // an action, the action is a real <button> inside it.
 //
 // `as` exists because the right element depends on context — an article in a
-// list of plans, an li inside a real <ul>, a div when it is only a container.
-// Getting that wrong is a semantics bug, so the choice is explicit at the call
-// site rather than guessed here.
+// list of plans, an li inside a real <ul>, a section when the card is a named
+// region of the page, a div when it is only a container. Getting that wrong is
+// a semantics bug, so the choice is explicit at the call site rather than
+// guessed here.
+//
+// `section` was added at D5 for the board's two columns. A <section> with an
+// accessible name is a landmark; a <div> is not. Leaving it off the union
+// would have meant the columns losing two named regions to satisfy a type,
+// which is the wrong direction to resolve that in.
 //
 // `id`, `labelledBy` and `testId` are spelled out one at a time rather than
 // taken as a {...rest} spread. A spread is shorter and would also let through
@@ -21,7 +27,7 @@ import type { ReactNode } from "react";
 import styles from "./Card.module.css";
 
 export interface CardProps {
-  as?: "div" | "article" | "li";
+  as?: "div" | "article" | "li" | "section";
   /** The deferred column's surface: a step back rather than forward. */
   recessed?: boolean;
   /** Dashed rule — content that is present but not committed to. */

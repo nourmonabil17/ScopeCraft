@@ -46,10 +46,7 @@ const WIDTH_QUERY = /@media[^{]*?\((min|max)-width:\s*([^)]+)\)/g;
 // Adding a NEW file here is not allowed. The whole point of the audit is that
 // work done from now on uses the scale, and an exemption list that can grow is
 // not an exemption list — it is a way of never fixing anything.
-const PRE_REBUILD_EXEMPT = [
-  "src/components/common/ToggleControls.module.css",
-  "src/components/scopecraft/InteractiveSprintBoard.module.css",
-];
+const PRE_REBUILD_EXEMPT = ["src/components/common/ToggleControls.module.css"];
 
 describe("breakpoint audit", () => {
   const all = stylesheetsUnder("src");
@@ -72,9 +69,11 @@ describe("breakpoint audit", () => {
   });
 
   it("the pre-rebuild exemption list has not grown", () => {
-    // Measured at 4 on 2026-09-02. Header came off in D1, InputForm in D2.
-    // Module D shrinks this to zero.
-    expect(PRE_REBUILD_EXEMPT).toHaveLength(2);
+    // Measured at 4 on 2026-09-02. Header came off in D1, InputForm in D2,
+    // InteractiveSprintBoard in D5 — its max-width: 42rem inverted to the
+    // 48rem tablet band, whose recorded intent is this exact board.
+    // ToggleControls is the last one; it comes off at Point 2.
+    expect(PRE_REBUILD_EXEMPT).toHaveLength(1);
   });
 
   it("every exempt file still exists", () => {

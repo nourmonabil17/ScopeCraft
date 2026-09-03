@@ -39,6 +39,19 @@ describe("Chip", () => {
     expect(screen.getByText("Won't")).toBeInTheDocument();
   });
 
+  // Added at D5: the board's badge carries a test id, and Chip had no way to
+  // take one. Named prop, not a spread — a spread would also admit `style`,
+  // which is the one hole a hue could come back through.
+  it("takes a test id without a spread", () => {
+    render(<Chip testId="board-badge-US-1">Must</Chip>);
+    expect(screen.getByTestId("board-badge-US-1")).toHaveTextContent("Must");
+  });
+
+  it("emits no test id attribute when none is passed", () => {
+    const { container } = render(<Chip>Must</Chip>);
+    expect(container.firstElementChild).not.toHaveAttribute("data-testid");
+  });
+
   // The guarantee, stated as a test: the bucket is readable text, so it
   // survives greyscale, colour blindness and a screen reader alike. If someone
   // later adds a `tone` or `colour` prop, this is the test that should stop
