@@ -418,13 +418,33 @@ Point 7's F5 re-capture produces the coherent set.
 - [x] **H2** — decision-log entries **38** (the `--sc-*` deletion and the box-sizing
       reset, including what it revealed about the 44px targets) and **39** (the
       `.srOnly` consolidation, including that two copies had already drifted).
-- [ ] **G1 — Ship.** `git push origin dev && git push fork dev:main`.
-      **Vercel builds from the FORK.** Pushing to `origin` alone never updates the
-      live site. **Not done — held for the owner.** `CLAUDE.md` §8 is explicit that
-      production pushes are not taken unasked, and this is the one step in the plan
-      that leaves the machine.
-- [ ] **G2 — Verify live** against `https://scope-craft-nine.vercel.app`, both
-      languages, both themes. Blocked on G1.
+- [x] **G1 — Ship.** Done 2026-09-03 by the owner, who ran the two pushes himself:
+      `c29ef2a..37cd309` to `origin/dev` and to `fork/main`. Both remotes are at the
+      merge commit. Recorded as the owner's action, not the agent's.
+- [x] **G2 — Verify live** against `https://scope-craft-nine.vercel.app`. Vercel had
+      already rebuilt from the fork by the time the check ran.
+
+      **Routes:** `/login` 200, `/scopecraft` 307 → `/login` (the auth gate is
+      holding), `/api/auth/providers` 200.
+
+      **The deletion is confirmed in production, not inferred.** The live document
+      defines **0** legacy custom properties and **12** `--c-*` ones — exactly the
+      twelve closed colour roles — and the browser resolves `--sc-text` to empty from
+      the live CSSOM. The global `box-sizing` reset is in the shipped stylesheet.
+
+      **All four combinations checked in a real browser**: dark/English, dark/Arabic,
+      light/Arabic, light/English. `dir` and `lang` flip correctly, computed `body`
+      background and colour match `--c-ground` `#ffffff` and `--c-text` `#0a0a0a` in
+      light, the accent is `#0f766e`, and there is **no horizontal overflow in any of
+      them**.
+
+      **D8's variants are live**: `login-github` carries `Button__primary` and
+      `login-google` carries `Button__secondary`. Production has both providers
+      configured, unlike this machine — which is exactly why the capture caption that
+      hardcoded "GitHub is the only credential path" had to go.
+
+      **No secret in the client bundle**: no `AUTH_SECRET`, `DATABASE_URL`, provider
+      key or `NEXT_PUBLIC_*` appears in the served HTML.
 
 ---
 
