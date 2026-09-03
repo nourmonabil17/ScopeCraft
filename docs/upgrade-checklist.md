@@ -594,12 +594,12 @@ recorded here so they are not quietly added later.
 
 ## Module F — Verification
 
-> **F2 is partially met and is the one open verification item.** The capture renders
-> the idle page in Arabic and checks RTL overflow at 1280/768/390, but its screenplay
-> never visits the result view, sprint board, history list or saved plan in `ar`. Those
-> four are covered in Arabic by jsdom tests only, which prove strings, roles and
-> structure but resolve no CSS. Extending the capture to drive `ar` through the result
-> tabs is its own change and is not claimed here. Recorded 2026-09-03.
+> **F2 closed 2026-09-03, commit `ebe3d96`.** The capture now drives Arabic through
+> the result overview, sprint board, evidence panel, history list and a saved plan —
+> five views no browser had rendered right-to-left before — and records per-view
+> overflow in the audit report. It found a real bug on its first run: the capacity
+> meter's unit was hardcoded English and its mixed run reordered under RTL, so an
+> Arabic reader saw capacity where committed belongs. Decision-log entry 40.
 
 
 - [ ] **F1 — Accessibility re-audit.** Full WCAG 2.2 AA pass on the rebuilt UI.

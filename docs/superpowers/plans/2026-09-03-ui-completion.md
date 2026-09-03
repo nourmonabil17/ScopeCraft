@@ -394,14 +394,23 @@ Point 7's F5 re-capture produces the coherent set.
       reset at midnight — Points 5 and 6 were blocked by it and this run raised
       `DAILY_PLAN_LIMIT` locally, which is what that env knob exists for. Nothing
       about the capture is less real for it; the two generations were live.
-- [~] **F2** — every rebuilt view in Arabic RTL. **Partially met, and not tickable
-      as written.** What was rendered in a real browser: the idle page in Arabic
-      (`05-arabic-rtl.png`) and the RTL overflow checks at all three widths. What was
-      *not*: the result view, sprint board, history list and saved plan in Arabic —
-      the capture's screenplay never visits them in `ar`, and no screenshot exists.
-      Those are covered in Arabic only by jsdom tests, which prove strings, roles and
-      structure but resolve no CSS. **Closing this properly needs the capture
-      extended to drive `ar`, which is its own change, not a tick.**
+- [x] **F2** — every rebuilt view in Arabic RTL, rendered. **Closed 2026-09-03,
+      commit `ebe3d96`.** The capture now drives `ar` through the result overview,
+      sprint board, evidence panel, history list and a saved plan — five views no
+      browser had rendered right-to-left before. 17 screenshots → 22, and per-view
+      overflow is written into the audit report rather than only printed.
+
+      No extra provider call: the result captures reuse the plan already in client
+      state and switch language through the header toggle instead of reloading; the
+      two that need a navigation run last, after nothing depends on a result.
+
+      **It found a bug on its first render**, which is the argument for having
+      insisted on it. The capacity meter read `29 / 30 points` in English and
+      displayed `points 30 / 29` in Arabic: `points` was the one user-facing string
+      never passed through `t()` — invisible to a type check that only sees keys —
+      and the mixed run reordered under RTL so capacity appeared where committed
+      belongs. An Arabic reader saw the wrong number first. Decision-log entry 40.
+
 - [x] **F3** — 1280 / 768 / 390px, both directions. No horizontal overflow in any of
       the six combinations, measured from the live DOM.
 - [x] **F4** — **486 tests over 21 suites** — 222 node, 264 UI. Typecheck, lint and

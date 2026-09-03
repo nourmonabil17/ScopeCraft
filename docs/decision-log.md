@@ -1133,3 +1133,49 @@ nonce or hash policy and saying so is more useful than closing the row.
     because it touches five stylesheets that four separate points produced.
     Doing it inside any one of them would have made that point's diff span files
     it had no business changing.
+
+40. **Rendering the board in Arabic found a bug four reviews had not — 2026-09-03, Module F, F2.**
+    F2 asked for "every rebuilt view in Arabic RTL. Not inferred; rendered." It
+    was closed by extending `capture-ui-evidence.mjs` to drive `ar` through the
+    result view, sprint board, evidence panel, history list and a saved plan —
+    five views no browser had ever rendered right-to-left.
+
+    **The first Arabic render of the board showed this:**
+
+    ```
+    29 / 30 points      displayed in Arabic as      points 30 / 29
+    ```
+
+    Two faults on one line, and the second is the dangerous one.
+
+    **`points` was hardcoded English.** It was the only user-facing string in
+    the application that never went through `t()`. The bilingual guarantee this
+    project relies on is a *type* check over the translation table — an English
+    key with no Arabic one is a compile error — and that check is structurally
+    incapable of seeing a string which was never a key. The guarantee was real
+    and this slipped under it, which is worth knowing about the guarantee.
+
+    **The mixed run reordered.** `{committed} / {capacity} points` is a
+    bidirectional sequence: Arabic paragraph, Latin word, neutral digits. Under
+    RTL the algorithm placed it so that capacity appeared where committed
+    belongs. An Arabic reader glancing at the meter read the wrong number first
+    — not a cosmetic fault, a wrong figure on the one control the whole board
+    exists to explain.
+
+    **Fixed** by taking the unit from the existing `history.points` key rather
+    than adding a second key for the same word, and wrapping the fraction in
+    `<bdi>`, the native element for exactly this: it isolates the run so it
+    reads left-to-right whatever surrounds it. Both halves are asserted.
+
+    **A tree-wide scan for other bare JSX text nodes found none.** This was the
+    last one, which is the only reason to believe the rest of the bilingual
+    surface is sound.
+
+    **What this says about the four reviews that missed it.** D5 rebuilt this
+    component and its Arabic test asserted the strings, the chip weights and the
+    group label — all of which were correct. jsdom resolves no CSS and applies
+    no bidi algorithm, so a passing Arabic unit test proved the component's
+    *content* in Arabic and said nothing about its *rendering*. The gap between
+    those two was recorded honestly at D5 and at Point 7 rather than papered
+    over, and closing it is what produced this entry. **An RTL check that never
+    reaches a browser is not an RTL check.**
