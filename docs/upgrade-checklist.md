@@ -93,7 +93,7 @@ The three findings from reading [`providers.ts`](../src/lib/ai/providers.ts) and
 
 ## Module B — Backend and API
 
-- [ ] **B1 — Rate-limit the authenticated endpoint.**
+- [x] **B1 — Rate-limit the authenticated endpoint.**
       **Re-scoped 2026-09-03. The premise changed under this point.** It used to
       read "rate-limit the anonymous endpoint", because `POST /api/scopecraft`
       was anonymous and unmetered. It no longer is: the auth work put a session
@@ -108,6 +108,32 @@ The three findings from reading [`providers.ts`](../src/lib/ai/providers.ts) and
       and no new dependency.
       *Check:* the limit trips in an integration test and returns a typed
       envelope, not a bare 429.
+
+      **Closed 2026-09-03 — and no code was written to close it.** This was
+      built during the authentication work and never ticked here; the tick is
+      catching the document up with the repository, not recording new work.
+      [`src/lib/quota.ts`](../src/lib/quota.ts) counts the caller's rows over a
+      rolling 24-hour window, and the route calls it at stage 4b — the first
+      database round trip and the last check before anything costs tokens.
+
+      The check is met: `returns 429 once the limit is reached, without calling
+      a provider` asserts the typed `RATE_LIMITED` envelope carrying `limit` and
+      `used`, and spies on all three providers to prove none ran. Verified
+      2026-09-03: the API suite is 127 passing.
+
+      Two properties worth naming, because neither was asked for and both would
+      be easy to lose in a refactor. The quota **fails closed** — an unreachable
+      quota store answers `503`, because generating anyway would mean "when the
+      database is down, this endpoint is unmetered", which is the exact property
+      the budget exists to remove. And the counter sits *below* validation, so a
+      malformed request costs the caller nothing; `never reaches the database
+      for a malformed body from a signed-in caller` is what fails if anyone
+      reorders it.
+
+      **Still true, and not fixed by this:** the limit is per account, not per
+      IP. Requiring a session is what stops anonymous burn; someone willing to
+      create many accounts is not addressed. That belongs in
+      `docs/known-limitations.md`.
 
 - [ ] **B2 — Structured generation logging.**
       `provider_used` and `prompt_version` are already persisted per plan, but
@@ -594,35 +620,69 @@ recorded here so they are not quietly added later.
 
 ## Module F — Verification
 
-> **F2 closed 2026-09-03, commit `ebe3d96`.** The capture now drives Arabic through
-> the result overview, sprint board, evidence panel, history list and a saved plan —
-> five views no browser had rendered right-to-left before — and records per-view
-> overflow in the audit report. It found a real bug on its first run: the capacity
-> meter's unit was hardcoded English and its mixed run reordered under RTL, so an
-> Arabic reader saw capacity where committed belongs. Decision-log entry 40.
+> **Module F closed 2026-09-03.** The detail for each point is in
+> [`docs/superpowers/plans/2026-09-03-ui-completion.md`](superpowers/plans/2026-09-03-ui-completion.md)
+> Point 7; the outcome is recorded here so this checklist is readable without it.
+> **Ticked 2026-09-03 in a later pass** — the work landed under the plan and these
+> boxes were left behind, which is the drift §11 of `CLAUDE.md` exists to stop.
 
-
-- [ ] **F1 — Accessibility re-audit.** Full WCAG 2.2 AA pass on the rebuilt UI.
+- [x] **F1 — Accessibility re-audit.** Full WCAG 2.2 AA pass on the rebuilt UI.
       Contrast measured. Every interactive control has an accessible name.
-- [ ] **F2 — Bilingual re-verification.** Every view checked in Arabic RTL, not
+      **Measured, not asserted:** `npm run capture:ui` reports 0 contrast pairs
+      below AA, and the pairs themselves are pinned in
+      [`tests/evaluation/design-tokens.test.ts`](../tests/evaluation/design-tokens.test.ts)
+      so a token change that breaks one fails a test rather than a screenshot.
+      **Named gap, still open:** there has been no screen-reader run. An
+      automated contrast and accessible-name pass is not a screen-reader pass,
+      and calling it one would be the kind of claim this repository has a history
+      of. See 6.5.6 in the project plan.
+- [x] **F2 — Bilingual re-verification.** Every view checked in Arabic RTL, not
       just English. A check that runs LTR only is not a passing check.
-- [ ] **F3 — Responsive verification.** Real widths, both directions, evidence
-      captured.
-- [ ] **F4 — Test suite restored.** The rewrite replaces the components the
-      current 292 tests point at. Coverage is re-earned, and the real number is
-      recorded here when it is known.
-- [ ] **F5 — UI evidence re-captured.** `npm run capture:ui`, and the screenshot
-      count corrected wherever it appears.
+      **Closed 2026-09-03, commit `ebe3d96`.** The capture drives `ar` through the
+      result overview, sprint board, evidence panel, history list and a saved plan
+      — five views no browser had rendered right-to-left before — and writes
+      per-view overflow into the audit report rather than only printing it.
+
+      It found a real bug on its first Arabic render, which is the argument for
+      having insisted on it: the capacity meter read `29 / 30 points` in English
+      and `points 30 / 29` in Arabic. `points` was the one user-facing string
+      never passed through `t()` — structurally invisible to a type check that
+      only sees keys — and the mixed run reordered under RTL, so an Arabic reader
+      saw capacity where committed belongs. Decision-log entry 40.
+- [x] **F3 — Responsive verification.** Real widths, both directions, evidence
+      captured. 1280 / 768 / 390px in both `ltr` and `rtl`; no horizontal overflow
+      in any of the six combinations, measured from the live DOM rather than by
+      eye. The four approved breakpoints are enforced by
+      [`tests/evaluation/breakpoint-audit.test.ts`](../tests/evaluation/breakpoint-audit.test.ts),
+      whose exemption list is now empty.
+- [x] **F4 — Test suite restored.** The rewrite replaced the components the
+      292 tests of the time pointed at. **The real number is 488 over 21 suites**
+      — 222 node, 266 UI. Typecheck, lint and build clean.
+- [x] **F5 — UI evidence re-captured.** `npm run capture:ui`, exit 0. **22
+      screenshots**, up from 17 when F2 added the five Arabic views. The count is
+      corrected in `CLAUDE.md`, `README.md`, `HANDOFF.md`, `AI_USAGE.md`,
+      `local-development.md`, `project-plan.md` and `evidence/README.md`.
 
 ---
 
 ## Module G — Deploy
 
-- [ ] **G1 — Ship.** `git push origin dev && git push fork dev:main`. Vercel
+- [x] **G1 — Ship.** `git push origin dev && git push fork dev:main`. Vercel
       builds from the **fork**, branch `main` — pushing to origin alone changes
-      nothing live.
-- [ ] **G2 — Verify live.** Against the real URL, both languages, both themes,
-      phone and desktop widths. Not against localhost.
+      nothing live. **Done 2026-09-03 by the owner, who ran both pushes himself**
+      (`c29ef2a..37cd309` to `origin/dev` and to `fork/main`). Recorded as the
+      owner's action rather than the agent's, because it was.
+- [x] **G2 — Verify live.** Against the real URL, both languages, both themes,
+      phone and desktop widths. Not against localhost. Checked against
+      `https://scope-craft-nine.vercel.app`: `/login` 200, `/scopecraft`
+      307 → `/login` (the auth gate holds), `/api/auth/providers` 200.
+
+      **The token migration is confirmed in production, not inferred** — the live
+      stylesheet defines **0** legacy custom properties and **12** `--c-*` ones,
+      and the browser resolves `--sc-text` to empty from the live CSSOM. All four
+      theme/language combinations render with no horizontal overflow, and no
+      `AUTH_SECRET`, `DATABASE_URL`, provider key or `NEXT_PUBLIC_*` appears in
+      the served HTML.
 
 ---
 

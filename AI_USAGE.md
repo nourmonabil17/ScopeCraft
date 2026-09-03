@@ -151,15 +151,15 @@ rather than edited.
 
 ### Verification evidence
 
-Re-run on **2026-08-24** against the working tree. The earlier 2026-08-23 figures are
-superseded; the counts moved because Module 5, the frontend pass and the accessibility
-fixes each added tests.
+Re-run on **2026-09-03** against the working tree. The earlier 2026-08-23 and
+2026-08-24 figures are superseded; the counts moved because Module 5, the frontend
+pass, the accessibility fixes and the frontend rebuild each added tests.
 
 | Check | Command | Result |
 |---|---|---|
 | Lint | `npm run lint` | exit 0 — eslint `--max-warnings=0`, no output |
 | Types | `npx tsc --noEmit` | exit 0 — no diagnostics |
-| Tests | `npm test` | **486/486 passing**, 21 suites — 222 node (API · tools · evaluation) + 264 UI. Was 245/245 on 2026-08-24 and 130/130 on 2026-08-23 |
+| Tests | `npm test` | **488/488 passing**, 21 suites — 222 node (API · tools · evaluation) + 266 UI. Was 486/486 on 2026-09-03 before the RTL fix, 245/245 on 2026-08-24 and 130/130 on 2026-08-23 |
 | Live providers | `npm run smoke` | all three reachable and answering |
 | API evidence | `npm run capture:evidence` | 11/11 cases matched `docs/api-contracts.md` |
 | UI + a11y evidence | `npm run capture:ui` | 22 screenshots; 38 contrast pairs (18 light, 20 dark), 0 below WCAG AA; five rebuilt views rendered in Arabic RTL |
