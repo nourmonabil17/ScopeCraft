@@ -92,12 +92,46 @@ look like a bug to whoever finds it next: **a client that depends on key order w
 and a miss differently.** Nothing in this codebase does, and the response is a validated Zod
 contract where order is not part of the contract.
 
+## Production spot-check — 2026-09-04
+
+The capture above runs against the dev branch. The same pair was then repeated against
+**production** (`https://scope-craft-nine.vercel.app`, commit `329dd87`, Neon branch
+`ep-ancient-darkness-ayos140f`) with a real signed-in session:
+
+| | Run 1 | Run 2 |
+|---|---|---|
+| Status | `200` | `200` |
+| `x-cache` | `miss` | `hit` |
+| Elapsed | **21.47 s** | **0.61 s** |
+| `x-provider-used` | `groq` | `groq` — the tier that answered run 1 |
+| `x-plan-id` | `cb53652a-e46e-4e62-807d-69c8ef127689` | `21a21628-9115-4a07-b43e-1fa0413ca55e` |
+| Size | 5541 bytes | 5541 bytes |
+
+`bytes identical: false`, `same data: true`, and run 2's top-level key order was
+`goals,risks,effort,moscow,sprint,problem,…` against run 1's
+`problem,target_user,goals,non_goals,…` — the `jsonb` reordering described above, reproduced
+on a second, independent database rather than being a local quirk.
+
+Run 1 returning a `200` with an `x-plan-id` also settles a separate question: the production
+`DATABASE_URL` works. The quota check queried Postgres before the generate step, and the
+insert returned a row id afterwards.
+
+**How this one was run, stated plainly because it matters.** It is not a script capture and
+`npm run capture:cache` does not reproduce it — that script boots a local server. This pair was
+driven from the signed-in page's own JavaScript context in a browser, so the numbers above are
+read from a tool result rather than from a file written by a run. Everything in
+[`raw/cache-transcript.txt`](raw/cache-transcript.txt) is a real captured stream; this section
+is not, and is labelled so it is not mistaken for one.
+
 ## What this capture does not show
 
-- **Production.** This ran against the Neon **dev** branch. The production branch has the
-  `request_hash` column applied and runs the same commit, but no live signed-in generation has
-  been captured there.
+- **The form's submit path in an automated browser.** Driving the production form with
+  synthetic clicks produced no `POST` at all across four attempts, although the textarea
+  accepted the text and the character counter updated. Whether that is an application bug or an
+  artifact of the automation was **not** diagnosed. The local UI evidence captures fill and
+  submit the same form successfully, which makes the automation the likelier explanation — but
+  that is an inference, not a result.
 - **A second user.** The cache is scoped per user by `user_id`. That scoping is covered by the
-  route's query, not by this capture, which uses one session throughout.
+  route's query, not by these runs, which use one session throughout.
 - **Prompt-version rejection.** The lookup filters on `prompt_version = PROMPT_VERSION`, so a
-  v7 row cannot answer a v8 request. Only one prompt version existed during this capture.
+  v7 row cannot answer a v8 request. Only one prompt version existed during either run.

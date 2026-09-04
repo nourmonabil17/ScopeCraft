@@ -151,9 +151,23 @@ The three findings from reading [`providers.ts`](../src/lib/ai/providers.ts) and
       first would make `recordPlan` fail on an unknown column and stop
       persisting plans *silently*.
 
-      **Not verified in production.** The capture above ran against the dev
-      branch. Production runs the same commit and has the column, but no live
-      signed-in generation has been captured there.
+      **Verified in production 2026-09-04**, at commit `329dd87` with a real
+      signed-in session: `x-cache: miss` at 21.47 s, then `hit` at 0.61 s, both
+      `200`, both 5541 bytes, distinct `x-plan-id` values. The `jsonb` key-order
+      difference reproduced on the production branch too, so it is a property of
+      the column type and not a local quirk. Run 1 also settles that the
+      production `DATABASE_URL` works — the quota check queried Postgres and the
+      insert returned a row id. Recorded in
+      [`cache-evidence.md`](evidence/cache-evidence.md#production-spot-check--2026-09-04)
+      and labelled there as a browser-driven spot-check rather than a script
+      capture, because `npm run capture:cache` boots a local server and does not
+      reproduce it.
+
+      **One thing this left open.** Driving the production form with synthetic
+      clicks produced no `POST` across four attempts, though the textarea
+      accepted input and the counter updated. Not diagnosed. The local UI
+      captures submit the same form successfully, so the automation is the
+      likelier cause — an inference, not a result.
 
       **Not in scope:** invalidation. A cached plan is never evicted; it stops
       being served when `PROMPT_VERSION` moves, which is the only change that
