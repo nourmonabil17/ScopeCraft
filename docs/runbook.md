@@ -267,6 +267,10 @@ In order of how much you should trust the answer:
    silent about whether the deploy succeeded.
 3. **The Vercel dashboard** — the only place that knows whether the build passed.
 
+**A tag is not one of these answers.** `v0.1.0` exists as of 2026-09-04, and tags do not
+move — it names what was released, never what is deployed right now. If you reach for it to
+answer this question you will be right only until the next deploy.
+
 **Three refs disagree and that is normal.** `origin/main` is behind and is a pending team
 decision; `fork/dev` stopped moving over a hundred commits ago and is not a source of
 anything. Only `fork/main == origin/dev` is meaningful. The table in

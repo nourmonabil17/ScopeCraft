@@ -74,9 +74,10 @@ Two things to take from that table:
 - `fork/dev` exists only as a leftover of the fork. Nothing pushes to it and nothing reads
   it. If you find yourself comparing against it, you are comparing against a branch that
   stopped moving over a hundred commits ago.
-- **There are still no git tags.** [`../CHANGELOG.md`](../CHANGELOG.md) is now the written
-  answer to "what is live" and `fork/main` is the measured one; a tag would make a release
-  nameable rather than only findable, and §9 below is where one gets cut. Item 14.8.2.
+- **`v0.1.0` is the first and only tag**, cut 2026-09-04 at `40dd493` and pushed to
+  `origin`. It names a release; it does not track one. Tags do not move, so a tag answers
+  "what was released" and never "what is deployed right now" — for that, `fork/main` is the
+  measured answer and [`../CHANGELOG.md`](../CHANGELOG.md) the written one.
 
 ### Docker is not on this path
 
@@ -384,7 +385,8 @@ Still open, and team-owned rather than fixable here:
 
 - [ ] Resolve `origin/main` — bring it up to date, or stop calling it the release branch. It
       is 33 behind `origin/dev`.
-- [ ] Cut the first tag. There are none yet.
+- [x] Cut the first tag. `v0.1.0`, 2026-09-04, at `40dd493`. The next one is a judgement
+      call about what counts as a release, not a repeat of this step.
 - [ ] Update `HANDOFF.md` §1.2 with the new branch heads when they move.
 
 ---

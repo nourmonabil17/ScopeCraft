@@ -16,6 +16,10 @@ git ls-remote fork main
 
 Vercel builds from the **fork**, branch `main`. See [`docs/deployment.md`](docs/deployment.md).
 
+Releases are tagged on **`origin`**. `v0.1.0` — `40dd493`, 2026-09-04 — is the first. A tag
+does not move, so it names what was released and never what is deployed right now; for that,
+read the top entry below or measure `fork/main`.
+
 ---
 
 ## `56dd81f` — 2026-09-04

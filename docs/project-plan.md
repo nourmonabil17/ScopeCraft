@@ -1186,7 +1186,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 35 | Defense | **Frontend defense prep** | `docs/defense-prep-frontend.md` | Only the backend row has one; three members have none |
 | 36 | Defense | **Integration defense prep** | `docs/defense-prep-integration.md` | as above |
 | 37 | Defense | **Evaluation & safety defense prep** | `docs/defense-prep-evaluation.md` | as above |
-| 38 | Process | ~~**Changelog**~~ **WRITTEN 2026-09-04** | `CHANGELOG.md` | ✅ Done in 11.4.12 — four deploys, each with what was verified live. Starts at 2026-09-04 and says so rather than reconstructing a history nobody recorded. **Still no tag** (14.8.2) |
+| 38 | Process | ~~**Changelog**~~ **WRITTEN 2026-09-04** | `CHANGELOG.md` | ✅ Done in 11.4.12 — five deploys, each with what was verified live. Starts at 2026-09-04 and says so rather than reconstructing a history nobody recorded. Tagged `v0.1.0` 2026-09-04 (14.8.2) |
 
 *(A `CONTRIBUTING.md` was considered and rejected: branch rules live in `architecture.md` §5
 and the four gates live in `CLAUDE.md`. A third home for the same rules is drift waiting to
@@ -1628,7 +1628,12 @@ including what has been verified and what has not.
 
 - [ ] **14.8.1** Resolve 12.1.1 — bring `main` up to date, or change the documentation that
       calls it the release branch.
-- [ ] **14.8.2** Tag the release.
+- [x] **14.8.2** Tag the release.
+      **Done 2026-09-04.** `v0.1.0`, annotated, at `40dd493` — the commit that was live when
+      it was cut — and pushed to **`origin`**, the team repository, not to the fork. The fork
+      is a deploy target; history belongs on `origin`. The message states the known gaps
+      alongside what shipped, because a release note that lists only features is the version
+      of this file nobody trusts twice.
 - [x] **14.8.3** Write the `CHANGELOG.md` entry (11.4.12). **Done 2026-09-04**, and it is
       now a written step in `docs/deployment.md` §9 rather than a thing to remember.
 - [ ] **14.8.4** Update `HANDOFF.md` with the new branch heads.
@@ -1637,8 +1642,9 @@ including what has been verified and what has not.
       **Done 2026-09-04.** Three answers, ranked by how much they should be trusted, in
       `docs/runbook.md` §8: `CHANGELOG.md` (written, dated, with what was verified live),
       `git ls-remote fork main` (authoritative about the code, silent about whether the build
-      passed), and the Vercel dashboard. **14.8.2 is still open** — there are no tags, so a
-      release is findable but not nameable.
+      passed), and the Vercel dashboard. **14.8.2 closed the same day** with `v0.1.0`, which
+      makes the release nameable as well as findable — though a tag is a fixed point, not a
+      pointer to production, so it never supersedes the three answers above.
 
 ---
 
