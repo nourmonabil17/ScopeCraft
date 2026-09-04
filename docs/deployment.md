@@ -55,10 +55,10 @@ Verified with `git ls-remote` and `git rev-list --left-right --count`. The commi
 
 | Ref | Commit | Relationship |
 |---|---|---|
-| `origin/dev` | `a0d63f5` | The working branch. Source of truth. |
-| `fork/main` | `a0d63f5` | **Identical to `origin/dev`.** This is what production serves. |
-| `origin/main` | `a98910b` | 33 behind `origin/dev`, 0 ahead. Stale; merging is a pending team decision. |
-| `fork/dev` | `eb110fd` | **129 behind `origin/dev`, 0 ahead. Not used. Not a source of truth.** |
+| `origin/dev` | `56dd81f` | The working branch. Source of truth. |
+| `fork/main` | `56dd81f` | **Identical to `origin/dev`.** This is what production serves. |
+| `origin/main` | `a98910b` | 34 behind `origin/dev`, 0 ahead. Stale; merging is a pending team decision. |
+| `fork/dev` | `eb110fd` | **130 behind `origin/dev`, 0 ahead. Not used. Not a source of truth.** |
 
 **Three of those four refs disagree, and only one comparison means anything.** Do not read
 `origin/main` or `fork/dev` as a second opinion about what is live — `fork/main` is the only

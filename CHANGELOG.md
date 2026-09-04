@@ -18,6 +18,25 @@ Vercel builds from the **fork**, branch `main`. See [`docs/deployment.md`](docs/
 
 ---
 
+## `56dd81f` — 2026-09-04
+
+**Deployed.** Documentation only — no code, no schema, no environment change.
+
+- [`docs/runbook.md`](docs/runbook.md) created. Eight symptoms, each *what you see → how to
+  confirm → what to do*.
+- This file created, and [`docs/deployment.md`](docs/deployment.md) §9 rewritten from a
+  checklist into the procedure that keeps it current.
+- `README.md` gained `DATABASE_URL` in its environment table — it was absent entirely, so
+  anyone configuring from that file alone got a working build and `503 STORAGE_UNAVAILABLE`
+  on every generation — plus `DAILY_PLAN_LIMIT`, a Deployment section the file did not have,
+  and a documentation index. Two stale claims corrected: "No persistence", false since the
+  `plans` table shipped, and the CI paragraph, which predated the steps it describes.
+
+**Verified after deploy:** CI green on this SHA, including the client-bundle secret scan.
+`/login` returns `200` and `/scopecraft` `307`s to it, so the middleware is still gating the
+page. **Nothing behind the login page was re-exercised** — this deploy changed no code, so
+the check is that production still serves, not that generation still works.
+
 ## `a0d63f5` — 2026-09-04
 
 **Deployed.** A rewrite could produce a dependency cycle the model could not see.
