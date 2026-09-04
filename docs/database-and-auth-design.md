@@ -1,41 +1,41 @@
 # Database & Authentication — Design
 
 **Owner:** Yousef Mohmed Hasabo
-**Status:** the **authentication half is implemented**; the database half is still design only.
+**Status:** both halves are implemented. Authentication and the database are shipped and
+running in production.
 **Schema:** [`db/schema.sql`](../db/schema.sql)
 
-This closes the boundary already recorded in [`architecture.md` §4a](architecture.md) and
-[`README.md`](../README.md): the endpoint is public, unauthenticated and unmetered, so
-anonymous callers can spend provider quota.
+This closes the boundary recorded in [`architecture.md` §4a](architecture.md) and
+[`README.md`](../README.md): the endpoint *was* public, unauthenticated and unmetered, so
+anonymous callers could spend provider quota. It is now gated at stage 0 and metered per
+account.
 
 > **Scope note.** `architecture.md` §4 froze "no authentication" as an MVP non-goal. This
 > design reverses that. Worth saying out loud at the defense as a deliberate scope change
 > rather than letting an examiner find the contradiction.
 
-## What is built, and what is not
+## What is built
 
 | | Status | Where |
 |---|---|---|
-| GitHub OAuth sign-in, JWT session | **shipped** | [`src/auth.ts`](../src/auth.ts) |
+| GitHub and Google OAuth sign-in, JWT session | **shipped** | [`src/auth.ts`](../src/auth.ts) |
 | `/login` page (bilingual, themed) | **shipped** | [`LoginCard.tsx`](../src/components/common/LoginCard.tsx) |
 | `/scopecraft` requires a session | **shipped** | [`scopecraft/layout.tsx`](../src/app/scopecraft/layout.tsx) |
 | Header identity + sign out | **shipped** | [`UserMenu.tsx`](../src/components/common/UserMenu.tsx) |
-| `users` / `plans` tables | design only | [`db/schema.sql`](../db/schema.sql) |
-| Stage-0 session check on the API route | design only | below |
-| Daily rate limit (`429 RATE_LIMITED`) | design only | below |
+| `users` / `plans` tables | **shipped** | [`db/schema.sql`](../db/schema.sql), client in [`src/lib/db.ts`](../src/lib/db.ts) |
+| Stage-0 session check on the API route | **shipped** | [`route.ts`](../src/app/api/scopecraft/route.ts) — `POST` opens with it, `401 UNAUTHORIZED` before the body is read |
+| Daily rate limit (`429 RATE_LIMITED`) | **shipped** | [`src/lib/quota.ts`](../src/lib/quota.ts) |
+| Plans read back after the fact | **shipped** | `/scopecraft/history` — [`page.tsx`](../src/app/scopecraft/history/page.tsx) |
 
-**The important consequence of that split:** the page is gated and the endpoint is not. A
-signed-out visitor cannot use the UI, but anyone can still `curl` `POST /api/scopecraft` and
-spend provider quota. Sign-in is a prerequisite for metering, not metering itself — do not
-describe the quota gap as closed.
+The shipping is recorded in [`docs/decision-log.md`](decision-log.md) entries 16 (session at
+stage 0, quota at stage 4b), 18 (history and board persistence), 19 (the quota fails closed)
+and 24 (the Neon database provisioned, constraints proven in production).
 
-**Why the split, rather than doing both at once:** the shipped half needs no database, so it
-costs one dependency and breaks nothing. The remaining half needs Postgres, a `DATABASE_URL`,
-an auth mock across the route tests, and a session for `scripts/capture-evidence.sh`, which
-currently posts anonymously on all eleven cases. Different size, different risk, different
-change.
+**The consequence:** the page and the endpoint are both closed. A signed-out `curl` at
+`POST /api/scopecraft` gets `401` before the body is read, so it cannot spend provider quota,
+and a signed-in one is counted against the daily budget.
 
-## The rest of this document: the database half
+## The rest of this document: how the database half works
 
 ## The whole design in one paragraph
 
@@ -111,11 +111,15 @@ Two new error codes join `ERROR_CODES` in `src/lib/scopecraft/schema.ts`:
 | `401` | `UNAUTHORIZED` | No valid session |
 | `429` | `RATE_LIMITED` | Over the daily generation budget |
 
-Both are contract changes and need a row in `docs/api-contracts.md`.
+Both are contract changes; both have their row in `docs/api-contracts.md`.
 
-## The code, in full
+## The code, as designed
 
-Four small files. This is all of it.
+Four small files. The shipped code follows this shape but has moved past it in two places:
+`src/auth.ts` carries Google alongside GitHub, and the two inline inserts below were factored
+into `src/lib/plans.ts` (`recordPlan`) once a second writer — regenerating a single story —
+needed the same row. Read the files for the current text; this section is kept because it is
+the argument for the shape, not a copy of it.
 
 **`src/lib/db.ts`**
 
@@ -244,7 +248,8 @@ retry affordance. **No new UI state is needed.**
 ## What this does *not* solve
 
 - **Per-IP abuse before sign-in.** The limit is per account. Requiring auth is what stops
-  anonymous quota burn; someone willing to create many GitHub accounts is not addressed.
+  anonymous quota burn; someone willing to create many GitHub or Google accounts is not
+  addressed.
   Edge middleware token-bucket limiting (Upstash) is the next layer if that becomes real.
 - **Server-side session revocation.** JWT sessions can't be killed before expiry. Switch to
   the database session strategy (adds an adapter and a `sessions` table) if that matters.
@@ -257,29 +262,41 @@ npm i postgres next-auth@beta
 psql "$DATABASE_URL" -f db/schema.sql
 ```
 
-New environment variables — add to `.env.example` and the hosting provider:
+Environment variables — all of these are in `.env.example` and must be set in the hosting
+provider:
 
 | Variable | Notes |
 |---|---|
-| `DATABASE_URL` | Postgres connection string |
-| `AUTH_SECRET` | `npx auth secret` |
-| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | From a GitHub OAuth app; callback `<url>/api/auth/callback/github` |
+| `DATABASE_URL` | Postgres connection string. Neon in production — the **pooled** host, the one with `-pooler` in it, and keep `sslmode=require` |
+| `AUTH_SECRET` | `npx auth secret`. Signs and encrypts the session cookie; rotating it is the only way to force sign-out under the JWT strategy |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | From a GitHub OAuth app; callback `<origin>/api/auth/callback/github` |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | From a Google OAuth client; redirect URI `<origin>/api/auth/callback/google`. While the consent screen is in "Testing", only listed test users can sign in |
+| `AUTH_URL` | Production only. Auth.js builds the callback URL from the request, and behind a proxy that can resolve to the internal host, which the provider then rejects as a mismatch |
 | `DAILY_PLAN_LIMIT` | Optional, defaults to 20 |
 
-## Cost of adopting the remaining half
+Local and production are different origins, so each OAuth provider needs either two apps or
+two callback URLs on one app.
 
-Honest accounting, because it is not free days before a defense. The sign-in half is already
-paid for — one dependency (`next-auth`, four → five), and 251 tests green. What is left:
+## What adopting it cost
 
-- **One more dependency** (`postgres`), and a `DATABASE_URL` that has to exist and stay up.
-- **Route tests will need an auth mock.** Every test in `tests/api/scopecraft.test.ts` posts
-  anonymously and would start getting `401`. The lazy fix is one mock of `auth()`, not 82
-  edits.
-- **`scripts/capture-evidence.sh` breaks** — it posts unauthenticated and would get `401` on
-  all eleven cases. `scripts/capture-ui-evidence.mjs` already solved the equivalent problem by
-  minting a real session cookie from `AUTH_SECRET` (see `signInAsCaptureUser`); the shell
-  script can do the same rather than acquiring an auth bypass.
-- **`docs/api-contracts.md`** needs the two new codes and the changed pre-provider ordering.
+The estimate was half a day including test repair, on the grounds that the work was wider than
+the four small files above. That held. What was actually paid:
 
-Roughly half a day including test repair. Nothing here is hard; it is just wider than it
-looks from the four small files above.
+- **One more dependency** — `postgres`, five → six — and a `DATABASE_URL` that has to exist and
+  stay up. Neon in production, a compose container locally (`npm run db:up`, `npm run db:check`).
+- **Route tests took an auth mock**, one of `auth()` rather than an edit per test.
+- **`scripts/capture-evidence.sh` mints a real session** rather than acquiring an auth bypass —
+  `scripts/mint-session.mjs`, the same approach `scripts/capture-ui-evidence.mjs` already used.
+  One case still posts without the cookie on purpose: the auth boundary is worth capturing.
+- **`docs/api-contracts.md`** carries `401` and `429` and the changed pre-provider ordering.
+
+## What is still open
+
+- **A persistence outage is silent to the caller.** `recordPlan` never throws: a failed
+  bookkeeping write must not destroy a plan the user already waited for and already paid
+  provider tokens for, so the failure is logged and the result is returned anyway. The cost is
+  stated where the code is — for as long as such an outage lasts, the quota under-counts and
+  the board cannot be saved for that plan.
+- **A schema/code skew fails the same way.** Code that names a column the deployed database
+  does not have takes that path: `200`, a valid plan, and no row. Apply `db/schema.sql` before
+  shipping code that names a new column, not after.

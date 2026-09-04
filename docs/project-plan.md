@@ -1148,8 +1148,8 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 3 | Entry | AI usage disclosure | `AI_USAGE.md` | ⚠️ **3 of 4 sections are placeholders** | 13.2 |
 | 4 | Entry | Local operating rules | `CLAUDE.md` | ✅ local-only, gitignored | — |
 | 5 | Design | System architecture | `docs/architecture.md` | ⚠️ | 11.3.2 |
-| 6 | Design | Database & auth design | `docs/database-and-auth-design.md` | ⚠️ status table | 11.3.3 |
-| 7 | Design | Database schema | `db/schema.sql` | ✅ commented; not yet applied | 2.2 |
+| 6 | Design | Database & auth design | `docs/database-and-auth-design.md` | ✅ | 11.3.3 |
+| 7 | Design | Database schema | `db/schema.sql` | ✅ commented **and applied — both Neon branches, verified 2026-09-04** | 2.2 |
 | 8 | API | Endpoint contracts | `docs/api-contracts.md` | ⚠️ needs 401/429 | 11.3.4 |
 | 9 | API | Prompt versions | `docs/prompt-versions.md` | ⚠️ verify against shipping prompt | 7.2.1 |
 | 10 | Security | Security review | `docs/security-review.md` | ⚠️ CSP + Docker | 11.3.5 |
@@ -1175,7 +1175,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | # | Category | Document | Proposed path | Why it is needed |
 |---|---|---|---|---|
 | 26 | Environment | ~~**Local development guide**~~ **WRITTEN 2026-08-27** | `docs/local-development.md` | ✅ Done in 1.3.4 — setup, the host/container split, evidence captures, five troubleshooting entries |
-| 27 | Environment | **Deployment guide** | `docs/deployment.md` | The fork-deploy trap lives only in `HANDOFF.md` and `CLAUDE.md`, neither team-facing |
+| 27 | Environment | ~~**Deployment guide**~~ **WRITTEN 2026-09-04** | `docs/deployment.md` | ✅ Done in 11.4.3 — the fork trap is now team-facing rather than living only in `HANDOFF.md` and `CLAUDE.md`; adds the Secret-vs-Config trap, the rotation order, the Vercel ownership single point of failure, the verified branch topology, and the silent-persistence migration hazard |
 | 28 | Environment | **Environment variables reference** | `docs/environment-variables.md` | Eleven variables across three concerns; the README table is outgrowing itself |
 | 29 | Frontend | ~~**Frontend architecture**~~ **WRITTEN 2026-09-04** | `docs/frontend-architecture.md` | ✅ Done in 11.4.2 — routes, component tree, the seven-state union, the pre-paint scripts, the `.dark` decision, the token/CSS-Modules model, the breakpoint audit, RTL, the client/server boundary, and what is not covered |
 | 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 574 tests with no document saying what is covered, what is not, and how manual QA runs |
@@ -1200,8 +1200,11 @@ happen. Revisit if the team grows.)*
 - [ ] **11.3.2** `docs/architecture.md` — pipeline diagram gains stage 0, stage 4b and stage 4c; §4a
       boundary section updated; the "no authentication" MVP non-goal in §4 explicitly marked
       reversed with a pointer to the decision log.
-- [ ] **11.3.3** `docs/database-and-auth-design.md` — move every shipped row out of "design
+- [x] **11.3.3** `docs/database-and-auth-design.md` — move every shipped row out of "design
       only" in the status table; update the adoption-cost section to describe what is left.
+      Done 2026-09-04: status line and all three rows now read shipped with links to the
+      running code; adoption cost rewritten as what was paid, plus the two ways persistence
+      can fail silently; env table gains `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_URL`.
 - [ ] **11.3.4** `docs/api-contracts.md` — `401 UNAUTHORIZED` and `429 RATE_LIMITED` with
       example bodies; any new read/patch routes; the changed pre-provider ordering.
 - [ ] **11.3.5** `docs/security-review.md` — CSP production-only note (0.1.6), Docker
@@ -1247,8 +1250,14 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
       behalf. Written by Yousef on the owner's decision, and recorded as such in
       `docs/contribution-matrix.md` — the components it describes stay credited where they
       were built.
-- [ ] **11.4.3** `docs/deployment.md` — the fork trap in plain language, Vercel environment
+- [x] **11.4.3** `docs/deployment.md` — the fork trap in plain language, Vercel environment
       variables, what Docker is and is not for, how to roll back.
+      **Done 2026-09-04.** Module 14 lifted into a standalone runbook, plus five things it
+      did not carry: the Secret-vs-Config trap, the credential-rotation order, the Vercel
+      ownership single point of failure, the branch topology verified with `git ls-remote`
+      (`fork/dev` 124 behind and unused, `origin/main` 28 behind, **no tags at all**), and
+      the migration hazard — `recordPlan` swallows its insert error, so schema/code skew
+      answers `200` while persistence stops silently.
 - [ ] **11.4.4** `docs/qa-test-plan.md` — the two (or three) Jest projects and why, what
       each suite covers, what is deliberately not covered, how manual QA runs, how evidence
       is captured. Records the 6.5 pass and the 6.6 coverage map.
@@ -1459,24 +1468,18 @@ The one module where a mistake is visible to everyone. It is last because everyt
 has to be true first, and it is detailed because the deploy path for this project is not the
 obvious one.
 
+**The runbook now lives in [`deployment.md`](deployment.md)** (11.4.3). It carries the fork
+trap, the eleven environment variables, the schema-before-code ordering rule, the push, the
+post-deploy checks, rollback and the credential-rotation order — and reads standalone, which
+this module never did. What stays here is the checklist: the tracking state for each step,
+including what has been verified and what has not.
+
 ### 14.1 The deploy path, and the trap in it
 
-```
-origin  = nourmonabil17/ScopeCraft   team repo — reviews, PRs, history
-fork    = mr-h12/ScopeCraft          what Vercel actually builds, branch main
-```
-
-**Vercel deploys from the FORK, branch `main`.** Pushing to `origin` alone updates the team
-repository and changes nothing about the live site. Both pushes, every time:
-
-```bash
-git push origin dev && git push fork dev:main
-```
-
-**Docker is not on this path.** Vercel does not build from the `Dockerfile`; it runs
-`next build` against `next.config.js`, the same file the image uses. Shipping the image
-ships nothing to production. Anything changed for the container — `output: "standalone"`
-above all — has to be verified against the Vercel build, not assumed compatible.
+> Full version: [`deployment.md`](deployment.md) §1. In one line —
+> `git push origin dev && git push fork dev:main`, and only the second one moves the live
+> site. Docker is not on this path; Vercel builds from `next.config.js`, not the
+> `Dockerfile`.
 
 - [ ] **14.1.1** Confirm both remotes are configured and point where this says.
 - [ ] **14.1.2** Confirm the Vercel project is connected to the **fork**, branch `main`.
@@ -1485,11 +1488,18 @@ above all — has to be verified against the Vercel build, not assumed compatibl
 
 ### 14.2 Environment — everything that must exist before the first deploy
 
-Eleven variables across three concerns. A missing one fails differently in each case, and
-two of them fail *silently*, which is worse.
+> Full version: [`deployment.md`](deployment.md) §2 — the eleven variables with their
+> per-variable failure modes, the optional provider-tuning knobs, and the Secret-vs-Config
+> trap that cost three deploys.
 
 - [ ] **14.2.1** `AUTH_SECRET` — `npx auth secret`. Missing: every request is unauthenticated
-      and the site bounces to `/login`. **This is the current state of production.**
+      and the site bounces to `/login`. ~~**This is the current state of production.**~~
+      **Superseded 2026-09-04.** It is not. Auth is deployed and working: `GET /scopecraft`
+      answers `307 -> /login`, `GET /login` answers `200`, and `POST /api/scopecraft`,
+      `POST /api/scopecraft/[id]/choose` and `POST /api/scopecraft/[id]/story/[storyId]` all
+      answer `401` to an anonymous caller — none of which is possible without `AUTH_SECRET`
+      set. The checkbox is left unticked because it is a *configuration* row for a fresh
+      deploy, not a claim about this one.
 - [ ] **14.2.2** `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` — from a GitHub OAuth app whose
       callback is exactly `https://scope-craft-nine.vercel.app/api/auth/callback/github`.
 - [ ] **14.2.3** `AUTH_URL=https://scope-craft-nine.vercel.app` — pins the callback origin so
@@ -1508,8 +1518,9 @@ two of them fail *silently*, which is worse.
 
 ### 14.3 Deploying the database
 
-The database is deployed **before** the application, not with it. An app that starts against
-a schema-less database fails on the first generation; a schema with no app is inert.
+> Full version: [`deployment.md`](deployment.md) §3 — `psql "$DATABASE_URL" -f db/schema.sql`,
+> why re-running the file *is* the migration, and why schema/code skew answers `200` while
+> persistence stops silently.
 
 - [x] **14.3.1** Applied to both Neon branches on 2026-08-27.
 - [x] **14.3.2** Verified against both branches — PostgreSQL 18.6, both tables present.
@@ -1571,7 +1582,8 @@ a schema-less database fails on the first generation; a schema with no app is in
 
 ### 14.7 Rollback
 
-Decide this before it is needed, not during.
+> Full version: [`deployment.md`](deployment.md) §7. Decide it before it is needed, not
+> during.
 
 - [ ] **14.7.1** **Application:** Vercel keeps every previous deployment. Promoting the last
       good one is instant and is the first move for any bad deploy — faster than a revert

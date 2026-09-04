@@ -1,7 +1,9 @@
 # Known limitations
 
 **Owner:** Yousef Mohmed Hasabo · **Last reviewed:** 2026-09-03 · **Commit:** see `git log` for this file
-**19 entries: 11 Accepted · 7 Open · 1 Closed.**
+**19 entries: 11 Accepted · 6 Open · 2 Closed.**
+Amended 2026-09-04: entry 12 closed. Only that entry and these counts were touched; the
+2026-09-03 review above still stands for everything else.
 
 Every limitation this project knows about, in one place, because the release gate asks for
 bounded limitations rather than a clean sales pitch. Until now they were spread across the
@@ -42,7 +44,7 @@ An **Open** entry that has sat unowned for a month should either become Accepted
 | 9 | The pre-provider heuristic is ASCII-only and never fires on Arabic | **Open** |
 | 10 | Estimate quality is the model's; only the arithmetic is guaranteed | Accepted |
 | 11 | No delivery dates are derived from story points | Accepted (non-goal) |
-| 12 | `NVIDIA_API_KEY` appears unset in production | **Open** |
+| 12 | NVIDIA was first in the chain and too slow to finish | **Closed** 2026-09-04 |
 | 13 | There has been no screen-reader run | **Open** |
 | 14 | There has been no test on a real mobile device | **Open** |
 | 15 | React hydration error #418 on returning visits | **Open** |
@@ -244,16 +246,45 @@ points measure relative size, not duration; converting them to dates requires a 
 velocity that a five-week student project does not have. Presenting a date derived from a
 model's estimate would be the single most misleading thing this application could do.
 
-### 12. `NVIDIA_API_KEY` appears unset in production — *Open*
+### 12. NVIDIA was first in the chain and too slow to finish — *Closed 2026-09-04*
 
-Three production generations were served by Groq and Gemini, never NVIDIA. **A missing key is
+> **Superseded 2026-09-04.** The key was set. NVIDIA was not being skipped for a missing
+> credential, it was being cut off: it needs 9–26 s for a full PRD on this account, it was
+> configured first, and production's `AI_TIMEOUT_MS` ended every attempt before it returned.
+> The request then fell through to Groq exactly as the failover design intends — which is why
+> the served provider looked like the signature of a missing key. The two failures produce the
+> same observable and were told apart by three measurements: the same key and default model
+> return `200 OK` called directly; NVIDIA's implied per-row share was
+> 13928/15202/15124/15088/15150 ms, four of five inside 15.1 s ± 0.1, which is a fixed cutoff
+> rather than an auth or network error; and raising `AI_TIMEOUT_MS` to 30000 with NVIDIA still
+> first produced a **34819 ms** generation — a rejected credential does not get slower when
+> given more time.
+>
+> **Fix:** `PRIMARY_AI_PROVIDER=groq`, one variable. The chain resolves to
+> **Groq → NVIDIA → Gemini**, so NVIDIA moves from the front door to second and is reached
+> only when Groq fails. Mean generation time went from 19588 ms to **4227 ms**, 4.63× faster,
+> with all three tiers kept — three tiers ran 462 ms faster than two did, inside the noise, so
+> read that as "the tier costs nothing", not as a gain. Every row since records `attempts=1`,
+> which is proof rather than inference: `attempts` counts providers actually called, so NVIDIA
+> is configured and not being touched. Recorded in `docs/decision-log.md` entry 50, which
+> supersedes entry 49.
+>
+> **What is still not known:** nobody read the Vercel runtime log line naming NVIDIA's exact
+> failure. "Timeout" rests on the timing signature and the 30 s experiment. That is strong,
+> and it is not the same as read.
+
+Original text, left intact:
+
+*"### 12. `NVIDIA_API_KEY` appears unset in production — Open*
+
+*Three production generations were served by Groq and Gemini, never NVIDIA. **A missing key is
 skipped rather than raising**, which is exactly this signature — so the provider chain is
-behaving correctly and the environment is probably incomplete.
+behaving correctly and the environment is probably incomplete.*
 
-Recorded from the earlier investigation and **not re-verified as part of this document.**
+*Recorded from the earlier investigation and **not re-verified as part of this document.***
 
-**Owner:** Yousef. **Next step:** check the Vercel environment for Production and Preview.
-The consequence today is a shorter failover chain, not an outage.
+***Owner:** Yousef. **Next step:** check the Vercel environment for Production and Preview.
+The consequence today is a shorter failover chain, not an outage."*
 
 ---
 
