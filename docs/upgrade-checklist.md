@@ -790,10 +790,21 @@ One point per view. Each is rebuilt, then reviewed against
 > the four per-file reduced-motion blocks (E1, already dead) and the sprint
 > board's story-move animation (E4, structurally impossible under E3).
 
-Scope confirmed by the owner: motion and polish is the whole of "more
-interactive" — not drag-and-drop, not inline editing of story text, not
-side-by-side plan comparison. Those were offered and not chosen; they are
-recorded here so they are not quietly added later.
+**One third of that scope was reversed 2026-09-04, and this paragraph is the record of
+it.** Side-by-side plan comparison **shipped** in `8aec7d6` — `bypass_cache`, the
+`PlanCompare` component, and `POST /api/scopecraft/[id]/choose`. Story rewriting followed
+in `3d4bc9c`, which is inline editing of story text by another route: the model rewrites
+one story and the whole plan is recomputed. Drag-and-drop was not built and remains
+unchosen. The owner reversed the call deliberately and declined a decision-log entry for
+it, so this is the only place the reversal is written down — which is exactly why the
+paragraph below is corrected here rather than deleted.
+
+Original text, left intact:
+
+> Scope confirmed by the owner: motion and polish is the whole of "more
+> interactive" — not drag-and-drop, not inline editing of story text, not
+> side-by-side plan comparison. Those were offered and not chosen; they are
+> recorded here so they are not quietly added later.
 
 - [x] **E1 — Motion tokens and reduced-motion.** ~~`prefers-reduced-motion` is
       honoured in three files today.~~ **Done 2026-09-04.** The count in that

@@ -14,12 +14,25 @@ capacity-respecting `sprint_plan`, and an out-of-domain request is refused with
 [Known limitations](#known-limitations--safe-refusals) for what that does and does not
 cover.
 
-> **Production note (2026-08-24).** Three consecutive production generations were served by
-> Groq and Gemini, never by NVIDIA — the configured primary. A provider with no credential
-> is *skipped* rather than failed, so the most likely cause is that `NVIDIA_API_KEY` is not
-> set in the hosting environment. The failover chain is doing exactly its job and users are
-> unaffected, but the deployed environment does not match `.env.example`. Tracked in
-> `docs/release-checklist.md`.
+> **Superseded 2026-09-04 — the note below reached the wrong conclusion.** `NVIDIA_API_KEY`
+> **was** set. The cause was latency, not a missing credential: NVIDIA needs 9–26 s for a
+> full PRD, it was first in the chain, and production's `AI_TIMEOUT_MS` cut it off every
+> time, after which the request fell through to Groq exactly as designed. What settled it
+> was raising `AI_TIMEOUT_MS` to 30 s while NVIDIA was still first — that produced a
+> 34.8 s generation, and a rejected credential does not get slower when given more time.
+>
+> **Fix:** `PRIMARY_AI_PROVIDER=groq`, which moves Groq to the front of the chain. Mean
+> generation time went from 19,588 ms to 4,227 ms — **4.63× faster** — with all three tiers
+> still configured. See `docs/decision-log.md` entry 50, which supersedes entry 49.
+>
+> Original text, left intact:
+>
+> > **Production note (2026-08-24).** Three consecutive production generations were served by
+> > Groq and Gemini, never by NVIDIA — the configured primary. A provider with no credential
+> > is *skipped* rather than failed, so the most likely cause is that `NVIDIA_API_KEY` is not
+> > set in the hosting environment. The failover chain is doing exactly its job and users are
+> > unaffected, but the deployed environment does not match `.env.example`. Tracked in
+> > `docs/release-checklist.md`.
 
 ## Setup
 
@@ -44,10 +57,10 @@ leaks the key to every visitor.
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth app; callback `<origin>/api/auth/callback/github` | — (required, unless `AUTH_GOOGLE_*` is set) |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client; redirect `<origin>/api/auth/callback/google` | — (required, unless `AUTH_GITHUB_*` is set) |
 | `AUTH_URL` | Production origin. Pins the OAuth callback host behind a proxy | derived from the request |
-| `NVIDIA_API_KEY` | Primary provider (NVIDIA NIM) | — |
-| `GROQ_API_KEY` | Fallback 1 (Groq) | — |
-| `GEMINI_API_KEY` | Fallback 2 (Google Gemini) | — |
-| `PRIMARY_AI_PROVIDER` | Which tier is tried first | `nvidia` |
+| `NVIDIA_API_KEY` | NVIDIA NIM — first tier by default, second when `PRIMARY_AI_PROVIDER=groq` | — |
+| `GROQ_API_KEY` | Groq — second tier by default, first in production | — |
+| `GEMINI_API_KEY` | Google Gemini — last tier in both orders | — |
+| `PRIMARY_AI_PROVIDER` | Moves one provider to the front; the rest keep their default relative order | `nvidia` |
 | `AI_TIMEOUT_MS` | Per-attempt abort timeout | `30000` |
 | `AI_TOTAL_BUDGET_MS` | Ceiling for the whole failover chain | `50000` |
 | `NVIDIA_MODEL` / `GROQ_MODEL` / `GEMINI_MODEL` | Model ID overrides | see `.env.example` |
@@ -106,12 +119,20 @@ This is the core design rule of the backend: **the model writes prose, the code 
 arithmetic.**
 
 ```
-request → 16 KB cap → RequestSchema → [ NVIDIA → Groq → Gemini ] → ProviderOutputSchema
+request → 16 KB cap → RequestSchema → [ provider chain ] → ProviderOutputSchema
                                                     ↓
                         priorityScore · toMoscow · planSprint      ← deterministic, pure
                                                     ↓
                                     ScopeCraftResponseSchema → 200
 ```
+
+**The chain order is configuration, not a constant.** The built-in default is
+NVIDIA → Groq → Gemini; setting `PRIMARY_AI_PROVIDER` moves that provider to the front and
+leaves the rest in their default relative order. Production sets it to `groq`, which
+resolves to **Groq → NVIDIA → Gemini**. A provider with no credential is skipped rather
+than failed, so a deployment configured with one key still works. See `getProviderOrder()`
+in [`src/lib/ai/providers.ts`](src/lib/ai/providers.ts) and the superseded note at the top
+of this file for why the default order is not what production runs.
 
 | Field | Produced by | Trusted from the model? |
 |---|---|---|
@@ -300,7 +321,7 @@ src/lib/scopecraft/tools.ts                             priorityScore / planSpri
 src/lib/scopecraft/client-recalc.ts                     Pure client-side recompute, no I/O (Joe/Yousef)
 src/lib/scopecraft/taxonomy.ts                          MoSCoW bands + domain vocabulary (Yasmin/Yousef)
 src/lib/scopecraft/tool-rules.ts                        Domain tool rules (Yasmin)
-src/lib/ai/providers.ts                                 NVIDIA → Groq → Gemini failover (Yousef)
+src/lib/ai/providers.ts                                 Three-tier provider failover (Yousef)
 src/lib/ai/models.ts                                    Endpoints + model IDs, shared with the smoke test (Yousef)
 scripts/smoke-test.ts                                   Live provider connectivity check (Yousef)
 knowledge/scopecraft/                                   Approved corpus (Yasmin)
