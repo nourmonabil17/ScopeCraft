@@ -950,9 +950,10 @@ hardest.
 - [x] **9.1.5** Record Docker image size and cold-start time. **270 MB**, first `200` from a
       cold `docker run` in **0.47 s**. Measured against the pre-hardening image; the npm/yarn
       removal in 8.1.11 should shrink it, but that rebuild is still blocked.
-- [ ] **9.1.6** Measure end-to-end generation latency **on the live site**. **Not done, and
-      not faked from local numbers.** Local numbers on current code, for later comparison:
-      four generations at **10.8 s, 11.3 s, 13.5 s, 13.6 s** against a local database.
+- [x] **9.1.6** Measure end-to-end generation latency **on the live site**. ~~Not done, and
+      not faked from local numbers.~~ **Done 2026-09-04.** Local numbers on current code, kept
+      as the comparison: four generations at **10.8 s, 11.3 s, 13.5 s, 13.6 s** against a
+      local database.
 
       **Blocker replaced 2026-09-03 — the original one is gone.** This item used to say the
       deployed build predated the auth work, so any live figure would describe an artifact
@@ -971,16 +972,33 @@ hardest.
       item against the local baseline above. Know the cost before running it — four rows in
       the production `plans` table and four real provider calls.
 
-      **Unblocked 2026-09-04. One of the four datapoints now exists.** The account holder
-      signed in on the live site, and a generation through that session completed in
-      **21.47 s** wall clock (`x-provider-used: groq`, `x-cache: miss`) against the local
-      baseline of 10.8 / 11.3 / 13.5 / 13.6 s above. A cached repeat of the same request
-      returned in **0.61 s** — that is a cache hit, not a generation, and is not comparable
-      to the baseline.
+      **Measured 2026-09-04**, through a real browser session held by the account holder.
+      Four generations, four **distinct** ideas — a repeated idea would now be answered by
+      the A3 cache and would not be a generation at all:
 
-      Still open, deliberately: this item asks for **four** timed generations and there is
-      one. Three more finish it, at a cost of three production rows and three real provider
-      calls. Not run unprompted.
+      | # | Idea | Elapsed | `x-cache` | Served by |
+      |---|---|---|---|---|
+      | 1 | shared grocery list for flatmates | **21.47 s** | miss | `groq` |
+      | 2 | microservice / shared-library dependency tracker | **21.61 s** | miss | `groq` |
+      | 3 | lab equipment booking with per-department quotas | **20.58 s** | miss | `groq` |
+      | 4 | changelog generator from merged pull requests | **19.03 s** | miss | `groq` |
+
+      **Live mean 20.67 s** (range 19.03–21.61) against a **local mean of 12.30 s** (range
+      10.8–13.6). Live is **1.68× slower**, and notably *tighter* — a 2.6 s spread against
+      the local 2.8 s on a higher base. All four returned `200`.
+
+      A cached repeat returned in **0.61 s**. That is a cache hit, not a generation, and is
+      deliberately excluded from the mean.
+
+      **An observation this produced, stated as an inference and not a result.** All four were
+      served by `groq`, and none exceeded 22 s. Locally, when NVIDIA is configured it spends a
+      full ~30 s timeout before Groq answers, which put one captured generation at 33.1 s with
+      `attempts=2`. No live generation came close to that ceiling, which is what a *skipped*
+      NVIDIA tier looks like rather than a failing one — consistent with known issue 5,
+      `NVIDIA_API_KEY` being unset in Vercel. **Not proven here:** `attempts` is not exposed
+      in a response header, production's `AI_TIMEOUT_MS` is not known from outside, and no
+      production row has been read. Reading `attempts` off any of these four rows would settle
+      it outright.
 - [x] **9.1.7** Confirm the app degrades rather than crashes. **All four exercised for real.**
       *Database down* (container stopped): `503 STORAGE_UNAVAILABLE` in **8 ms**, failing
       closed before any provider call, and `/scopecraft/history` still answered `200` with an
