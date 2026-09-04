@@ -103,6 +103,22 @@ async function checkConstraints() {
     await tx`insert into users (email) values (${user})`;
   });
 
+  // The inverse of every check above, and the only one that is. See the comment
+  // on plans.derived_from in db/schema.sql: a foreign key here is a quota
+  // bypass, because a caller can delete the parent mid-flight to make the
+  // insert fail while the route still answers 200. tests/api/scopecraft.test.ts
+  // asserts the same property by reading db/schema.sql from disk — that proves
+  // the file. This is the only thing that asks a live database, production
+  // included, which is where the constraint actually has to be absent.
+  await expectAccepted(
+    "plans.derived_from accepts a dead parent (no foreign key)",
+    async (tx) => {
+      const [u] = await tx`insert into users (email) values (${user}) returning id`;
+      await tx`insert into plans (user_id, idea, capacity_points, sprint_days, status, response, derived_from)
+               values (${u.id}, 'probe', 10, 7, 'ok', '{}'::jsonb, gen_random_uuid())`;
+    }
+  );
+
   await expectIndexed();
 }
 
@@ -125,6 +141,28 @@ async function expectRejected(
   } catch (error) {
     const accepted = error instanceof Error && error.message === "__ACCEPTED__";
     report(label, !accepted, accepted ? "accepted" : "rejected");
+  }
+}
+
+/**
+ * Same always-rolled-back transaction as `expectRejected`, inverted: the write
+ * has to be ACCEPTED. Used for the one guarantee that is the absence of a
+ * constraint rather than the presence of one, where "the database refused it"
+ * is the failure and the rollback is the pass.
+ */
+async function expectAccepted(
+  label: string,
+  body: (tx: typeof sql) => Promise<unknown>
+) {
+  try {
+    await sql.begin(async (tx) => {
+      await body(tx as unknown as typeof sql);
+      throw new Error("__ROLLBACK__");
+    });
+    report(label, false, "unreachable");
+  } catch (error) {
+    const rolledBack = error instanceof Error && error.message === "__ROLLBACK__";
+    report(label, rolledBack, rolledBack ? "accepted" : describeError(error));
   }
 }
 

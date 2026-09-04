@@ -718,9 +718,14 @@ The seams. Each is a place where two correct halves make one broken whole.
       that is always rolled back, so it is safe to point at a live database.
 - [x] **6.3.2** Not applicable — no separate project was created. See 6.3.1.
 - [x] **6.3.3** Covered by `db:check`: `plans_status_check`, `plans_ok_has_response`,
-      `plans_user_id_fkey`, `users_email_key`, and the index's existence. **Not** covered:
-      concurrent writes, and the planner's *choice* of index — see 6.6.2 for why the second
-      one is deliberate.
+      `plans_user_id_fkey`, `users_email_key`, the **absence** of a foreign key on
+      `plans.derived_from`, and the index's existence. The `derived_from` one is the only
+      positive check — it inserts a row naming a parent that does not exist and fails if the
+      database refuses, because a foreign key there is a quota bypass rather than a
+      constraint. It covers the column existing and the key being gone in one write, and it
+      is the only place that asks a **live** database; the Jest assertion of the same
+      property reads `db/schema.sql` from disk. **Not** covered: concurrent writes, and the
+      planner's *choice* of index — see 6.6.2 for why the second one is deliberate.
 - [x] **6.4.1** Confirmed broken exactly as predicted, then fixed.
 - [x] **6.4.2** The capture signs in the way a person does, with a real cookie minted from
       `AUTH_SECRET`. **No bypass flag** — that would be a production switch living in the
