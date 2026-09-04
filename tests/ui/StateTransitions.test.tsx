@@ -893,3 +893,59 @@ describe("State 3 · a second opinion", () => {
     expect(init?.method).toBe("POST");
   });
 });
+
+// Rewriting one story.
+//
+// The server returns a WHOLE new plan, because re-running the arithmetic over
+// the backlog is the point. What the page can get wrong is treating the reply
+// as a patch — keeping the old totals, the old plan id, or a board snapshot
+// that belongs to a backlog that no longer exists.
+describe("State 3 · rewriting one story", () => {
+  const REWRITTEN = {
+    ...FIXTURE,
+    user_stories: FIXTURE.user_stories.map((s) =>
+      s.id === "US-1" ? { ...s, i_want: "to be matched automatically", points: 13 } : s
+    ),
+    effort: { ...FIXTURE.effort, "US-1": 13 },
+  };
+
+  async function generateThenRewrite(user: ReturnType<typeof userEvent.setup>) {
+    const fetchMock = jest
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(jsonResponse(FIXTURE, { headers: { "X-Plan-Id": "plan-a" } }))
+      .mockResolvedValueOnce(jsonResponse(REWRITTEN, { headers: { "X-Plan-Id": "plan-b" } }));
+
+    renderWithProviders(<ScopeCraftPage />);
+    await submitValidIdea(user);
+    await screen.findByTestId("result-view");
+    await openTab(user, "backlog");
+    await user.click(screen.getByRole("button", { name: /rewrite story US-1/i }));
+    return fetchMock;
+  }
+
+  it("asks the server to rewrite that one story of that one plan", async () => {
+    const user = userEvent.setup();
+    const fetchMock = await generateThenRewrite(user);
+
+    await screen.findByText(/US-1 rewritten/i);
+    const [url, init] = fetchMock.mock.calls.at(-1) ?? [];
+    expect(url).toBe("/api/scopecraft/plan-a/story/US-1");
+    expect(init?.method).toBe("POST");
+  });
+
+  // Each control names its own story, or a board of them is a list of identical
+  // buttons to anyone reading the page as a list of controls.
+  it("names the story in every rewrite control", async () => {
+    const user = userEvent.setup();
+    jest.spyOn(global, "fetch").mockResolvedValue(
+      jsonResponse(FIXTURE, { headers: { "X-Plan-Id": "plan-a" } })
+    );
+    renderWithProviders(<ScopeCraftPage />);
+    await submitValidIdea(user);
+    await screen.findByTestId("result-view");
+    await openTab(user, "backlog");
+
+    expect(screen.getByRole("button", { name: /rewrite story US-1/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /rewrite story US-2/i })).toBeInTheDocument();
+  });
+});

@@ -5,7 +5,7 @@ sprint plan.
 
 **Live public beta:** **https://scope-craft-nine.vercel.app/scopecraft**
 
-**Status:** deployed and live-verified. Lint, type-check, **548/548 tests** and the
+**Status:** deployed and live-verified. Lint, type-check, **566/566 tests** and the
 production build all pass. All three AI providers are confirmed reachable with real
 credentials (`npm run smoke`), and the full journey has been exercised **against the
 deployed production URL** — a real idea returns a coherent 11-field PRD with a
@@ -167,7 +167,7 @@ once.
 ## Test and verify
 
 ```bash
-npm test          # 548 tests, 22 suites
+npm test          # 566 tests, 22 suites
 npm run typecheck
 npm run lint
 npm run build

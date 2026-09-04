@@ -159,7 +159,7 @@ pass, the accessibility fixes and the frontend rebuild each added tests.
 |---|---|---|
 | Lint | `npm run lint` | exit 0 — eslint `--max-warnings=0`, no output |
 | Types | `npx tsc --noEmit` | exit 0 — no diagnostics |
-| Tests | `npm test` | **548/548 passing**, 22 suites — 267 node (API · tools · evaluation) + 281 UI. Was 520/520 before the second-opinion assertions, 508/508 before the print-stylesheet and cache-label assertions, 506/506 before the A3 cache assertions, 503/503 before the B2 attempt-counting assertions, 499/499 before the E4 hover-token assertions, 496/496 before the E2 entry-effect assertions, 492/492 before the E1 motion-token assertions, 488/488 before the v7 prompt split, 486/486 before the RTL fix, 245/245 on 2026-08-24 and 130/130 on 2026-08-23 |
+| Tests | `npm test` | **566/566 passing**, 22 suites — 283 node (API · tools · evaluation) + 283 UI. Was 548/548 before single-story regeneration, 520/520 before the second-opinion assertions, 508/508 before the print-stylesheet and cache-label assertions, 506/506 before the A3 cache assertions, 503/503 before the B2 attempt-counting assertions, 499/499 before the E4 hover-token assertions, 496/496 before the E2 entry-effect assertions, 492/492 before the E1 motion-token assertions, 488/488 before the v7 prompt split, 486/486 before the RTL fix, 245/245 on 2026-08-24 and 130/130 on 2026-08-23 |
 | Live providers | `npm run smoke` | all three reachable and answering |
 | API evidence | `npm run capture:evidence` | 11/11 cases matched `docs/api-contracts.md` |
 | UI + a11y evidence | `npm run capture:ui` | 22 screenshots; 38 contrast pairs (18 light, 20 dark), 0 below WCAG AA; five rebuilt views rendered in Arabic RTL |

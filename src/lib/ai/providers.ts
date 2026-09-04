@@ -70,7 +70,11 @@ export interface AIProvider {
    * `generateWithFallback` so the whole chain stays inside one deadline.
    * Optional so a direct caller (a script, a test) still works without it.
    */
-  generate(prompt: Prompt, timeoutMs?: number): Promise<ModelReply>;
+  generate<T = ModelReply>(
+    prompt: Prompt,
+    timeoutMs?: number,
+    validate?: (value: unknown) => T | null
+  ): Promise<T>;
 }
 
 // ---- Typed errors ----
@@ -175,7 +179,15 @@ export async function fetchWithTimeout(
   }
 }
 
-function safeParseModelJSON(raw: string): ModelReply {
+/**
+ * `validate` is a parameter, not a constant, so a caller asking for something
+ * other than a full plan gets its OWN strict contract rather than a loosened
+ * shared one. Defaulted, so every existing call site is unchanged.
+ */
+function safeParseModelJSON<T>(
+  raw: string,
+  validate: (value: unknown) => T | null = validateModelReply as (v: unknown) => T | null
+): T {
   // Strip accidental code fences before parsing.
   const cleaned = raw.replace(/```json|```/g, "").trim();
 
@@ -187,19 +199,20 @@ function safeParseModelJSON(raw: string): ModelReply {
   }
 
   // A refusal is a valid reply, not a malformed one.
-  const reply = validateModelReply(parsed);
+  const reply = validate(parsed);
   if (!reply) throw new ProviderError("invalid_provider_output");
   return reply;
 }
 
 // ---- OpenAI-compatible chat completion (NVIDIA NIM and Groq share this shape) ----
-async function openAICompatibleGenerate(
+async function openAICompatibleGenerate<T = ModelReply>(
   provider: ProviderName,
   url: string,
   apiKey: string,
   prompt: Prompt,
-  timeoutMs?: number
-): Promise<ModelReply> {
+  timeoutMs?: number,
+  validate?: (value: unknown) => T | null
+): Promise<T> {
   const res = await fetchWithTimeout(url, {
     method: "POST",
     headers: {
@@ -231,13 +244,13 @@ async function openAICompatibleGenerate(
 
   const data = await res.json();
   const text = data.choices?.[0]?.message?.content ?? "";
-  return safeParseModelJSON(text);
+  return safeParseModelJSON(text, validate);
 }
 
 // ---- NVIDIA NIM (primary) ----
 export const nvidiaProvider: AIProvider = {
   name: "nvidia",
-  async generate(prompt: Prompt, timeoutMs?: number) {
+  async generate<T>(prompt: Prompt, timeoutMs?: number, validate?: (v: unknown) => T | null) {
     const apiKey = process.env.NVIDIA_API_KEY;
     if (!apiKey) throw new Error("MISSING_NVIDIA_API_KEY");
 
@@ -246,7 +259,8 @@ export const nvidiaProvider: AIProvider = {
       `${NVIDIA_BASE_URL}/chat/completions`,
       apiKey,
       prompt,
-      timeoutMs
+      timeoutMs,
+      validate
     );
   },
 };
@@ -254,7 +268,7 @@ export const nvidiaProvider: AIProvider = {
 // ---- Groq (fallback 1) ----
 export const groqProvider: AIProvider = {
   name: "groq",
-  async generate(prompt: Prompt, timeoutMs?: number) {
+  async generate<T>(prompt: Prompt, timeoutMs?: number, validate?: (v: unknown) => T | null) {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) throw new Error("MISSING_GROQ_API_KEY");
 
@@ -263,7 +277,8 @@ export const groqProvider: AIProvider = {
       `${GROQ_BASE_URL}/chat/completions`,
       apiKey,
       prompt,
-      timeoutMs
+      timeoutMs,
+      validate
     );
   },
 };
@@ -271,7 +286,7 @@ export const groqProvider: AIProvider = {
 // ---- Gemini (fallback 2) ----
 export const geminiProvider: AIProvider = {
   name: "gemini",
-  async generate(prompt: Prompt, timeoutMs?: number) {
+  async generate<T>(prompt: Prompt, timeoutMs?: number, validate?: (v: unknown) => T | null) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) throw new Error("MISSING_GEMINI_API_KEY");
 
@@ -305,7 +320,7 @@ export const geminiProvider: AIProvider = {
 
     const data = await res.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    return safeParseModelJSON(text);
+    return safeParseModelJSON(text, validate);
   },
 };
 
@@ -365,9 +380,10 @@ function isInvalidOutputError(error: unknown): boolean {
  * Throws ProviderError("all_providers_failed"), or ProviderError("timeout") when
  * the final attempt aborted on the clock or the chain ran out of total budget.
  */
-export async function generateWithFallback(
-  prompt: Prompt
-): Promise<{ result: ModelReply; providerUsed: ProviderName; attempts: number }> {
+export async function generateWithFallback<T = ModelReply>(
+  prompt: Prompt,
+  validate?: (value: unknown) => T | null
+): Promise<{ result: T; providerUsed: ProviderName; attempts: number }> {
   const order = getProviderOrder();
 
   // One deadline for the whole chain. Each attempt gets whichever is smaller:
@@ -395,7 +411,11 @@ export async function generateWithFallback(
     }
 
     try {
-      const result = await provider.generate(prompt, Math.min(getTimeoutMs(), remaining));
+      const result = await provider.generate<T>(
+        prompt,
+        Math.min(getTimeoutMs(), remaining),
+        validate
+      );
       // Counted here rather than at the top of the loop: `attempted` must mean
       // "providers that were actually called", and the winning call is one of
       // them. A provider skipped for a missing key never reaches this line and

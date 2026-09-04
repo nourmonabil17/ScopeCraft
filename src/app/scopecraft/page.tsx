@@ -112,6 +112,11 @@ export default function ScopeCraftPage() {
   const [alternativePending, setAlternativePending] = useState(false);
   const [chosenPlanId, setChosenPlanId] = useState<string | null>(null);
   const [choosePending, setChoosePending] = useState(false);
+  const [rewritingStoryId, setRewritingStoryId] = useState<string | null>(null);
+  // Re-keys the board alone when a story is rewritten, and names the card that
+  // should reclaim focus once the new board exists.
+  const [boardRevision, setBoardRevision] = useState(0);
+  const [rewrittenStoryId, setRewrittenStoryId] = useState<string | null>(null);
   const resultCounter = useRef(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -275,6 +280,64 @@ export default function ScopeCraftPage() {
       showToast(t("compare.keepFailed"), "error");
     } finally {
       setChoosePending(false);
+    }
+  }
+
+  /**
+   * Rewrites one story and swaps in the plan that comes back.
+   *
+   * The WHOLE plan is replaced, not the one story, because the server re-ran the
+   * sprint arithmetic over the entire backlog — a rewritten story usually
+   * changes its points, and points decide what fits. Splicing one story into the
+   * old plan here would leave the board's totals describing a backlog that no
+   * longer exists.
+   *
+   * The board snapshot and any second opinion are dropped with it: both belong
+   * to the plan being replaced, and the new plan has its own id, its own row and
+   * its own packing.
+   */
+  async function rewriteStory(storyId: string) {
+    if (!planId || rewritingStoryId) return;
+    setRewritingStoryId(storyId);
+    try {
+      // Encoded: a story id is model output, validated only as a non-empty
+      // string, so a slash or a question mark in one would build a different
+      // URL than the one intended.
+      const res = await fetch(
+        `/api/scopecraft/${planId}/story/${encodeURIComponent(storyId)}`,
+        { method: "POST" }
+      );
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+        const err: ApiErrorBody = await res.json().catch(() => ({}));
+        showToast(err.message ?? t("board.rewrite.failed"), "error");
+        return;
+      }
+
+      const data: ScopeCraftResponse = await res.json();
+      // NOT resultCounter. Bumping it re-keys ResultView, which throws the
+      // reader back to the Overview tab — away from the board they pressed the
+      // control on, and away from the recalculated plan they were just told
+      // about. Only the board holds state derived from the stories, so only the
+      // board is re-keyed.
+      setBoardRevision((n) => n + 1);
+      setRewrittenStoryId(storyId);
+      setBoard(undefined);
+      setAlternative(null);
+      setChosenPlanId(null);
+      setPlanId(res.headers.get("X-Plan-Id"));
+      setSaveState("idle");
+      setState((current) =>
+        current.status === "success" ? { ...current, data, servedFromCache: false } : current
+      );
+      showToast(t("board.rewrite.done", { id: storyId }), "success");
+    } catch {
+      showToast(t("board.rewrite.failed"), "error");
+    } finally {
+      setRewritingStoryId(null);
     }
   }
 
@@ -480,6 +543,10 @@ export default function ScopeCraftPage() {
               providerUsed={state.providerUsed}
               promptVersion={state.promptVersion}
               board={board}
+              onRewriteStory={planId ? rewriteStory : undefined}
+              rewritingStoryId={rewritingStoryId}
+              boardKey={boardRevision}
+              focusStoryId={rewrittenStoryId}
             />
           </>
         )}

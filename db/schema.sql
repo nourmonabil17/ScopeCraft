@@ -116,10 +116,15 @@ create table if not exists plans (
   -- so without this column the two are indistinguishable in SQL and the
   -- distinction is unrecoverable after the fact.
   --
-  -- `on delete set null`, not cascade: deleting a plan must not silently take
-  -- the plans derived from it. The child outlives its parent and simply stops
-  -- knowing where it came from.
-  derived_from    uuid        references plans(id) on delete set null,
+  -- NO FOREIGN KEY, deliberately, and it is a security property rather than a
+  -- shortcut. `recordPlan` swallows a failed insert and still answers 200, so
+  -- anything that lets a CALLER make the insert fail is a way to generate
+  -- without being counted: fire N rewrites, delete the parent while they are in
+  -- flight, and every insert dies on the constraint while every response
+  -- succeeds. A plain uuid cannot fail that way. Referential integrity buys
+  -- nothing here — nothing joins on this column, and a row pointing at a
+  -- deleted parent is honest history rather than corruption.
+  derived_from    uuid,
 
   created_at      timestamptz not null default now(),
 
@@ -149,4 +154,8 @@ alter table plans add column if not exists duration_ms  integer;
 alter table plans add column if not exists attempts     integer;
 alter table plans add column if not exists request_hash text;
 alter table plans add column if not exists chosen_at    timestamptz;
-alter table plans add column if not exists derived_from uuid references plans(id) on delete set null;
+alter table plans add column if not exists derived_from uuid;
+-- Dropped rather than never-added: an earlier revision of this file created the
+-- column WITH a foreign key. See the comment on the column for why a caller
+-- being able to fail an insert is a quota bypass rather than a tidy constraint.
+alter table plans drop constraint if exists plans_derived_from_fkey;

@@ -152,6 +152,18 @@ const en = {
   "compare.kept": "Kept",
   "compare.keepFailed": "Couldn't record which plan you kept. Please try again.",
   "compare.keptNote": "The plan you keep is the one served if you ask this question again.",
+
+  // ---- Rewrite one story ----
+  // Named per story, because a board of twelve identical "Rewrite" controls is
+  // a list of twelve indistinguishable buttons to anyone not looking at it.
+  "board.rewrite": "Rewrite",
+  "board.rewrite.named": "Rewrite story {id}",
+  // Contains the visible label "Rewrite" verbatim (SC 2.5.3 Label in Name):
+  // "Rewriting" does not, so a speech-input user saying "click Rewrite" would
+  // lose the control for exactly the seconds it is working.
+  "board.rewrite.busy": "Rewrite {id} — working…",
+  "board.rewrite.done": "{id} rewritten. The sprint plan has been recalculated.",
+  "board.rewrite.failed": "Couldn't rewrite that story. Please try again.",
   // Shown only on a cache hit. A miss is every ordinary generation and needs no
   // label; a hit is the one that arrives in under a second and would otherwise
   // read as the model having cut corners.
@@ -427,6 +439,11 @@ const ar: Record<TranslationKey, string> = {
   "compare.kept": "محتفظ بها",
   "compare.keepFailed": "تعذّر تسجيل الخطة التي احتفظت بها. حاول مرة أخرى.",
   "compare.keptNote": "الخطة التي تحتفظ بها هي التي ستُقدَّم إذا طرحت السؤال نفسه مرة أخرى.",
+  "board.rewrite": "إعادة صياغة",
+  "board.rewrite.named": "إعادة صياغة القصة {id}",
+  "board.rewrite.busy": "جارٍ إعادة صياغة {id}…",
+  "board.rewrite.done": "تمت إعادة صياغة {id}. أُعيد حساب خطة السبرنت.",
+  "board.rewrite.failed": "تعذّرت إعادة صياغة القصة. حاول مرة أخرى.",
   "result.cache.hit": "أُعيد استخدامها من طلبك السابق المطابق",
   "board.saving": "جارٍ الحفظ…",
   "board.saved": "تم الحفظ",

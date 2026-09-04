@@ -24,26 +24,22 @@
 // never the request body and never a raw Error object, since a provider error's
 // message can contain the request URL and therefore a key.
 
-import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { sql } from "@/lib/db";
+import { recordPlan, requestHash } from "@/lib/plans";
+import { mapGenerationError } from "@/lib/api-errors";
 import { checkDailyQuota } from "@/lib/quota";
 import {
-  constraintsToText,
   getClarification,
   MAX_REQUEST_BODY_BYTES,
   normalizeRequestInput,
   RequestSchema,
   type ScopeCraftError,
-  type ScopeCraftRequest,
   type ValidationIssue,
 } from "@/lib/scopecraft/schema";
 import {
-  OutOfDomainError,
-  PlanningError,
   PROMPT_VERSION,
-  SchemaViolationError,
   runScopeCraft,
 } from "@/lib/scopecraft/service";
 import { ProviderError } from "@/lib/ai/providers";
@@ -345,8 +341,8 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     const durationMs = Date.now() - startedAt;
-    const response = mapGenerationError(error);
-    const errorCode = await readErrorCode(response);
+    const failure = mapGenerationError(error);
+    const errorCode = failure.code;
 
     // Known only when the chain itself gave up. A SchemaViolationError or a
     // PlanningError means a provider DID answer and the failure came after it,
@@ -376,110 +372,8 @@ export async function POST(req: NextRequest) {
       persisted: planId !== null,
     });
 
-    return response;
+    return fail(failure.code, failure.message, failure.status);
   }
-}
-
-interface PlanOutcome {
-  status: "ok" | "failed";
-  response?: unknown;
-  errorCode?: string;
-  providerUsed?: string;
-  promptVersion?: string;
-  durationMs?: number;
-  /** Omitted rather than zeroed when the count is not knowable — see the catch
-   *  block above. Null in the column means "not recorded", not "no providers". */
-  attempts?: number;
-}
-
-/**
- * Persists one generation attempt. Returns the new row's id, or null if the
- * write failed.
- *
- * Never throws. A failed bookkeeping write must not destroy a plan the user
- * already waited for and already paid provider tokens for — the request
- * succeeded, and the only thing lost is a row. The failure is logged so it is
- * visible rather than silent, but the caller's result is returned regardless.
- * The cost of that choice is honest: a persistence outage under-counts the
- * quota for as long as it lasts, and the board cannot be saved for that plan.
- */
-async function recordPlan(
-  userId: string,
-  request: ScopeCraftRequest,
-  outcome: PlanOutcome
-): Promise<string | null> {
-  try {
-    const [row] = await sql<{ id: string }[]>`
-      insert into plans (user_id, idea, constraints, capacity_points, sprint_days,
-                         request_hash,
-                         status, error_code, response, provider_used, prompt_version,
-                         duration_ms, attempts)
-      values (${userId},
-              ${request.idea},
-              ${constraintsToText(request.constraints) ?? null},
-              ${request.team_capacity_points},
-              ${request.sprint_length_days},
-              ${requestHash(request)},
-              ${outcome.status},
-              ${outcome.errorCode ?? null},
-              ${outcome.response ? sql.json(outcome.response as never) : null},
-              ${outcome.providerUsed ?? null},
-              ${outcome.promptVersion ?? null},
-              ${outcome.durationMs ?? null},
-              ${outcome.attempts ?? null})
-      returning id`;
-    return row?.id ?? null;
-  } catch (error) {
-    // Deliberately not `logFailure`: this is not a request failure, and
-    // conflating the two would make the quota look like it was rejecting
-    // people. No connection string, no request body.
-    console.error(
-      `scopecraft.persist_failed status=${outcome.status} ` +
-        `reason=${error instanceof Error ? error.name : "unknown"}`
-    );
-    return null;
-  }
-}
-
-/**
- * Bumped when the *inputs* to the hash change, so a hash computed under a new
- * shape can never collide with a row hashed under the old one. Distinct from
- * PROMPT_VERSION, which guards the other direction: same inputs, different
- * prompt, therefore a different answer.
- */
-const REQUEST_HASH_VERSION = "h1";
-
-/**
- * Cache key over the request fields that actually change the answer.
- *
- * `bypass_cache` is deliberately absent too, for the opposite reason: it does
- * not describe the product at all, and it changes only whether this table is
- * consulted rather than what a provider would say. Hashing it would file a
- * second opinion under a different key from the plan it is an opinion about,
- * which is precisely the pairing the comparison relies on.
- *
- * `sprint_length_days` is deliberately absent. It is validated and stored, but
- * nothing in src/lib reads it — it reaches neither the prompt nor the sprint
- * arithmetic, so two requests differing only in sprint length produce identical
- * plans and should share one cache entry. If it ever becomes live, add it here
- * AND bump REQUEST_HASH_VERSION, or old rows will answer new questions.
- *
- * JSON.stringify over an array rather than concatenating the fields: it keeps
- * them unambiguously separated, so ("ab", "c") cannot hash the same as
- * ("a", "bc"). NFC before lowercasing because Arabic can arrive in either
- * normal form and the two spellings are the same idea.
- */
-function requestHash(request: ScopeCraftRequest): string {
-  return createHash("sha256")
-    .update(
-      JSON.stringify([
-        REQUEST_HASH_VERSION,
-        request.idea.normalize("NFC").toLowerCase(),
-        constraintsToText(request.constraints)?.normalize("NFC").toLowerCase() ?? "",
-        request.team_capacity_points,
-      ])
-    )
-    .digest("hex");
 }
 
 interface CachedPlan {
@@ -537,81 +431,4 @@ async function findCachedPlan(userId: string, hash: string): Promise<CachedPlan 
     );
     return null;
   }
-}
-
-/** Reads the typed code back off a response we just built, without consuming it. */
-async function readErrorCode(response: NextResponse): Promise<string> {
-  try {
-    const body = (await response.clone().json()) as Partial<ScopeCraftError>;
-    return body.code ?? "PROVIDER_ERROR";
-  } catch {
-    return "PROVIDER_ERROR";
-  }
-}
-
-function mapGenerationError(error: unknown): NextResponse {
-  if (error instanceof OutOfDomainError) {
-    return fail(
-      "OUT_OF_DOMAIN",
-      "ScopeCraft only plans software products.",
-      422
-    );
-  }
-
-  if (error instanceof PlanningError) {
-    return fail(
-      "PLANNING_ERROR",
-      "The generated stories could not be converted into a valid sprint plan.",
-      502
-    );
-  }
-
-  // Distinct from PROVIDER_ERROR: the provider answered, twice, with output
-  // that does not satisfy the contract. Reachability is not the problem.
-  if (error instanceof SchemaViolationError) {
-    return fail(
-      "SCHEMA_VIOLATION",
-      "The AI provider returned an unusable response. Please try again.",
-      502
-    );
-  }
-
-  // Typed provider failures. `.code` is authoritative; the legacy message
-  // bridge introduced in Module 1 is no longer consulted.
-  if (error instanceof ProviderError) {
-    if (error.code === "timeout") {
-      return fail(
-        "TIMEOUT",
-        "The AI provider timed out. Please try again shortly.",
-        504
-      );
-    }
-    if (error.code === "not_configured") {
-      return fail(
-        "PROVIDER_ERROR",
-        "No AI provider is configured. Please try again shortly.",
-        502
-      );
-    }
-    return fail(
-      "PROVIDER_ERROR",
-      "No AI provider could be reached. Please try again shortly.",
-      502
-    );
-  }
-
-  // Interop: a non-ProviderError carrying the legacy TIMEOUT token.
-  if (error instanceof Error && error.message === "TIMEOUT") {
-    return fail(
-      "TIMEOUT",
-      "The AI provider timed out. Please try again shortly.",
-      504
-    );
-  }
-
-  return fail(
-    "PROVIDER_ERROR",
-    "No AI provider could be reached. Please try again shortly.",
-    502
-  );
 }

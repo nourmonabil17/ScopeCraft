@@ -239,6 +239,42 @@ what a later identical request is served.
 
 ---
 
+## `POST /api/scopecraft/[id]/story/[storyId]`
+
+Rewrites **one** story of an existing plan. The unit of regeneration used to be the whole
+plan: one bad story out of twelve cost a full generation and discarded eleven good ones.
+
+**Request:** no body. The plan and the story are named by the path.
+
+**Responses**
+
+| Status | When |
+|---|---|
+| `200` | The rewritten plan, with `X-Plan-Id`, `X-Provider-Used` and `X-Prompt-Version: s1` |
+| `401` | No session |
+| `404` | No such plan, a plan belonging to someone else, a stored response that no longer satisfies the contract, or a story id not in that plan — all the same answer, so nothing here can be enumerated |
+| `429` | Over the daily budget. Checked **before** any provider is called |
+| `502` / `504` | The same typed provider failures the generate route returns |
+
+Three properties worth stating plainly:
+
+- **It returns a WHOLE plan, not one story.** A rewritten story almost always changes its
+  points, and points decide what fits the sprint — so one story moving re-sorts the backlog
+  and can push a different story out. The arithmetic re-runs over the entire backlog through
+  `applyDeterministicTools`, the same function the full generation uses.
+- **It writes a new row and never touches the parent.** The new row carries
+  `derived_from = <parent id>`, so the first answer survives intact. Both rows share a
+  `request_hash` — the idea, constraints and capacity did not change — and `derived_from` is
+  the only thing distinguishing a rewrite from an independent second opinion.
+- **It is metered like any other generation.** It spends provider tokens, it passes the same
+  quota check, and it records a row whether it succeeds or fails.
+
+Its own prompt version (`s1`) rather than `v7`: a plan produced by rewriting one story is not
+the answer a `v7` request would get, and `findCachedPlan` matches on `prompt_version`, so
+sharing the string would let one be served as the other.
+
+---
+
 ## `PATCH /api/scopecraft/{id}`
 
 Saves the human's edits to the sprint board. Requires a session.

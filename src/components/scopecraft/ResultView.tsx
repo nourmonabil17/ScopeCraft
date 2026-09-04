@@ -47,6 +47,14 @@ export interface ResultViewProps {
   promptVersion?: string;
   /** Live board state, so exports reflect manual edits. */
   board?: BoardSnapshot;
+  /** Passed straight to the board. Absent on a plan that cannot be rewritten. */
+  onRewriteStory?: (storyId: string) => void;
+  rewritingStoryId?: string | null;
+  /** Bumped when the plan is replaced, so the board re-derives from the new
+   *  stories. Deliberately narrower than re-keying this whole view, which would
+   *  also reset the selected tab. */
+  boardKey?: string | number;
+  focusStoryId?: string | null;
   /** Previously saved edits, when viewing a plan loaded from the database. */
   savedEdits?: BoardEdits;
 }
@@ -107,6 +115,10 @@ export function ResultView({
   promptVersion = "unknown",
   board,
   savedEdits,
+  onRewriteStory,
+  rewritingStoryId,
+  boardKey,
+  focusStoryId,
 }: ResultViewProps) {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
@@ -360,12 +372,16 @@ export function ResultView({
           <p className={styles.prose}>{t("board.intro")}</p>
 
           <InteractiveSprintBoard
+            key={boardKey}
+            focusStoryId={focusStoryId}
             savedEdits={savedEdits}
             stories={data.user_stories}
             priority={data.priority}
             moscow={data.moscow}
             sprintPlan={data.sprint_plan}
             onBoardChange={onBoardChange}
+            onRewriteStory={onRewriteStory}
+            rewritingStoryId={rewritingStoryId}
           />
 
           {data.sprint.length > 0 && (

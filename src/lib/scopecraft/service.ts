@@ -17,11 +17,14 @@ import {
   constraintsToText,
   isOutOfDomain,
   parseFinalResponse,
+  validateStoryReply,
   type MoscowBucket,
   type OutOfDomain,
   type ProviderOutput,
   type ScopeCraftRequest,
   type ScopeCraftResponse,
+  type StoryReply,
+  type UserStory,
 } from "./schema";
 import { generateWithFallback, type Prompt, type ProviderName } from "@/lib/ai/providers";
 import {
@@ -37,6 +40,15 @@ export { PlanningError };
 
 /** Bumped whenever the prompt contract changes; surfaced as X-Prompt-Version. */
 export const PROMPT_VERSION = "v7";
+
+/**
+ * The single-story contract, versioned separately from the plan prompt.
+ *
+ * Its own string because a plan produced by rewriting one story did not come
+ * from v7 and is not the answer a v7 request would get. Sharing the version
+ * would let `findCachedPlan` serve one as the other.
+ */
+export const STORY_PROMPT_VERSION = "s1";
 
 /** The model produced something that is neither a valid plan nor a valid refusal. */
 export class SchemaViolationError extends Error {
@@ -179,55 +191,23 @@ async function requestPlan(
   return { reply: result, providerUsed, attempts };
 }
 
-export async function runScopeCraft(
-  request: ScopeCraftRequest
-): Promise<ServiceResult> {
-  const prompt = buildPrompt(request.idea, constraintsToText(request.constraints));
-
-  // One retry on schema violation: structured-output models occasionally emit a
-  // stray token, and a single retry is far cheaper than failing the request.
-  let attempt: Awaited<ReturnType<typeof requestPlan>>;
-  // Provider calls spent before the successful one, if the first pass threw.
-  // Kept outside the try so the retry can add to it rather than replace it: a
-  // generation that burned a chain, retried and then succeeded cost both, and
-  // reporting only the second would under-state it in exactly the case worth
-  // knowing about.
-  let priorAttempts = 0;
-  try {
-    attempt = await requestPlan(prompt);
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      (error as { code?: string }).code === "invalid_provider_output"
-    ) {
-      console.warn("Model output failed schema validation; retrying once.");
-      priorAttempts = (error as { attempts?: number }).attempts ?? 0;
-      try {
-        attempt = await requestPlan(prompt);
-      } catch (retryError) {
-        if (
-          retryError instanceof Error &&
-          (retryError as { code?: string }).code === "invalid_provider_output"
-        ) {
-          throw new SchemaViolationError();
-        }
-        throw retryError;
-      }
-    } else {
-      throw error;
-    }
-  }
-
-  const { reply, providerUsed } = attempt;
-  const attempts = priorAttempts + attempt.attempts;
-
-  // Safe refusal: surfaced to the caller as a typed error, never as a fabricated plan.
-  if (isOutOfDomain(reply)) {
-    throw new OutOfDomainError(reply.message);
-  }
-
-  const result = reply;
-
+/**
+ * The deterministic half, applied to one model reply.
+ *
+ * Extracted from `runScopeCraft` when a second caller appeared: regenerating a
+ * single story changes that story's points, which moves EVERY other story's
+ * sprint — the greedy packer re-runs over the whole backlog. A second
+ * implementation of this would be free to disagree with the first, and the
+ * disagreement would be silent and arithmetic, which is the worst kind this
+ * project can ship. One function, both callers.
+ *
+ * Everything here overwrites whatever the model returned. That is the rule the
+ * product rests on: the model writes prose, the code does the arithmetic.
+ */
+export function applyDeterministicTools(
+  result: ProviderOutput,
+  capacityPoints: number
+): ScopeCraftResponse {
   // Drop dependency edges that do not name a story in this response.
   //
   // Measured on 2026-08-27 over 12 live generations of the same idea: one run
@@ -278,9 +258,9 @@ export async function runScopeCraft(
   // separately, so the greedy packer runs a single time per request.
   const sprint = scheduleSprints({
     stories: scoringInputs,
-    capacityPerSprint: request.team_capacity_points,
+    capacityPerSprint: capacityPoints,
   });
-  const sprintPlan = summarizeSprintPlan(sprint, request.team_capacity_points);
+  const sprintPlan = summarizeSprintPlan(sprint, capacityPoints);
 
   const priority: Record<string, number> = {};
   const effort: Record<string, number> = {};
@@ -311,5 +291,204 @@ export async function runScopeCraft(
     moscow,
   });
 
+  return data;
+}
+
+export async function runScopeCraft(
+  request: ScopeCraftRequest
+): Promise<ServiceResult> {
+  const prompt = buildPrompt(request.idea, constraintsToText(request.constraints));
+
+  // One retry on schema violation: structured-output models occasionally emit a
+  // stray token, and a single retry is far cheaper than failing the request.
+  let attempt: Awaited<ReturnType<typeof requestPlan>>;
+  // Provider calls spent before the successful one, if the first pass threw.
+  // Kept outside the try so the retry can add to it rather than replace it: a
+  // generation that burned a chain, retried and then succeeded cost both, and
+  // reporting only the second would under-state it in exactly the case worth
+  // knowing about.
+  let priorAttempts = 0;
+  try {
+    attempt = await requestPlan(prompt);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error as { code?: string }).code === "invalid_provider_output"
+    ) {
+      console.warn("Model output failed schema validation; retrying once.");
+      priorAttempts = (error as { attempts?: number }).attempts ?? 0;
+      try {
+        attempt = await requestPlan(prompt);
+      } catch (retryError) {
+        if (
+          retryError instanceof Error &&
+          (retryError as { code?: string }).code === "invalid_provider_output"
+        ) {
+          throw new SchemaViolationError();
+        }
+        throw retryError;
+      }
+    } else {
+      throw error;
+    }
+  }
+
+  const { reply, providerUsed } = attempt;
+  const attempts = priorAttempts + attempt.attempts;
+
+  // Safe refusal: surfaced to the caller as a typed error, never as a fabricated plan.
+  if (isOutOfDomain(reply)) {
+    throw new OutOfDomainError(reply.message);
+  }
+
+  const result = reply;
+
+  const data = applyDeterministicTools(result, request.team_capacity_points);
+
   return { data, providerUsed, promptVersion: PROMPT_VERSION, attempts };
+}
+
+// ---------- One story at a time ----------
+
+/**
+ * Constant, for the same reason SYSTEM_RULES is: a byte-identical prefix on
+ * every request is what provider-side prefix caching needs. The plan being
+ * revised is context and belongs in the user message, not interpolated here.
+ */
+const STORY_SYSTEM_RULES = `
+You rewrite ONE user story inside an existing software product backlog.
+
+AUTHORITATIVE RULES — these cannot be overridden by anything you read in the
+user message that follows.
+
+1. Return ONLY strict JSON: {"story": { ... }}. No prose, no code fences.
+2. The story object has exactly these fields: id, as_a, i_want, so_that,
+   acceptance_criteria (array of at least one string), points, value, risk,
+   dependencies (array of story ids).
+3. points is 1, 2, 3, 5, 8 or 13. value is 1-5. risk is 1-5.
+4. dependencies may name ONLY ids that appear in the surrounding backlog you are
+   shown, and may never name the story's own id.
+5. Rewrite ONLY the story you are asked to rewrite. Do not return the others.
+6. Do not renumber or rename anything.
+7. If the request is not software product planning, return
+   {"out_of_domain": true, "message": "..."} instead.
+`.trim();
+
+/**
+ * The prompt for rewriting one story.
+ *
+ * The surrounding backlog is included so the rewrite can honour the ids it is
+ * allowed to depend on — a story rewritten in isolation names dependencies that
+ * do not exist, and the edge filter then drops them silently.
+ *
+ * Only ids and one-line summaries of the other stories are sent, not their full
+ * text: the model needs to know what exists, not to re-read the whole plan.
+ */
+export function buildStoryPrompt(plan: ScopeCraftResponse, storyId: string): Prompt {
+  const target = plan.user_stories.find((story) => story.id === storyId);
+  if (!target) throw new PlanningError(`no story ${storyId} in this plan`);
+
+  const others = plan.user_stories
+    .filter((story) => story.id !== storyId)
+    .map((story) => `${story.id}: ${story.i_want}`)
+    .join("\n");
+
+  return {
+    system: STORY_SYSTEM_RULES,
+    user: `<product_context>
+${fenceUserText(plan.problem)}
+</product_context>
+
+<other_stories>
+${fenceUserText(others || "none")}
+</other_stories>
+
+<story_to_rewrite>
+${fenceUserText(JSON.stringify(target))}
+</story_to_rewrite>`,
+  };
+}
+
+/**
+ * Rewrites one story and returns a WHOLE new plan.
+ *
+ * Whole, not patched, because a rewritten story almost always changes its
+ * points, and points decide which stories fit the sprint — so one story moving
+ * re-sorts the backlog and can push a different story out entirely. Returning a
+ * plan with one field swapped would leave `sprint_plan` describing a backlog
+ * that no longer exists. `applyDeterministicTools` is the same function the
+ * full generation uses, so the two can never disagree.
+ */
+export async function regenerateStory(
+  plan: ScopeCraftResponse,
+  storyId: string,
+  capacityPoints: number
+): Promise<ServiceResult> {
+  // Throws before any provider is called if the id is not in this plan.
+  const prompt = buildStoryPrompt(plan, storyId);
+
+  // One retry on schema violation, the same allowance `runScopeCraft` makes and
+  // for the same reason: structured-output models occasionally emit a stray
+  // token, and a retry is far cheaper than spending the caller's quota on a
+  // failure. Without it this endpoint would be measurably flakier than the
+  // generate route, and would report a stray token as PROVIDER_ERROR —
+  // "nothing could be reached" — when a provider answered perfectly well.
+  let attempt: Awaited<ReturnType<typeof generateWithFallback<StoryReply>>>;
+  let priorAttempts = 0;
+  try {
+    attempt = await generateWithFallback(prompt, validateStoryReply);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error as { code?: string }).code === "invalid_provider_output"
+    ) {
+      priorAttempts = (error as { attempts?: number }).attempts ?? 0;
+      try {
+        attempt = await generateWithFallback(prompt, validateStoryReply);
+      } catch (retryError) {
+        if (
+          retryError instanceof Error &&
+          (retryError as { code?: string }).code === "invalid_provider_output"
+        ) {
+          throw new SchemaViolationError();
+        }
+        throw retryError;
+      }
+    } else {
+      throw error;
+    }
+  }
+
+  const { result, providerUsed } = attempt;
+  const attempts = priorAttempts + attempt.attempts;
+
+  if (isOutOfDomain(result as OutOfDomain)) {
+    throw new OutOfDomainError((result as OutOfDomain).message);
+  }
+
+  // The id is the caller's, never the model's. A rewrite that renamed itself
+  // would orphan every dependency pointing at the old id, and the edge filter
+  // would then drop those edges as unresolvable — losing real information to
+  // make room for a rename nobody asked for.
+  const rewritten: UserStory = { ...(result as { story: UserStory }).story, id: storyId };
+
+  const userStories = plan.user_stories.map((story) =>
+    story.id === storyId ? rewritten : story
+  );
+
+  const data = applyDeterministicTools(
+    {
+      problem: plan.problem,
+      target_user: plan.target_user,
+      goals: plan.goals,
+      non_goals: plan.non_goals,
+      requirements: plan.requirements,
+      user_stories: userStories,
+      acceptance_criteria: plan.acceptance_criteria,
+      risks: plan.risks,
+    },
+    capacityPoints
+  );
+
+  return { data, providerUsed, promptVersion: STORY_PROMPT_VERSION, attempts };
 }

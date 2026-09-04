@@ -57,6 +57,16 @@ export interface InteractiveSprintBoardProps {
   onBoardChange?: (snapshot: BoardSnapshot) => void;
   /** Previously saved human edits, applied over the generated plan on load. */
   savedEdits?: BoardEdits;
+  /** Rewrites one story. Absent when the plan was never persisted — there is no
+   *  row to rewrite from — so the control simply does not render. */
+  onRewriteStory?: (storyId: string) => void;
+  /** The story currently being rewritten, if any. */
+  rewritingStoryId?: string | null;
+  /** The story just rewritten. This component is re-keyed when the plan is
+   *  replaced, so the control the user pressed is a different DOM node by the
+   *  time the new plan arrives; naming the story is how focus finds its way
+   *  back to it. */
+  focusStoryId?: string | null;
 }
 
 const MOSCOW_LABEL_KEY: Record<MoscowBucket, TranslationKey> = {
@@ -144,6 +154,9 @@ export function InteractiveSprintBoard({
   sprintPlan,
   onBoardChange,
   savedEdits,
+  onRewriteStory,
+  rewritingStoryId,
+  focusStoryId,
 }: InteractiveSprintBoardProps) {
   const { t } = useLanguage();
   const [board, setBoard] = useState<BoardStory[]>(() =>
@@ -241,6 +254,15 @@ export function InteractiveSprintBoard({
     }
   }, [board]);
 
+  // Mount only, and by id rather than a ref for the same reason the toggle
+  // above uses getElementById: this component is re-keyed when a story is
+  // rewritten, so the element that had focus no longer exists and no ref held
+  // across that boundary would point at anything.
+  useEffect(() => {
+    if (focusStoryId) document.getElementById(`rewrite-${focusStoryId}`)?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleToggle(storyId: string) {
     focusTargetRef.current = storyId;
     setBoard((current) => toggleColumn(current, storyId));
@@ -332,6 +354,29 @@ export function InteractiveSprintBoard({
         )}
 
         <div className={styles.cardActions}>
+          {onRewriteStory && (
+            // `busy`, not `disabled`: a rewrite takes seconds, and a disabled
+            // control leaves the tab order, dropping a keyboard user out of the
+            // card they were working in. The accessible name carries the story
+            // id because a board of these is otherwise a list of identical
+            // "Rewrite" buttons.
+            <Button
+              id={`rewrite-${story.storyId}`}
+              variant="quiet"
+              // EVERY control is busy while ANY rewrite is in flight, because
+              // the handler refuses a second one. A button that announces
+              // itself as available, activates, and does nothing is worse than
+              // one that says it is working.
+              busy={rewritingStoryId !== null}
+              aria-label={t(
+                rewritingStoryId === story.storyId ? "board.rewrite.busy" : "board.rewrite.named",
+                { id: story.storyId }
+              )}
+              onClick={() => onRewriteStory(story.storyId)}
+            >
+              {t("board.rewrite")}
+            </Button>
+          )}
           <label className={styles.pointsField} htmlFor={`points-${story.storyId}`}>
             {t("board.card.points")}
             <input

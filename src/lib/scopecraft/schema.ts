@@ -256,6 +256,29 @@ export function validateModelReply(value: unknown): ModelReply | null {
 }
 
 /**
+ * One rewritten story, or a refusal.
+ *
+ * A SEPARATE union rather than a third member of ModelReplySchema. Widening the
+ * shared one would let a story-shaped object satisfy a full-plan request, which
+ * turns a malformed reply the chain would have retried into one it accepts and
+ * fails on later — a strictly worse failure, further from its cause.
+ *
+ * Wrapped in `{ story: ... }` rather than sent bare so the reply cannot be
+ * confused with the refusal envelope by either the model or the parser.
+ */
+export const StoryReplySchema = z.union([
+  OutOfDomainSchema,
+  z.object({ story: StorySchema }),
+]);
+
+export type StoryReply = z.infer<typeof StoryReplySchema>;
+
+export function validateStoryReply(value: unknown): StoryReply | null {
+  const parsed = StoryReplySchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+/**
  * The API response contract: all 11 mandatory fields plus the deterministic
  * `moscow` classification. Every field here is required — by the time a response
  * reaches the client, the service layer has computed the deterministic ones.

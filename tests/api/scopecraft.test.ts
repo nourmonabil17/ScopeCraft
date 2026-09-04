@@ -25,11 +25,19 @@ import {
   ProviderError,
 } from "@/lib/ai/providers";
 import { POST } from "@/app/api/scopecraft/route";
-import { buildPrompt, fenceUserText } from "@/lib/scopecraft/service";
+import {
+  applyDeterministicTools,
+  buildPrompt,
+  buildStoryPrompt,
+  fenceUserText,
+  regenerateStory,
+} from "@/lib/scopecraft/service";
 import type { Prompt } from "@/lib/ai/providers";
 import { NextRequest } from "next/server";
+import { readFileSync } from "node:fs";
 import { PATCH, DELETE } from "@/app/api/scopecraft/[id]/route";
 import { POST as CHOOSE } from "@/app/api/scopecraft/[id]/choose/route";
+import { POST as REGEN } from "@/app/api/scopecraft/[id]/story/[storyId]/route";
 import { dbMock, queueDbResult, signOut, TEST_USER_ID } from "./setup";
 
 /** Module-level request builder for the Module 3 suites below. */
@@ -2311,5 +2319,296 @@ describe("POST /api/scopecraft/[id]/choose", () => {
     const fragments = (dbMock.mock.calls.at(-1)?.[0] as string[]).join("?");
     expect(fragments).not.toContain("response");
     expect(fragments).not.toContain("board");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regenerating one story.
+//
+// The unit of regeneration used to be the whole plan: one bad story out of
+// twelve cost a full generation and discarded eleven good ones. What makes this
+// safe is not the prompt — it is that the arithmetic re-runs over the WHOLE
+// backlog afterwards, because a changed estimate moves every other story's
+// sprint. A splice without that recompute would leave a plan whose numbers
+// describe a story it no longer contains.
+describe("regenerating a single story", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  /** Two stories, so there is something to leave alone. */
+  const PARENT_OUTPUT = {
+    problem: "Teams cannot turn an idea into a backlog",
+    target_user: "Student teams",
+    goals: ["Ship a PRD"],
+    non_goals: [],
+    requirements: ["Generate structured output"],
+    acceptance_criteria: ["It produces a plan"],
+    risks: [{ id: "R-1", description: "Scope creep", impact: "medium", likelihood: "medium" }],
+    user_stories: [
+      {
+        id: "US-1", as_a: "student", i_want: "to form a group",
+        so_that: "we can study", acceptance_criteria: ["given/when/then"],
+        points: 3, value: 4, risk: 2, dependencies: [],
+      },
+      {
+        id: "US-2", as_a: "student", i_want: "to see a timetable",
+        so_that: "we can meet", acceptance_criteria: ["given/when/then"],
+        points: 2, value: 3, risk: 1, dependencies: [],
+      },
+    ],
+  } as const;
+
+  const CAPACITY = 30;
+  const parent = applyDeterministicTools(
+    PARENT_OUTPUT as unknown as Parameters<typeof applyDeterministicTools>[0],
+    CAPACITY
+  );
+
+  /** The model's answer: US-1 rewritten, and much bigger than before. */
+  const REWRITTEN = {
+    id: "US-1", as_a: "student", i_want: "to be matched into a group automatically",
+    so_that: "nobody is left out", acceptance_criteria: ["given/when/then", "and an appeal path"],
+    points: 13, value: 5, risk: 4, dependencies: [],
+  };
+
+  function answerWith(story: unknown) {
+    jest.spyOn(groqProvider, "generate").mockResolvedValue({ story } as never);
+    jest.spyOn(nvidiaProvider, "generate").mockRejectedValue(new Error("MISSING_NVIDIA_API_KEY"));
+    jest.spyOn(geminiProvider, "generate").mockRejectedValue(new Error("MISSING_GEMINI_API_KEY"));
+  }
+
+  it("leaves every other story byte-identical", async () => {
+    answerWith(REWRITTEN);
+    const { data } = await regenerateStory(parent, "US-1", CAPACITY);
+
+    const before = parent.user_stories.find((s) => s.id === "US-2");
+    const after = data.user_stories.find((s) => s.id === "US-2");
+    expect(after).toEqual(before);
+  });
+
+  it("replaces the story that was asked for", async () => {
+    answerWith(REWRITTEN);
+    const { data } = await regenerateStory(parent, "US-1", CAPACITY);
+
+    const story = data.user_stories.find((s) => s.id === "US-1");
+    expect(story?.i_want).toBe("to be matched into a group automatically");
+    expect(data.user_stories).toHaveLength(2);
+  });
+
+  // THE assertion. US-1 went from 3 points to 13, so committed_points must move
+  // with it. A splice that skipped the recompute would still report the old
+  // total and the old MoSCoW bucket — numbers describing a story that is gone.
+  it("recomputes the whole plan, not just the story it replaced", async () => {
+    answerWith(REWRITTEN);
+    const { data } = await regenerateStory(parent, "US-1", CAPACITY);
+
+    expect(parent.effort["US-1"]).toBe(3);
+    expect(data.effort["US-1"]).toBe(13);
+
+    const committed = data.sprint_plan.included
+      .map((id) => data.effort[id])
+      .reduce((a, b) => a + b, 0);
+    expect(data.sprint_plan.committed_points).toBe(committed);
+    expect(data.sprint_plan.committed_points).not.toBe(parent.sprint_plan.committed_points);
+
+    // priority_score = (value + risk) / effort — recomputed, never the model's.
+    expect(data.priority["US-1"]).toBeCloseTo((5 + 4) / 13, 2);
+  });
+
+  // A model that renames the story orphans every dependency pointing at it, and
+  // the edge filter would then silently drop those edges as unresolvable. The
+  // id is the caller's, not the model's.
+  it("keeps the requested id even when the model returns a different one", async () => {
+    answerWith({ ...REWRITTEN, id: "US-99" });
+    const { data } = await regenerateStory(parent, "US-1", CAPACITY);
+
+    expect(data.user_stories.map((s) => s.id).sort()).toEqual(["US-1", "US-2"]);
+  });
+
+  // Mirrors the v7 assertion on the plan prompt: instructions and untrusted
+  // data must not share a role, and the rules must be byte-identical across
+  // requests or provider-side prefix caching cannot engage.
+  it("keeps the story out of the system message and the rules constant", () => {
+    const a = buildStoryPrompt(parent, "US-1");
+    const b = buildStoryPrompt(parent, "US-2");
+
+    expect(a.system).toBe(b.system);
+    expect(a.system).not.toContain("to form a group");
+    expect(a.user).toContain("to form a group");
+    // The other story is named so the rewrite can depend on it, and the target
+    // is not repeated in that list.
+    expect(a.user).toContain("US-2");
+  });
+
+  it("rejects a story id that is not in the plan", async () => {
+    answerWith(REWRITTEN);
+    await expect(regenerateStory(parent, "US-404", CAPACITY)).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/scopecraft/[id]/story/[storyId]
+//
+// The second writer to `plans`. It spends provider tokens, so it must pass the
+// same meter the generate route does — and it must not be able to edit the plan
+// it was derived from.
+describe("POST /api/scopecraft/[id]/story/[storyId]", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  const PLAN_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+
+  const STORED = {
+    idea: "A study group matcher for university students that pairs people by course",
+    constraints: null,
+    capacity_points: 30,
+    sprint_days: 14,
+    response: null as unknown,
+  };
+
+  function regen(id: string, storyId: string) {
+    return REGEN(
+      new NextRequest(`http://localhost/api/scopecraft/${id}/story/${storyId}`, {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id, storyId }) }
+    );
+  }
+
+  function answerWith(story: unknown) {
+    jest.spyOn(groqProvider, "generate").mockResolvedValue({ story } as never);
+    jest.spyOn(nvidiaProvider, "generate").mockRejectedValue(new Error("MISSING_NVIDIA_API_KEY"));
+    jest.spyOn(geminiProvider, "generate").mockRejectedValue(new Error("MISSING_GEMINI_API_KEY"));
+  }
+
+  const REWRITE = {
+    id: "US-1", as_a: "student", i_want: "to be matched automatically",
+    so_that: "nobody is left out", acceptance_criteria: ["given/when/then"],
+    points: 8, value: 5, risk: 4, dependencies: [],
+  };
+
+  /** A stored plan, built the way the service builds one. */
+  function storedPlan() {
+    return {
+      ...STORED,
+      response: applyDeterministicTools(
+        {
+          problem: "Teams cannot turn an idea into a backlog",
+          target_user: "Student teams",
+          goals: ["Ship a PRD"],
+          non_goals: [],
+          requirements: ["Generate structured output"],
+          acceptance_criteria: ["It produces a plan"],
+          risks: [{ id: "R-1", description: "Scope creep", impact: "medium", likelihood: "medium" }],
+          user_stories: [
+            { id: "US-1", as_a: "s", i_want: "to form a group", so_that: "study",
+              acceptance_criteria: ["g/w/t"], points: 3, value: 4, risk: 2, dependencies: [] },
+            { id: "US-2", as_a: "s", i_want: "a timetable", so_that: "meet",
+              acceptance_criteria: ["g/w/t"], points: 2, value: 3, risk: 1, dependencies: [] },
+          ],
+        } as unknown as Parameters<typeof applyDeterministicTools>[0],
+        30
+      ),
+    };
+  }
+
+  it("requires a session and never reaches the database", async () => {
+    signOut();
+    expect((await regen(PLAN_ID, "US-1")).status).toBe(401);
+    expect(dbMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an id that is not a uuid before the database", async () => {
+    expect((await regen("nope", "US-1")).status).toBe(404);
+    expect(dbMock).not.toHaveBeenCalled();
+  });
+
+  it("answers 404 for a plan the caller does not own", async () => {
+    queueDbResult([]); // the ownership-scoped select finds nothing
+    expect((await regen(PLAN_ID, "US-1")).status).toBe(404);
+  });
+
+  it("loads the parent scoped by the session user", async () => {
+    queueDbResult([storedPlan()]);
+    queueDbResult([{ used: 1 }]);
+    answerWith(REWRITE);
+    queueDbResult([{ id: "new-id" }]);
+    await regen(PLAN_ID, "US-1");
+
+    const call = dbMock.mock.calls[0] ?? [];
+    expect((call[0] as string[]).join("?")).toContain("user_id =");
+    expect(call.slice(1)).toContain(TEST_USER_ID);
+  });
+
+  // It spends provider tokens, so it goes through the meter. If the quota check
+  // ever moves below the generate step this fails.
+  it("is metered, and calls no provider when the budget is spent", async () => {
+    queueDbResult([storedPlan()]);
+    queueDbResult([{ used: 20 }]);
+    const spies = [
+      jest.spyOn(nvidiaProvider, "generate"),
+      jest.spyOn(groqProvider, "generate"),
+      jest.spyOn(geminiProvider, "generate"),
+    ];
+
+    expect((await regen(PLAN_ID, "US-1")).status).toBe(429);
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("writes a NEW row pointing at its parent, and never updates the old one", async () => {
+    queueDbResult([storedPlan()]);
+    queueDbResult([{ used: 1 }]);
+    answerWith(REWRITE);
+    queueDbResult([{ id: "new-id" }]);
+
+    const response = await regen(PLAN_ID, "US-1");
+    expect(response.status).toBe(200);
+
+    const insert = dbMock.mock.calls.at(-1) ?? [];
+    const fragments = (insert[0] as string[]).join("?");
+    expect(fragments).toContain("insert into plans");
+    expect(fragments).not.toContain("update plans");
+    expect(insert.slice(1)).toContain(PLAN_ID);          // derived_from
+    expect(insert.slice(1)).toContain("s1");             // its own prompt version
+  });
+
+  it("returns a plan whose arithmetic matches the rewritten story", async () => {
+    queueDbResult([storedPlan()]);
+    queueDbResult([{ used: 1 }]);
+    answerWith(REWRITE);
+    queueDbResult([{ id: "new-id" }]);
+
+    const body = await (await regen(PLAN_ID, "US-1")).json();
+    expect(body.effort["US-1"]).toBe(8);
+    expect(body.user_stories.find((s: { id: string }) => s.id === "US-2").i_want).toBe("a timetable");
+  });
+
+  it("404s a story id that is not in the plan, without calling a provider", async () => {
+    queueDbResult([storedPlan()]);
+    queueDbResult([{ used: 1 }]);
+    const spy = jest.spyOn(groqProvider, "generate");
+
+    expect((await regen(PLAN_ID, "US-404")).status).toBe(404);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+// A schema assertion, read from disk, because nothing in the application code
+// would fail if this changed — the damage only appears under a race against a
+// real Postgres.
+describe("plans.derived_from carries no foreign key", () => {
+  const schema = readFileSync("db/schema.sql", "utf8");
+
+  // recordPlan swallows a failed insert and the route still answers 200, so any
+  // way for a CALLER to make that insert fail is a way to generate without
+  // being counted: fire N rewrites, delete the parent while they are in flight,
+  // and every insert dies on the constraint while every response succeeds.
+  it("declares the column as a plain uuid", () => {
+    expect(schema).toMatch(/derived_from\s+uuid,/);
+    expect(schema).not.toMatch(/derived_from\s+uuid\s+references/);
+  });
+
+  // The column shipped once WITH the key, so applying this file to an existing
+  // database has to remove it rather than merely not add it.
+  it("drops the constraint an earlier revision created", () => {
+    expect(schema).toContain("drop constraint if exists plans_derived_from_fkey");
   });
 });
