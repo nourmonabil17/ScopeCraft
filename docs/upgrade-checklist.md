@@ -134,12 +134,26 @@ The three findings from reading [`providers.ts`](../src/lib/ai/providers.ts) and
       lookup is stubbed out. The second asserts the key ignores
       `sprint_length_days` and splits on `team_capacity_points`.
 
-      **Not verified live.** `request_hash` reaches a deployed database only
-      through the `alter table ... add column if not exists` at the foot of
-      `db/schema.sql`. Until that file is re-applied to both Neon branches, this
-      is verified locally and not in production — and shipping the code first
-      would make `recordPlan` fail on an unknown column and stop persisting
-      plans *silently*.
+      *Captured:* [`docs/evidence/cache-evidence.md`](evidence/cache-evidence.md),
+      a production build against the live Neon dev branch and live providers —
+      `x-cache: miss` at 35.86 s with `attempts=2`, then `hit` at 0.62 s with
+      `attempts=0`, both rows carrying one `request_hash`. Regenerate with
+      `npm run capture:cache`, which exits non-zero unless the pair is miss then
+      hit. It also surfaced one real finding: a hit is **not** byte-identical to
+      the miss, because `jsonb` does not preserve object key order. Same data,
+      same length, different order — harmless to a JSON client, recorded so it
+      does not read as a bug later.
+
+      **Applied to both Neon branches 2026-09-04**, before the deploy: dev
+      (`ep-rapid-bird-aym70emy`) 38 plans unchanged, production
+      (`ep-ancient-darkness-ayos140f`) 14 plans and 6 users unchanged, all three
+      B2/A3 columns present on each. That ordering matters — shipping the code
+      first would make `recordPlan` fail on an unknown column and stop
+      persisting plans *silently*.
+
+      **Not verified in production.** The capture above ran against the dev
+      branch. Production runs the same commit and has the column, but no live
+      signed-in generation has been captured there.
 
       **Not in scope:** invalidation. A cached plan is never evicted; it stops
       being served when `PROMPT_VERSION` moves, which is the only change that

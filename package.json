@@ -17,7 +17,8 @@
     "lint": "eslint . --max-warnings=0",
     "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke-test.ts",
     "capture:evidence": "bash scripts/capture-evidence.sh",
-    "capture:ui": "node scripts/capture-ui-evidence.mjs"
+    "capture:ui": "node scripts/capture-ui-evidence.mjs",
+    "capture:cache": "bash scripts/capture-cache-evidence.sh"
   },
   "dependencies": {
     "next": "^16.2.12",

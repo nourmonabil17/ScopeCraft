@@ -1,0 +1,58 @@
+ScopeCraft — application-layer cache capture (Module A3)
+Captured   : 2026-09-04 00:31:00 UTC
+Commit     : 80531ca
+Server     : next start (production build) on 127.0.0.1:3202, DAILY_PLAN_LIMIT=200
+Database   : ep-rapid-bird-aym70emy-pooler
+Request    : identical both times, idea carries a per-run nonce so run 1 is a real miss
+
+--- request.json ---
+{"idea":"a shared grocery list app for flatmates with a weekly budget, run 20260904T003100Z","team_capacity_points":30,"sprint_length_days":14}
+
+=== RUN 1 — first time this request has been seen ===
+
+$ curl -i -X POST http://127.0.0.1:3202/api/scopecraft \
+    -H 'Content-Type: application/json' \
+    -H 'Cookie: authjs.session-token=<session-cookie>' \
+    --data-binary @request.json
+
+HTTP/1.1 200 OK
+x-cache: miss
+x-plan-id: f41975b0-11bc-432a-a58c-93e520adf8e9
+x-prompt-version: v7
+x-provider-used: groq
+elapsed: 35.861556s
+
+=== RUN 2 — byte-identical request ===
+
+$ curl -i -X POST http://127.0.0.1:3202/api/scopecraft \
+    -H 'Content-Type: application/json' \
+    -H 'Cookie: authjs.session-token=<session-cookie>' \
+    --data-binary @request.json
+
+HTTP/1.1 200 OK
+x-cache: hit
+x-plan-id: 8ea508c8-7148-48f2-bb36-7e02654f3784
+x-prompt-version: v7
+x-provider-used: groq
+elapsed: 0.617137s
+
+=== BODIES ===
+
+bytes identical         : no
+same data               : yes
+sizes                   : 5827 / 5827 bytes
+top-level key order run1: problem,target_user,goals,non_goals,requirements,user_stories,acceptance_criteria,risks,priority,effort,sprint,sprint_plan,moscow
+top-level key order run2: goals,risks,effort,moscow,sprint,problem,priority,non_goals,sprint_plan,target_user,requirements,user_stories,acceptance_criteria
+
+=== ROWS WRITTEN ===
+
+f41975b0  status=ok  provider=groq  attempts=2  duration_ms=33093  request_hash=36a8ab08fd7c5487...  response=true
+8ea508c8  status=ok  provider=groq  attempts=0  duration_ms=0  request_hash=36a8ab08fd7c5487...  response=true
+
+same request_hash on both rows : true
+stored response identical      : true
+
+=== SERVER LOG (scopecraft.generation lines) ===
+
+scopecraft.generation status=ok duration_ms=33093 attempts=2 provider=groq prompt=v7 code=none persisted=true
+scopecraft.generation status=ok duration_ms=0 attempts=0 provider=groq prompt=v7 code=none persisted=true

@@ -10,6 +10,7 @@ Regenerate it all with:
 ```bash
 npm run build
 npm run capture:evidence
+npm run capture:cache      # Module A3, needs AUTH_SECRET and DATABASE_URL exported
 ```
 
 ## Contents
@@ -18,8 +19,10 @@ npm run capture:evidence
 |---|---|
 | [`curl-evidence.md`](curl-evidence.md) | Reading guide to the eleven `curl` cases: valid request, and every 4xx rejection path |
 | [`provider-fallback-log.md`](provider-fallback-log.md) | The three-tier failover chain and every safe provider-failure path, with the server's own logs |
+| [`cache-evidence.md`](cache-evidence.md) | Module A3 — the same request twice: `x-cache: miss` then `hit`, proven by `attempts` on the rows rather than by timing |
 | [`raw/curl-transcript.txt`](raw/curl-transcript.txt) | Unedited capture — commands, status lines, all headers, all bodies |
 | [`raw/provider-fallback.log`](raw/provider-fallback.log) | Unedited server `console` output, one section per scenario |
+| [`raw/cache-transcript.txt`](raw/cache-transcript.txt) | Unedited cache capture — both runs, all headers, the rows written, the server's generation lines |
 | [`raw/200-response.json`](raw/200-response.json) | Full `200` body served by NVIDIA (primary) |
 | [`raw/200-response-groq.json`](raw/200-response-groq.json) | Full `200` body served by Groq after one failover hop |
 | [`raw/200-response-gemini.json`](raw/200-response-gemini.json) | Full `200` body served by Gemini after two failover hops |
@@ -47,6 +50,7 @@ dependency — and fills the real form so every state shot is a real state.
 | Provider secrets stay server-side, absent from client bundles and history | Secret scan in every capture run (reported `CLEAN`) · [`security-review.md`](../security-review.md) |
 | **Groq/Gemini fallback or a documented safe provider-failure path is demonstrated** | [provider-fallback-log](provider-fallback-log.md) scenarios 2 and 3 — live one-hop and two-hop failover |
 | Grounding and tool arguments validated; tool logic deterministic | [`tests/api/tools.test.ts`](../../tests/api/tools.test.ts) · [`api-contracts.md`](../api-contracts.md#deterministic-tool-contracts) |
+| A repeat request is served without calling a provider | [cache-evidence](cache-evidence.md) — `attempts=2` then `attempts=0` on the two rows |
 | Normal, not-found, timeout/provider-error and tool-failure tests included | [provider-fallback-log](provider-fallback-log.md) scenarios 4–6 · [`tests/api/scopecraft.test.ts`](../../tests/api/scopecraft.test.ts) |
 | Server logs are useful but expose no secrets or unnecessary user data | [provider-fallback-log — what the log does *not* contain](provider-fallback-log.md#what-the-log-does-not-contain) |
 | Stories have testable acceptance criteria; sprint plan respects capacity | Structural check in [curl-evidence](curl-evidence.md#1--valid-request-returns-a-schema-conforming-plan); the Groq failover run committed 28 of 30 points and deferred 3 stories |

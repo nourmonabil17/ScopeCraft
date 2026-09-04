@@ -181,6 +181,13 @@ and carries no PRD fields.
 The id travels as a header rather than a body field because the body is a validated Zod
 contract that the model's output has to satisfy, and a database id is not part of a plan.
 
+A cache hit returns the same *data* as the original generation but not the same *bytes*: the
+stored plan makes a round trip through a `jsonb` column, and Postgres does not preserve object
+key order in that type. Sizes match, values match, key order differs. No JSON client is
+affected and key order is not part of the Zod contract, but a consumer that compared raw
+response text would see the two as different. Measured in
+[`docs/evidence/cache-evidence.md`](evidence/cache-evidence.md).
+
 `X-Cache` exists because without it a hit is indistinguishable from a real generation:
 `X-Provider-Used` on a hit names the tier that answered the *original* request, which
 would otherwise read as a provider call that never happened. A hit still gets its own
