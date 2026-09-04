@@ -155,7 +155,7 @@ Router), React 19, TypeScript strict, Zod 4. Team 10, four members.
 
 ### Verified green
 
-- **566 tests**, 22 suites (283 node: API · tools · evaluation — 283 UI)
+- **574 tests**, 23 suites (291 node: API · tools · evaluation — 283 UI)
 - **Six runtime dependencies**: `next`, `next-auth`, `postgres`, `react`, `react-dom`, `zod`.
   That number is a feature. Walk the ladder in `CLAUDE.md` §4 before adding a seventh
 - `npm run lint` (`--max-warnings=0`), `npx tsc --noEmit`, `npm run build` all clean
@@ -424,7 +424,7 @@ Four of the five need a human decision or a human visit, not code.
 ```bash
 cd ~/Downloads/ScopeCraft
 
-npm test                 # 566 tests, 22 suites
+npm test                 # 574 tests, 23 suites
 npm run lint             # --max-warnings=0
 npx tsc --noEmit
 npm run build

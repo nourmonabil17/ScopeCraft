@@ -505,6 +505,11 @@ boundary is not closed.
 - [x] **3.4.2** Place it at **stage 4b**: after the free local checks, before
       `runScopeCraft`. A malformed request must never cost a database round trip.
 - [x] **3.4.3** Configurable via `DAILY_PLAN_LIMIT`, default 20. Add to `.env.example`.
+      **Corrected 2026-09-04.** The second sentence was ticked and was not true — the
+      variable was read by `src/lib/quota.ts` and appeared in no template, so a deployment
+      configured from `.env.example` ran with a quota nobody had chosen. It is documented
+      now, and `tests/api/env-documentation.test.ts` fails the build if any variable the
+      app reads goes undocumented again, so this row cannot silently rot a second time.
 - [x] **3.4.4** Confirm it counts **attempts**, not successes.
 - [x] **3.4.5** Return the limit and a reset hint in the 429 body so the UI can say
       something better than "try again later".
@@ -1173,7 +1178,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 27 | Environment | **Deployment guide** | `docs/deployment.md` | The fork-deploy trap lives only in `HANDOFF.md` and `CLAUDE.md`, neither team-facing |
 | 28 | Environment | **Environment variables reference** | `docs/environment-variables.md` | Eleven variables across three concerns; the README table is outgrowing itself |
 | 29 | Frontend | ~~**Frontend architecture**~~ **WRITTEN 2026-09-04** | `docs/frontend-architecture.md` | ✅ Done in 11.4.2 — routes, component tree, the seven-state union, the pre-paint scripts, the `.dark` decision, the token/CSS-Modules model, the breakpoint audit, RTL, the client/server boundary, and what is not covered |
-| 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 566 tests with no document saying what is covered, what is not, and how manual QA runs |
+| 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 574 tests with no document saying what is covered, what is not, and how manual QA runs |
 | 31 | QA | **Manual QA evidence** | `docs/evidence/qa/` | 6.5 produces findings with nowhere to live |
 | 32 | Operations | **Runbook / troubleshooting** | `docs/runbook.md` | What to do when providers fail, the database is down, or sign-in breaks. Every known finding is a runbook entry |
 | 33 | Submission | ~~**Known limitations**~~ **WRITTEN 2026-09-03** | `docs/known-limitations.md` | ✅ Done in 11.4.5 — 19 entries, each Accepted (a weighed trade-off) or Open (a real gap with an owner and a next step), with a sign-off block |
@@ -1318,7 +1323,9 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
       **Swept 2026-09-04**, and again the same day after the print stylesheet took it to
       **520**, a third time after the second-opinion work took it to **548**, and a
       fourth after single-story regeneration took it to **566** across **22** suites
-      (283 node / 283 UI). Test count consistent across 7 files. Dependency count
+      (283 node / 283 UI), and a **fifth after the quota-parsing and env-documentation
+      guards took it to 574 across 23 suites (291 node / 283 UI)**.
+      Test count consistent across 7 files. Dependency count
       consistent at **six** across 5 files. Branch heads and SHAs refreshed in `HANDOFF.md`.
       **Screenshot count had drifted:** four places in `upgrade-checklist.md` still said 17.
       They are dated verification records — the contrast-pair figures in them match that era

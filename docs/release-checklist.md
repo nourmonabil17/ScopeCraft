@@ -13,6 +13,8 @@ drift from reality rather than leaving stale counts in place.
 - [x] No secret keys committed to git history — `git grep` for the actual key patterns and
       the real key values used during local testing returns no matches on tracked files
 - [x] `.env.example` up to date with all required variable names and current model IDs
+      — **was false when ticked; true now and enforced.** `DAILY_PLAN_LIMIT` was missing.
+      `tests/api/env-documentation.test.ts` now asserts this row rather than trusting it.
 - [x] Production dependency audit reports zero known vulnerabilities —
       `npm audit --omit=dev` clean (nanoid advisory GHSA-2v37-7h3g-55p8 fixed 2026-08-24)
 - [x] `npm run smoke` run with real credentials against all 3 providers — all `200 OK`

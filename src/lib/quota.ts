@@ -15,8 +15,36 @@
 
 import { sql } from "@/lib/db";
 
-/** Overridable per environment; a demo may want a smaller number than a defence. */
-export const DAILY_LIMIT = Number(process.env.DAILY_PLAN_LIMIT ?? 20);
+/** The value used when the environment does not supply a usable one. */
+export const DEFAULT_DAILY_LIMIT = 20;
+
+/**
+ * Overridable per environment; a demo may want a smaller number than a defence.
+ *
+ * Falls back rather than trusting `Number()`, because both wrong answers were
+ * reachable and neither said anything.
+ *
+ * The former `Number(...)` call treated an EMPTY STRING as 0 — `??` only catches
+ * `undefined` and `null`. An empty string is exactly what `docker-compose.yml`
+ * passes for an unset variable (`${DAILY_PLAN_LIMIT:-}`), so the compose stack
+ * answered 429 on a user's first request of the day, before any provider was
+ * called.
+ *
+ * The other direction is worse. A non-numeric value parses to `NaN`, and
+ * `used >= NaN` is false forever — the meter is simply gone, with no error and
+ * no log line. This is a spend control, so it must fail loud or fall back to a
+ * known-safe number; failing open silently is the one outcome it cannot have.
+ *
+ * Exported so the parsing is testable without re-importing the module: the
+ * constant below is evaluated once at load, which is right for the app and
+ * awkward for a test.
+ */
+export function readDailyLimit(raw = process.env.DAILY_PLAN_LIMIT): number {
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_DAILY_LIMIT;
+}
+
+export const DAILY_LIMIT = readDailyLimit();
 
 export interface QuotaStatus {
   exceeded: boolean;

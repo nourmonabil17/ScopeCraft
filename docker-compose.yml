@@ -97,6 +97,12 @@ services:
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
       AUTH_GITHUB_ID: ${AUTH_GITHUB_ID:-}
       AUTH_GITHUB_SECRET: ${AUTH_GITHUB_SECRET:-}
+      # Documented in .env.docker.example since it was written, and not forwarded
+      # until now — so filling those two rows in did nothing and the Google
+      # button simply never appeared on /login, which reads them to decide
+      # whether to render it.
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
 
       # Passed through rather than defaulted. A missing provider key is skipped
       # by the failover chain, so the app still starts with none of them set —
@@ -106,7 +112,17 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       PRIMARY_AI_PROVIDER: ${PRIMARY_AI_PROVIDER:-}
       AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-}
-      DAILY_PLAN_LIMIT: ${DAILY_PLAN_LIMIT:-}
+      AI_TOTAL_BUDGET_MS: ${AI_TOTAL_BUDGET_MS:-}
+      NVIDIA_MODEL: ${NVIDIA_MODEL:-}
+      GROQ_MODEL: ${GROQ_MODEL:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+
+      # `:-20` and not `:-`. Compose substitutes an EMPTY STRING for an unset
+      # variable, not an absent one, and the app used to read that as the number
+      # zero — which answered 429 on the container's first request. The parser in
+      # src/lib/quota.ts now falls back on its own, so this default is belt and
+      # braces rather than the only guard.
+      DAILY_PLAN_LIMIT: ${DAILY_PLAN_LIMIT:-20}
 
     # Waits for the healthcheck above, not merely for the container to exist.
     # Without `condition: service_healthy` this races Postgres' startup and

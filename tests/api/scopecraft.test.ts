@@ -15,6 +15,7 @@ import {
   SAMPLE_INVALID_REQUEST,
 } from "@/lib/scopecraft/schema";
 import { toMoscow } from "@/lib/scopecraft/taxonomy";
+import { readDailyLimit, DEFAULT_DAILY_LIMIT } from "@/lib/quota";
 import { priorityScore } from "@/lib/scopecraft/tools";
 import {
   fetchWithTimeout,
@@ -1862,6 +1863,29 @@ describe("authentication boundary", () => {
     const body = JSON.stringify(await response.json());
 
     expect(body).not.toMatch(/nvidia|groq|gemini|postgres|sql|session|token/i);
+  });
+});
+
+describe("DAILY_PLAN_LIMIT parsing", () => {
+  // Every one of these was reachable from a real configuration, and none of them
+  // said anything. The empty string is what docker-compose passes for an unset
+  // variable; the non-numeric case turned `used >= NaN` into false forever,
+  // which removes the spend control entirely.
+  // Object form rather than tuples so the reason can appear in the test name
+  // without an unused positional parameter.
+  it.each([
+    { value: "", why: "empty string, as docker-compose passes an unset variable" },
+    { value: "unlimited", why: "non-numeric, parsed to NaN and disabled the meter" },
+    { value: "-5", why: "negative" },
+    { value: "0", why: "zero, which would 429 the first request" },
+    { value: "7.5", why: "non-integer" },
+    { value: undefined, why: "unset" },
+  ])("falls back to the default for '$value' ($why)", ({ value }) => {
+    expect(readDailyLimit(value)).toBe(DEFAULT_DAILY_LIMIT);
+  });
+
+  it("honours a valid positive integer", () => {
+    expect(readDailyLimit("5")).toBe(5);
   });
 });
 
