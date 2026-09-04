@@ -190,44 +190,58 @@ tracked files and from all of git history. **Do not commit it.**
 documented; none is fixed. 4.1 is one query away from being closed or killed — see §9.
 4.6 is not a finding about the product but about how these records go wrong.
 
-### ✅ 4.1 `NVIDIA_API_KEY` was set in production and failing — **removed 2026-09-04**
+### ✅ 4.1 NVIDIA is the slowest tier and was configured first — **fixed 2026-09-04**
 
-**This finding was wrong for weeks, then inverted, then fixed, all on 2026-09-04.** It said the
-key was probably *unset*, reasoning that production generations were never served by NVIDIA and
-that a credential-less provider is *skipped*. The reasoning was sound; the premise had never
-been checked.
+This finding was recorded wrong twice in one day before it was recorded right. Kept in full,
+because the wrong versions are instructive.
 
-**What the rows said.** `attempts` counts providers **actually called** — one skipped for a
-missing credential does not increment it — and the chain is nvidia → groq. Five consecutive
-production generations came back `attempts=2` with `provider_used=groq`, which means NVIDIA
-**was** called, was rejected, and Groq picked up. The key was present and being refused.
+**Version 1, open for weeks:** "`NVIDIA_API_KEY` is probably unset in Vercel." Reasoning: no
+production generation was ever served by NVIDIA, and a provider with no credential is
+*skipped*. Sound reasoning, unchecked premise.
 
-**The fix and its cost, measured.** `NVIDIA_API_KEY` was removed from Vercel and the project
-redeployed, so the tier is now skipped rather than tried.
+**Version 2:** "the key is set and being rejected." Reading `attempts` off the production rows
+showed `attempts=2` with `provider_used=groq` — NVIDIA *was* called. But "called and failed"
+was read as "rejected", which it was not.
 
-| | `attempts` | `duration_ms` | mean |
+**What is actually true.** NVIDIA is the **slowest** tier, not a broken one — measured on this
+account at 9.3 / 18.6 / 26.0 s for a full PRD, recorded in the decision log well before today.
+It was configured **first**, and production's `AI_TIMEOUT_MS` cut every attempt short before it
+could answer. The request fell through to Groq exactly as designed. Every generation paid a
+full timeout before starting useful work.
+
+Three pieces of evidence:
+
+- The same key and default model, called directly, return **`200 OK`**. The credential was
+  never the problem.
+- NVIDIA's implied share per row: 13928, 15202, 15124, 15088, 15150 ms — four of five within
+  **15.1 s ± 0.1**. Auth failures and network errors do not repeat to the millisecond;
+  timeouts do.
+- **Raising `AI_TIMEOUT_MS` to 30000 while NVIDIA was still first produced a 34819 ms
+  generation.** A rejected credential does not get slower when given more time.
+
+**The fix was one variable:** `PRIMARY_AI_PROVIDER=groq`, making NVIDIA the third tier instead
+of the front door.
+
+| Configuration | n | mean | range |
 |---|---|---|---|
-| Before, 5 runs | 2 | 18618 / 19892 / 19814 / 19777 / 19840 | **19588** |
-| After, 4 runs | **1** | 5332 / 5640 / 3395 / 4391 | **4690** |
+| NVIDIA first, 15 s timeout | 5 | 19588 ms | 18618–19892 |
+| NVIDIA deleted entirely | 4 | 4690 ms | 3395–5640 |
+| NVIDIA first, 30 s timeout | 1 | 34819 ms | — |
+| **Groq first, NVIDIA third — current** | 3 | **4227 ms** | 3358–5512 |
 
-**The failed attempt was costing ~14.9 s on every production request — 76% of the total.**
-Production generation went from ~19.6 s to ~4.7 s, **4.18× faster**, and is now **2.6× faster
-than the local baseline** of 12300 ms, because locally NVIDIA is still configured and still
-tried.
+**4.63× faster than the broken configuration, three tiers intact, and the tier costs nothing**
+— three tiers run 462 ms faster than two did, which is inside the noise and should be read as
+"no measurable cost". All three rows record `attempts=1`: proof, not inference, that NVIDIA is
+configured and never called.
 
-**The variance moved the other way, and that is worth knowing.** Pre-fix runs sat in a 1274 ms
-band — 7% of the mean — because a fixed ~15 s cost dominated everything else. Post-fix the
-band is 2245 ms on a much smaller mean, **48%**. Absolute spread is similar; *relative* spread
-is seven times worse. What is left is Groq's own variable response time with nothing large in
-front of it, so quote the mean with its range, not on its own.
+**The trap that cost three deploys.** `PRIMARY_AI_PROVIDER` and `AI_TIMEOUT_MS` were both typed
+**Secret** in Vercel. Neither is a credential — one is a number, the other the string `groq`.
+Secret is write-only, so neither could be read to see what production was running. Both are now
+**Config**. **Type a variable Secret only if leaking it would hurt.**
 
-**What this costs.** Production's failover chain is now effectively two tiers, groq → gemini,
-not three. Less redundancy in exchange for 14 s a request. Reversible at any time: re-add
-`NVIDIA_API_KEY` and redeploy.
-
-**Still unknown, and it was never diagnosed:** *why* NVIDIA rejected the requests. Wrong model
-id, expired key, region — the Vercel runtime log's provider warning would name it. Worth one
-look before re-adding the tier, or the same 14 s comes back with it.
+**Still unknown:** nobody read the Vercel runtime log. "Timeout" rests on the timing signature
+and the 30 s experiment, which is strong but is not the same as having read the provider
+warning line.
 
 ### 4.2 React hydration error #418 on returning visits
 

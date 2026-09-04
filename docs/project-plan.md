@@ -1026,6 +1026,15 @@ hardest.
       live mean on the contaminated configuration — what the site actually served that
       afternoon — and is not deleted.
 
+      **Final configuration, and the reason the middle row above is also historical.** Deleting
+      NVIDIA was the blunt fix for a misdiagnosis; the real cause was ordering, not a broken
+      credential. With `PRIMARY_AI_PROVIDER=groq` and NVIDIA restored as the third tier:
+      **3 runs, `attempts=1` on every one, `duration_ms` 5512 / 3358 / 3811, mean 4227 ms.**
+      That is **4.63× faster than the broken configuration**, 462 ms faster than the two-tier
+      state — inside the noise, so no measurable cost for keeping the tier — and **2.91×
+      faster than the local baseline** in this item, which still runs NVIDIA first.
+      Decision-log entry 50 supersedes 49.
+
 - [x] **9.1.7** Confirm the app degrades rather than crashes. **All four exercised for real.**
       *Database down* (container stopped): `503 STORAGE_UNAVAILABLE` in **8 ms**, failing
       closed before any provider call, and `/scopecraft/history` still answered `200` with an

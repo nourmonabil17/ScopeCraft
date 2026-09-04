@@ -1673,6 +1673,11 @@ nonce or hash policy and saying so is more useful than closing the row.
 49. **NVIDIA is removed from the production provider chain, and the three-tier
     design is two tiers there — 2026-09-04.**
 
+    > **Superseded the same day by entry 50.** The diagnosis below is wrong in its
+    > cause, and the trade-off it records no longer applies: NVIDIA was not
+    > rejecting requests, and production is back to three tiers. The measurements
+    > are real and are kept. Read 50 before acting on anything here.
+
     The failover chain nvidia → groq → gemini is a documented design decision.
     Production now runs it with the first tier absent, which is a reversal of a
     frozen decision and therefore belongs here rather than in a dashboard's
@@ -1723,3 +1728,67 @@ nonce or hash policy and saying so is more useful than closing the row.
     three tiers. The chain shortens in production only because
     `generateWithFallback` skips a provider with no credential, which is
     behaviour this repository already had and already tested.
+
+50. **NVIDIA was never rejecting anything — it is slow, and it was first in the
+    chain. Supersedes entry 49 — 2026-09-04.**
+
+    Entry 49 concluded that NVIDIA was being rejected in production, removed
+    `NVIDIA_API_KEY`, and recorded the loss of a failover tier as the price. The
+    measurements in it are real. The cause is wrong, the fix was blunt, and the
+    price did not need paying.
+
+    **What actually broke.** NVIDIA is the *slowest* tier, not a broken one —
+    already measured on this account at 9.3 / 18.6 / 26.0 s for a full PRD and
+    recorded further up this log. It was configured **first** in the chain, and
+    production's `AI_TIMEOUT_MS` cut every attempt short. The request then fell
+    through to Groq, exactly as the failover design intends. Every production
+    generation was paying a full timeout before it started doing useful work.
+
+    **Three pieces of evidence, in the order they landed.**
+
+    *The credential was never the problem.* The same key and the default model
+    id, called directly against `integrate.api.nvidia.com`, return `200 OK`.
+
+    *The failure was a fixed cutoff, not a variable error.* Subtracting the
+    Groq-only mean from each contaminated row gives NVIDIA's implied share:
+    13928, 15202, 15124, 15088, 15150 ms. Four of five within 15.1 s ± 0.1.
+    Auth failures and network errors do not land on the same millisecond band
+    five times; timeouts do.
+
+    *Raising the timeout made it worse, which is the clincher.* Setting
+    `AI_TIMEOUT_MS` to 30000 while NVIDIA was still first produced a **34819 ms**
+    generation. A rejected credential does not get slower when given more time.
+    A slow provider does.
+
+    **The fix is one variable.** `PRIMARY_AI_PROVIDER=groq`. `getProviderOrder`
+    puts the configured primary first and keeps the rest behind it, so NVIDIA
+    becomes the third tier instead of the front door.
+
+    | Configuration | n | mean | range |
+    |---|---|---|---|
+    | NVIDIA first, 15 s timeout | 5 | 19588 ms | 18618–19892 |
+    | NVIDIA deleted entirely (entry 49) | 4 | 4690 ms | 3395–5640 |
+    | NVIDIA first, 30 s timeout | 1 | 34819 ms | — |
+    | **Groq first, NVIDIA third** | 3 | **4227 ms** | 3358–5512 |
+
+    **4.63× faster than the broken configuration, and the tier costs nothing.**
+    Three tiers now run 462 ms *faster* than two did — inside the noise, so read
+    it as "no measurable cost", not as a gain. All three rows record
+    `attempts=1`, which is proof rather than inference: `attempts` counts
+    providers actually called, so NVIDIA is configured and not being touched.
+    Entry 49's recorded trade — "production failover is two tiers now" — is
+    withdrawn. It is three.
+
+    **Why the diagnosis took four deploys.** `PRIMARY_AI_PROVIDER` and
+    `AI_TIMEOUT_MS` were both typed **Secret** in Vercel. Neither is a
+    credential; one is a number and the other is the string `groq`. Secret means
+    write-only, so neither could be read to check what production was actually
+    running, and the effective timeout still has not been read — it is inferred
+    from behaviour. Both are now **Config**. **The rule this leaves behind:
+    type a variable Secret only if leaking it would hurt.** Marking configuration
+    as secret buys nothing and costs the ability to diagnose.
+
+    **What is still unknown.** Nobody read the Vercel runtime log, and the
+    provider warning line naming NVIDIA's exact failure was never seen. The
+    conclusion "timeout" rests on the timing signature and on the 30 s
+    experiment, not on the log. That is strong, and it is not the same as read.
