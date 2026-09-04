@@ -527,7 +527,17 @@ nonce or hash policy and saying so is more useful than closing the row.
     other reachable model either returns 404 on this account or exceeds 30 s. What remains is
     a decision about `AI_TIMEOUT_MS`, not about the model: raising it to ~30 s would make
     tier one usually succeed, at the cost of a 90-second worst case when all three fail.
-    Left at 15 s, deliberately, because the common path matters more than the rare one.
+    ~~Left at 15 s, deliberately, because the common path matters more than the rare one.~~
+
+    > **Superseded — `d00282c` reversed this and the entry was never updated.** That commit
+    > ("bound the provider chain with a total budget, and raise the per-attempt timeout") set
+    > `DEFAULT_TIMEOUT_MS = 30_000` in `src/lib/ai/providers.ts:132` and added
+    > `AI_TOTAL_BUDGET_MS`, which removes the 90-second worst case this paragraph was weighing
+    > — the chain is now bounded as a whole, so raising the per-attempt budget no longer
+    > multiplies across tiers. `.env.example` and `docs/api-contracts.md` both say 30000. The
+    > text above is left intact because it is the reasoning as it stood; only the conclusion
+    > expired. Noticed 2026-09-04 while diagnosing why NVIDIA never served a production
+    > request — see decision-log entry 49 and `HANDOFF.md` §4.1.
 
     The pinned assertion in `tests/api/scopecraft.test.ts` did exactly its job — it failed on
     the swap and forced the change to be acknowledged rather than made silently. It was
