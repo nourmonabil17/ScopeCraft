@@ -1352,12 +1352,27 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
 
 ### 12.2 CI
 
-- [ ] **12.2.1** **Decision:** CI currently runs on **both** `push` and `pull_request` for
-      `main` and `dev` — every PR commit runs the suite twice. Recommendation: keep
-      `pull_request` and restrict `push` to `main` only.
-- [ ] **12.2.2** Add the client-bundle secret scan as a CI step. It is currently a manual
+- [x] **12.2.1** **Decision — ANSWERED 2026-09-04, against the recommendation.** The
+      premise does not hold. `push` already fires only on `main` and `dev`, so a commit to
+      a feature branch triggers `pull_request` alone; there is no double run in the normal
+      case. The overlap is confined to a `dev -> main` release PR, which is rare. Against
+      that, this project ships by pushing **straight to `dev`** — restricting `push` to
+      `main` would leave the branch that actually gets deployed running no CI at all.
+      Triggers left as they are, with the reasoning written into `ci.yml` so the next
+      person does not re-propose it.
+- [x] **12.2.2** Add the client-bundle secret scan as a CI step. It is currently a manual
       grep in the README, which means it runs when someone remembers.
-- [ ] **12.2.3** Add `npm audit --audit-level=high` as a non-blocking informational step.
+      **Done 2026-09-04.** Runs after the build in `ci.yml`. The pattern is the one already
+      in `scripts/capture-evidence.sh` so the two cannot drift, plus `npg_` for Neon, whose
+      credential has been exposed once. Watched failing on a planted `gsk_`-shaped string
+      before the probe was removed — a guard nobody has seen fail is a guard nobody knows
+      works. Also closes 14.4.7.
+- [x] **12.2.3** Add `npm audit --audit-level=high` as a non-blocking informational step.
+      **Done 2026-09-04, and blocking rather than informational.** `--omit=dev` is added, so
+      it asks the question the release checklist already asks: can a *user* be reached by
+      this advisory. A dev-only finding cannot, and failing the build on one teaches people
+      to ignore the step. It reports zero today, so it starts green and only ever speaks on
+      a regression — which is what makes blocking affordable.
 - [ ] **12.2.4** If integration tests ship (6.3), add a Postgres service container.
 - [ ] **12.2.5** **Decision:** build the Docker image in CI? Recommendation: on pull requests
       only. A container build on every push doubles CI time for a check that rarely catches

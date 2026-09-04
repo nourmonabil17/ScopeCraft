@@ -1,5 +1,14 @@
 name: CI
 
+# project-plan 12.2.1 proposes trimming these to stop every PR commit running
+# twice. LEFT AS IS DELIBERATELY, because the premise does not hold here.
+#
+# `push` already fires only on `main` and `dev`, so a commit to a feature branch
+# triggers the pull_request event alone — there is no double run for the normal
+# case. The overlap is limited to a `dev -> main` release PR, which is rare.
+# Meanwhile this project ships by pushing straight to `dev`, so narrowing `push`
+# would mean the branch that actually gets deployed runs no CI at all. That
+# trades real coverage for a few minutes on an uncommon event.
 on:
   pull_request:
     branches:
@@ -36,14 +45,42 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test -- --runInBand
+      # Advisories are checked here rather than left to a human reading the
+      # release checklist. `--omit=dev` because a dev-only advisory cannot reach
+      # a user: it is not in the deployed bundle, and failing the build on one
+      # trains people to ignore the step. docs/known-limitations.md records this
+      # as currently clean, so it starts green and only speaks on a regression.
+      # (project-plan 12.2.3)
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
 
+      # Cheapest gate first. Until 2026-09-04 the full suite ran ahead of these
+      # two, so a type error cost a fourteen-second test run before it surfaced.
+      # This is the same cheapest-first ordering the API route's five stages use.
       - name: Validate TypeScript
         run: npm run typecheck
 
       - name: Run lint
         run: npm run lint
 
+      - name: Run tests
+        run: npm test -- --runInBand
+
       - name: Build production application
         run: npm run build
+
+      # The build inlines any NEXT_PUBLIC_-prefixed value into the client bundle
+      # permanently, and no environment variable in this project may ever carry
+      # that prefix. This was a manual grep in the README and the release
+      # checklist, which means it ran when someone remembered.
+      #
+      # The pattern matches scripts/capture-evidence.sh so the two cannot drift,
+      # plus `npg_` for Neon — a Neon credential has been exposed once already.
+      # (project-plan 12.2.2 and 14.4.7)
+      - name: Scan the client bundle for leaked credentials
+        run: |
+          if grep -rqE 'AIza[0-9A-Za-z_-]{20,}|gsk_[0-9A-Za-z]{20,}|nvapi-[0-9A-Za-z_-]{20,}|npg_[0-9A-Za-z]{20,}' .next/static; then
+            echo "::error::A credential-shaped string is present in the client bundle."
+            exit 1
+          fi
+          echo "Client bundle clean."
