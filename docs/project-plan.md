@@ -1095,7 +1095,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | # | Category | Document | Path | Status | Action |
 |---|---|---|---|---|---|
 | 1 | Entry | Project README | `README.md` | ⚠️ | 11.3.1 |
-| 2 | Entry | Session handoff | `HANDOFF.md` | ⚠️ | 11.6.5 |
+| 2 | Entry | Session handoff | `HANDOFF.md` | ✅ rewritten 2026-09-04 at `31ed8ae` | — |
 | 3 | Entry | AI usage disclosure | `AI_USAGE.md` | ⚠️ **3 of 4 sections are placeholders** | 13.2 |
 | 4 | Entry | Local operating rules | `CLAUDE.md` | ✅ local-only, gitignored | — |
 | 5 | Design | System architecture | `docs/architecture.md` | ⚠️ | 11.3.2 |
@@ -1269,8 +1269,14 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
       This is the single highest-yield audit in this repository — the README once claimed
       "not yet deployed" while the site was live.
 - [ ] **11.6.5** Update `HANDOFF.md` **last**, after everything else.
-- [ ] **11.6.6** Verify the five numbers that drift and appear in ~6 files each: **test
+- [x] **11.6.6** Verify the five numbers that drift and appear in ~6 files each: **test
       count, screenshot count, dependency count, branch heads, commit SHAs.**
+      **Swept 2026-09-04.** Test count consistent at **508** across 7 files. Dependency count
+      consistent at **six** across 5 files. Branch heads and SHAs refreshed in `HANDOFF.md`.
+      **Screenshot count had drifted:** four places in `upgrade-checklist.md` still said 17.
+      They are dated verification records — the contrast-pair figures in them match that era
+      too — so the original numbers were annotated rather than overwritten, which would have
+      falsified what those runs actually produced. Current count is **22**.
 - [ ] **11.6.7** Re-read this plan and tick what is genuinely done. Leave the rest open — an
       honestly incomplete checklist is worth more than a dishonestly complete one.
 

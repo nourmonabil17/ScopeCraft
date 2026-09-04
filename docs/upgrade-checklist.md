@@ -449,7 +449,8 @@ One point per view. Each is rebuilt, then reviewed against
       screen-reader users.
 
       **Verified by `npm run capture:ui`**, which mints its own session and so
-      reaches the gated form: 17 screenshots and the accessibility audit
+      reaches the gated form: 17 screenshots (the count at the time — the capture
+      produces **22** since E2/E3 added views) and the accessibility audit
       regenerated, 19 contrast pairs in light and 20 in dark with none below AA,
       zero unnamed controls, zero heading skips, and no horizontal overflow at
       1280, 768 or 390px in either direction.
@@ -543,9 +544,10 @@ One point per view. Each is rebuilt, then reviewed against
       script, so half the users of a bilingual app never saw the emphasis at
       all.
 
-      **Verified by `npm run capture:ui`**, exit 0: 17 screenshots and the audit
-      regenerated, 19 contrast pairs light and 20 dark with none below AA, 0
-      unnamed controls, 0 heading skips, and no horizontal overflow at 1280,
+      **Verified by `npm run capture:ui`**, exit 0: 17 screenshots (the count at
+      the time — **22** since E2/E3) and the audit regenerated, 19 contrast pairs
+      light and 20 dark with none below AA, 0 unnamed controls, 0 heading skips,
+      and no horizontal overflow at 1280,
       768 or 390px in both LTR and RTL. The breakpoint audit passes and
       `PRE_REBUILD_EXEMPT` is unchanged at two entries — this file was never on
       it.
@@ -616,9 +618,10 @@ One point per view. Each is rebuilt, then reviewed against
       could return through. `data-moscow` was dropped; it had no reader anywhere
       in the tree.
 
-      **Verified by `npm run capture:ui`**, exit 0: 17 screenshots and the audit
-      regenerated, 19 contrast pairs light and 20 dark with none below AA, 0
-      unnamed controls, 0 heading skips, and no horizontal overflow at 1280, 768
+      **Verified by `npm run capture:ui`**, exit 0: 17 screenshots (the count at
+      the time — **22** since E2/E3) and the audit regenerated, 19 contrast pairs
+      light and 20 dark with none below AA, 0 unnamed controls, 0 heading skips,
+      and no horizontal overflow at 1280, 768
       or 390px in both LTR and RTL. The suite is 455 tests over 21 suites, up
       from 435.
 
@@ -664,7 +667,7 @@ One point per view. Each is rebuilt, then reviewed against
       assert. Restoring the fill is four lines and a second variant.
 
       **Not verified by the capture.** `npm run capture:ui` never visits
-      `/scopecraft/history` — its 17 screenshots are the login, idle, form,
+      `/scopecraft/history` — its 17 screenshots at the time (**22** now) are the login, idle, form,
       loading, result, board, evidence, refusal and error screens. It was run
       anyway as a gate and passed with **no measured change**: 18 contrast pairs
       light and 20 dark, 0 below AA, 0 unnamed controls, identical overflow
