@@ -91,6 +91,36 @@ create table if not exists plans (
   duration_ms     integer,
   attempts        integer,
 
+  -- which of several answers to the same question the user kept
+  --
+  -- Two rows can share a request_hash, because a caller can ask for a second,
+  -- independent answer to a question they have already asked. `chosen_at` is
+  -- how they say which one they are keeping. Nullable and non-exclusive by
+  -- design: nothing in the schema stops two rows being marked, because the
+  -- statement that sets it clears the siblings in the same breath. A partial
+  -- unique index would be the stricter guard and was not taken — it would turn
+  -- a lost race into a 500 for the second writer rather than a last-write-wins
+  -- that is correct either way.
+  --
+  -- A timestamp rather than a boolean, for the same reason created_at is one:
+  -- "when did they decide" is free to store here and impossible to recover
+  -- later, and ordering by it is what lets the cache prefer the kept plan.
+  chosen_at       timestamptz,
+
+  -- the row this one was produced from, when it was not produced from scratch
+  --
+  -- Null for an ordinary generation and for an independent alternative; set
+  -- when a plan was derived by regenerating part of an earlier one. Both of
+  -- those carry the SAME request_hash as their sibling — the idea, the
+  -- constraints and the capacity are unchanged, which is the whole point —
+  -- so without this column the two are indistinguishable in SQL and the
+  -- distinction is unrecoverable after the fact.
+  --
+  -- `on delete set null`, not cascade: deleting a plan must not silently take
+  -- the plans derived from it. The child outlives its parent and simply stops
+  -- knowing where it came from.
+  derived_from    uuid        references plans(id) on delete set null,
+
   created_at      timestamptz not null default now(),
 
   constraint plans_ok_has_response
@@ -118,3 +148,5 @@ create index if not exists plans_user_created_idx
 alter table plans add column if not exists duration_ms  integer;
 alter table plans add column if not exists attempts     integer;
 alter table plans add column if not exists request_hash text;
+alter table plans add column if not exists chosen_at    timestamptz;
+alter table plans add column if not exists derived_from uuid references plans(id) on delete set null;

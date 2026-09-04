@@ -52,6 +52,7 @@ export default async function HistoryPage() {
              capacity_points as "capacityPoints", sprint_days as "sprintDays",
              provider_used as "providerUsed",
              board is not null as edited,
+             chosen_at is not null as chosen,
              created_at as "createdAt"
       from plans
       where user_id = ${userId}

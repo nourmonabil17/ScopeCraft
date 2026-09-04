@@ -192,7 +192,7 @@ URL on the same one.
 ```bash
 npm run typecheck     # tsc --noEmit
 npm run lint          # eslint --max-warnings=0
-npm test              # 520 tests, 21 suites
+npm test              # 548 tests, 22 suites
 npm run build
 ```
 

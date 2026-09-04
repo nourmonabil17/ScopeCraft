@@ -20,6 +20,7 @@ function makePlan(overrides: Partial<PlanSummary> = {}): PlanSummary {
     sprintDays: 14,
     providerUsed: "groq",
     edited: false,
+    chosen: false,
     createdAt: "2026-08-28T00:00:00.000Z",
     ...overrides,
   };
@@ -155,5 +156,20 @@ describe("HistoryList · Arabic", () => {
     for (const button of buttons) {
       expect(button).toHaveClass("button");
     }
+  });
+});
+
+// A plan kept over its alternative is the one served if the same question is
+// asked again, so history has to say which one that is — otherwise the choice
+// is invisible the moment the page is reloaded.
+describe("HistoryList · the kept plan", () => {
+  it("marks a plan the user kept", () => {
+    renderWithProviders(<HistoryList plans={[makePlan({ chosen: true })]} />);
+    expect(screen.getByTestId("history-chosen")).toBeInTheDocument();
+  });
+
+  it("says nothing about a plan with no alternative to be kept over", () => {
+    renderWithProviders(<HistoryList plans={[makePlan()]} />);
+    expect(screen.queryByTestId("history-chosen")).not.toBeInTheDocument();
   });
 });

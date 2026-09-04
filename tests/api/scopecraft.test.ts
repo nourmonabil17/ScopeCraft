@@ -29,6 +29,7 @@ import { buildPrompt, fenceUserText } from "@/lib/scopecraft/service";
 import type { Prompt } from "@/lib/ai/providers";
 import { NextRequest } from "next/server";
 import { PATCH, DELETE } from "@/app/api/scopecraft/[id]/route";
+import { POST as CHOOSE } from "@/app/api/scopecraft/[id]/choose/route";
 import { dbMock, queueDbResult, signOut, TEST_USER_ID } from "./setup";
 
 /** Module-level request builder for the Module 3 suites below. */
@@ -1962,6 +1963,102 @@ describe("Module A3 \u00b7 application-layer cache", () => {
   });
 });
 
+// A3 answers a repeat request from `plans`, which is right for a caller who
+// asked the same question twice by accident and wrong for one who wants a
+// SECOND OPINION. Identical inputs hash identically, so without a way past the
+// cache the two plans would be the same bytes and there would be nothing to
+// compare. These four tests pin the way past it, and its limits.
+describe("asking for a second opinion", () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  const idea = "A backlog planning copilot for student teams";
+
+  // The whole feature in one assertion. A cached row is queued and would be
+  // served to an ordinary request; the provider spy firing anyway is what
+  // proves the lookup was skipped rather than merely missed.
+  it("calls a provider even when an identical plan is already stored", async () => {
+    const groq = jest.spyOn(groqProvider, "generate").mockResolvedValue(fakeResponse);
+
+    queueDbResult([{ used: 1 }]);                                        // 4b. quota
+    queueDbResult([{ response: fakeResponse, provider_used: "groq" }]);  // would hit
+
+    const response = await POST(
+      makeRequest(JSON.stringify({ idea, bypass_cache: true }))
+    );
+
+    expect(response.status).toBe(200);
+    expect(groq).toHaveBeenCalled();
+
+    // "bypass", not "miss": nothing was looked up, so reporting a miss would
+    // claim a search happened and came back empty. The client reads only
+    // "hit" as a claim, so this renders no cache label either way.
+    expect(response.headers.get("X-Cache")).toBe("bypass");
+
+    // Directly: the lookup did not run. Without this the test would still pass
+    // if the cache were queried and its answer thrown away, which would spend
+    // a round trip to learn nothing.
+    const everySql = dbMock.mock.calls.map((c) => (c[0] as string[]).join("?")).join(" | ");
+    expect(everySql).not.toContain("request_hash =");
+  });
+
+  // The pairing depends on this. The two plans are found by sharing a hash, so
+  // a flag that changed the hash would file the alternative under a different
+  // question and there would be no pair to compare or choose between.
+  it("keeps the flag out of the cache key, so both plans file under one hash", async () => {
+    jest.spyOn(groqProvider, "generate").mockResolvedValue(fakeResponse);
+
+    // On a miss the queries run quota, cache, insert — the lookup interpolates
+    // (userId, hash, promptVersion), so the hash is its second value.
+    dbMock.mockClear();
+    await POST(makeRequest(JSON.stringify({ idea })));
+    const fromLookup = dbMock.mock.calls[1]?.[2] as string;
+
+    // On a bypass there is no lookup, so the hash is only visible where
+    // recordPlan writes it: the 6th value of the insert.
+    dbMock.mockClear();
+    await POST(makeRequest(JSON.stringify({ idea, bypass_cache: true })));
+    const fromInsert = dbMock.mock.calls[1]?.[6] as string;
+
+    expect(typeof fromLookup).toBe("string");
+    expect(fromInsert).toBe(fromLookup);
+  });
+
+  // The flag sits after the meter, not in front of it. If it ever moves above
+  // stage 4b it becomes a way to generate without being counted, which is the
+  // one hole the daily budget exists to close.
+  it("is still metered — a second opinion is a generation, not a free pass", async () => {
+    const spies = [
+      jest.spyOn(nvidiaProvider, "generate"),
+      jest.spyOn(groqProvider, "generate"),
+      jest.spyOn(geminiProvider, "generate"),
+    ];
+
+    queueDbResult([{ used: 20 }]); // 4b. quota, already spent
+
+    const response = await POST(
+      makeRequest(JSON.stringify({ idea, bypass_cache: true }))
+    );
+
+    expect(response.status).toBe(429);
+    for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+  });
+
+  // Once two rows share a hash, "most recent" stops being the right answer:
+  // choosing the older plan and then re-asking the same question would return
+  // the one the user rejected. Silent, and only visible on the third request.
+  it("serves the plan the user kept, not simply the newest", async () => {
+    jest.spyOn(groqProvider, "generate").mockResolvedValue(fakeResponse);
+
+    queueDbResult([{ used: 1 }]);
+    await POST(makeRequest(JSON.stringify({ idea })));
+
+    const lookup = (dbMock.mock.calls[1]?.[0] as string[]).join("?");
+    expect(lookup).toContain("chosen_at desc nulls last");
+    expect(lookup.indexOf("chosen_at")).toBeLessThan(lookup.indexOf("created_at desc"));
+  });
+});
+
+
 describe("pipeline ordering with a session present", () => {
   afterEach(() => jest.restoreAllMocks());
 
@@ -2135,5 +2232,84 @@ describe("plan deletion", () => {
     const fragments = (call[0] as string[]).join("?");
     expect(fragments).toContain("user_id =");
     expect(call.slice(1)).toContain(TEST_USER_ID);
+  });
+});
+// ---------------------------------------------------------------------------
+// Choosing between two plans for one question.
+//
+// The write that records a human decision. It touches neither `response` nor
+// `board`, so it cannot blur the trust boundary either route already guards —
+// but it CAN reach another user's row if the ownership predicate is ever
+// dropped, which is what most of these assert.
+describe("POST /api/scopecraft/[id]/choose", () => {
+  const PLAN_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+
+  function choose(id: string) {
+    return CHOOSE(
+      new NextRequest(`http://localhost/api/scopecraft/${id}/choose`, {
+        method: "POST",
+      }),
+      { params: Promise.resolve({ id }) }
+    );
+  }
+
+  it("marks the plan and answers 204", async () => {
+    queueDbResult([{ id: PLAN_ID }]);
+    const response = await choose(PLAN_ID);
+    expect(response.status).toBe(204);
+  });
+
+  it("scopes the write by the session user, not by anything in the request", async () => {
+    queueDbResult([{ id: PLAN_ID }]);
+    await choose(PLAN_ID);
+
+    const call = dbMock.mock.calls.at(-1) ?? [];
+    const fragments = (call[0] as string[]).join("?");
+    expect(fragments).toContain("user_id =");
+    expect(call.slice(1)).toContain(TEST_USER_ID);
+  });
+
+  // A plan belonging to somebody else is reported as absent rather than
+  // forbidden, so the endpoint cannot be used to discover which ids exist.
+  it("answers 404 for a row the caller does not own", async () => {
+    queueDbResult([]);
+    expect((await choose(PLAN_ID)).status).toBe(404);
+  });
+
+  it("rejects an id that is not a uuid before reaching the database", async () => {
+    expect((await choose("not-a-uuid")).status).toBe(404);
+    expect(dbMock).not.toHaveBeenCalled();
+  });
+
+  it("requires a session", async () => {
+    signOut();
+    expect((await choose(PLAN_ID)).status).toBe(401);
+    expect(dbMock).not.toHaveBeenCalled();
+  });
+
+  // The whole point of the statement being one statement. Marking a winner
+  // without clearing the loser leaves two plans claiming to be the kept one,
+  // and the cache lookup then picks between them arbitrarily.
+  it("clears the sibling in the same statement that marks the winner", async () => {
+    queueDbResult([{ id: PLAN_ID }]);
+    await choose(PLAN_ID);
+
+    const fragments = (dbMock.mock.calls.at(-1)?.[0] as string[]).join("?");
+    expect(fragments).toContain("set chosen_at = null");
+    expect(fragments).toContain("request_hash =");
+    // The target is excluded from the clearing arm, or one statement would
+    // update the same row twice.
+    expect(fragments).toContain("id <>");
+    expect(dbMock).toHaveBeenCalledTimes(1);
+  });
+
+  // It records a decision about a plan; it must not be able to edit the plan.
+  it("writes neither the model output nor the human board", async () => {
+    queueDbResult([{ id: PLAN_ID }]);
+    await choose(PLAN_ID);
+
+    const fragments = (dbMock.mock.calls.at(-1)?.[0] as string[]).join("?");
+    expect(fragments).not.toContain("response");
+    expect(fragments).not.toContain("board");
   });
 });

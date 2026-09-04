@@ -1,0 +1,82 @@
+/* src/components/scopecraft/PlanCompare.module.css
+ *
+ * Logical properties only, as everywhere else in this directory: the table is
+ * read right-to-left in Arabic and `text-align: start` is what makes the same
+ * rules serve both. A physical `left` here would put every number on the wrong
+ * edge in one of the two languages the app ships.
+ */
+
+.compare {
+  border: 1px solid var(--c-rule);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  background: var(--c-panel-recessed);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.heading {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--c-text);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* The table scrolls inside its own box rather than widening the page. Two
+   columns fit a phone, but the row headers are words and can wrap badly at
+   narrow sizes; this keeps that a local problem. */
+.scroll {
+  overflow-x: auto;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.table th,
+.table td {
+  text-align: start;
+  padding: var(--space-2);
+  border-block-end: 1px solid var(--c-rule);
+}
+
+.table tbody th {
+  font-weight: 400;
+  color: var(--c-text-muted);
+}
+
+.table tbody td {
+  font-weight: 700;
+  color: var(--c-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sideName {
+  display: block;
+  color: var(--c-text);
+}
+
+/* The headline figure, under the plan's name: committed against capacity. */
+.points {
+  display: block;
+  font-weight: 400;
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--c-text-muted);
+}

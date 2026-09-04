@@ -52,6 +52,29 @@ export const RequestSchema = z.object({
     .min(MIN_SPRINT_LENGTH_DAYS)
     .max(MAX_SPRINT_LENGTH_DAYS)
     .default(DEFAULT_SPRINT_LENGTH_DAYS),
+
+  // "I have seen this answer; give me a different one."
+  //
+  // The only field here that does not describe the product being planned. It
+  // asks the route to skip the A3 lookup and generate for real, which is what
+  // makes a second, independent answer to an identical question possible at
+  // all — the same idea hashes the same way, so without this the cache would
+  // hand back the first plan verbatim and there would be nothing to compare.
+  //
+  // Deliberately NOT part of the cache key. The key covers the fields that
+  // change what a provider would say, and this changes only whether we ask
+  // one. Adding it there would file the two plans under different hashes and
+  // break the pairing that the comparison depends on.
+  //
+  // Costs a generation and is counted like any other, because it is read after
+  // the daily budget has already been checked.
+  //
+  // `.optional()` rather than `.default(false)`, unlike the two fields above.
+  // Their defaults are values the planner actually uses, so materialising one
+  // is the point; here absent and false mean the same thing to the single line
+  // that reads it, and a default would make the field required on every object
+  // typed as a request — including the fixtures, which have no opinion on it.
+  bypass_cache: z.boolean().optional(),
 });
 
 export type ScopeCraftRequest = z.infer<typeof RequestSchema>;

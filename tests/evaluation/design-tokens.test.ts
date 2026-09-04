@@ -93,6 +93,23 @@ describe("design tokens meet WCAG 2.2 AA", () => {
     expect(contrastRatio(t.textMuted, t.panelRecessed)).toBeGreaterThanOrEqual(4.5);
   });
 
+  // The "Kept" badge in history. Body text on the recessed surface was the
+  // pair picked for it precisely because it looked like the safest one in the
+  // palette — which is a reason to measure it, not a reason to assume it.
+  it.each(themes)("%s: text on a recessed panel clears 4.5:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.text, t.panelRecessed)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // The same badge's border is what separates it from the "Edited" badge beside
+  // it without using a second hue, so it is load-bearing rather than decorative.
+  // Light mode measures 3.10 against a 3.0 floor — a tenth of headroom, which
+  // is exactly the kind of margin a later palette nudge erases silently.
+  it.each(themes)("%s: strong rule on a recessed panel clears 3:1", (theme) => {
+    const t = tokens.color[theme];
+    expect(contrastRatio(t.ruleStrong, t.panelRecessed)).toBeGreaterThanOrEqual(3);
+  });
+
   // SC 1.4.11: a rule that separates content is a non-text contrast target.
   it.each(themes)("%s: strong rule on ground clears 3:1", (theme) => {
     const t = tokens.color[theme];

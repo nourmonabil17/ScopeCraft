@@ -483,7 +483,7 @@ Target is WCAG 2.2 AA. The decisions that are not obvious:
 
 ## 11. What the tests cover
 
-520 tests across 21 suites, in two Jest projects (`jest.config.js`), split because they need
+548 tests across 22 suites, in two Jest projects (`jest.config.js`), split because they need
 different environments: `tests/api` and `tests/evaluation` run in Node, `tests/ui` in jsdom.
 
 | Suite | Covers |

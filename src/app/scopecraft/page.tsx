@@ -35,6 +35,8 @@ import {
 } from "@/components/scopecraft/presets";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
+import { PlanCompare } from "@/components/scopecraft/PlanCompare";
+import { useToast } from "@/context/ToastContext";
 import styles from "./page.module.css";
 
 /** Matches the X-Provider-Used header the API sets. NVIDIA is the primary
@@ -86,6 +88,7 @@ interface ApiErrorBody {
 
 export default function ScopeCraftPage() {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const [state, setState] = useState<UiState>({ status: "idle" });
   const [duplicateValues, setDuplicateValues] = useState<IntakeFormValues>(emptyFormValues());
   // Separate from `duplicateValues` itself: that state is always a fully-formed
@@ -96,6 +99,19 @@ export default function ScopeCraftPage() {
   const [board, setBoard] = useState<BoardSnapshot | undefined>(undefined);
   const [planId, setPlanId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  // The second answer to the same question, and which of the two the user kept.
+  //
+  // Held beside `state` rather than inside its success branch on purpose: the
+  // first plan is not replaced, and the board being edited belongs to it. A
+  // second opinion that overwrote `state` would silently discard those edits,
+  // which is the opposite of what asking for one is for.
+  const [alternative, setAlternative] = useState<{
+    data: ScopeCraftResponse;
+    planId: string | null;
+  } | null>(null);
+  const [alternativePending, setAlternativePending] = useState(false);
+  const [chosenPlanId, setChosenPlanId] = useState<string | null>(null);
+  const [choosePending, setChoosePending] = useState(false);
   const resultCounter = useRef(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -193,6 +209,75 @@ export default function ScopeCraftPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  /**
+   * Asks the same question again, past the cache.
+   *
+   * `bypass_cache` is the whole of it. Without the flag an identical request
+   * hashes identically and A3 returns the stored plan verbatim, so the "second
+   * opinion" would be the first one's bytes and the comparison would be empty.
+   *
+   * It costs a generation and is metered like any other, because the route
+   * reads the flag after the daily budget has already been checked.
+   *
+   * Failure leaves the first plan exactly as it was. There is nothing to roll
+   * back — nothing was replaced — so this reports and stops.
+   */
+  async function secondOpinion() {
+    if (!lastRequest || alternativePending) return;
+    setAlternativePending(true);
+    try {
+      const res = await fetch("/api/scopecraft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...lastRequest, bypass_cache: true }),
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = "/login";
+          return;
+        }
+        const err: ApiErrorBody = await res.json().catch(() => ({}));
+        showToast(err.message ?? t("result.alternative.failed"), "error");
+        return;
+      }
+      setAlternative({
+        data: await res.json(),
+        planId: res.headers.get("X-Plan-Id"),
+      });
+    } catch {
+      showToast(t("result.alternative.failed"), "error");
+    } finally {
+      setAlternativePending(false);
+    }
+  }
+
+  /**
+   * Records which plan the user kept.
+   *
+   * Marked optimistically: the request writes a preference, not data, and the
+   * worst case of a failed write is that the older plan is served again the
+   * next time this question is asked. Blocking the UI on it would cost more
+   * than the mistake does.
+   */
+  async function choosePlan(id: string) {
+    if (choosePending) return;
+    const previous = chosenPlanId;
+    setChoosePending(true);
+    setChosenPlanId(id);
+    try {
+      const res = await fetch(`/api/scopecraft/${id}/choose`, { method: "POST" });
+      if (!res.ok) throw new Error(String(res.status));
+    } catch {
+      setChosenPlanId(previous);
+      // Its own message, not board.saveFailed. Nothing was being edited — the
+      // user marked which plan to keep — and borrowing the board's wording
+      // reports the wrong feature as broken.
+      showToast(t("compare.keepFailed"), "error");
+    } finally {
+      setChoosePending(false);
+    }
+  }
+
   async function submit(payload: IntakeSubmitPayload) {
     setLastRequest(payload);
     setState({ status: "loading" });
@@ -238,6 +323,10 @@ export default function ScopeCraftPage() {
       const promptVersion = res.headers.get("X-Prompt-Version") ?? "unknown";
       resultCounter.current += 1;
       setBoard(undefined); // fresh board state for a fresh generation
+      // A new question; the previous pair and its choice no longer relate to
+      // anything on screen.
+      setAlternative(null);
+      setChosenPlanId(null);
       // Absent when the persistence write failed. The board still works; it
       // just cannot be saved, and `saveState` says so rather than failing
       // silently on the first edit.
@@ -352,10 +441,37 @@ export default function ScopeCraftPage() {
                 {saveState === "failed" && t("board.saveFailed")}
                 {saveState === "idle" && planId === null && t("board.saveUnavailable")}
               </p>
+              {/* Disabled rather than hidden while in flight: the control's
+                  absence would reflow the toolbar under the pointer. */}
+              {/* `busy`, not `disabled`, for the pending half — Button draws
+                  that distinction on purpose: a disabled control leaves the tab
+                  order, so a keyboard or screen-reader user standing on it when
+                  the request starts loses their place and is told nothing. Only
+                  the "no request to repeat" case is a true disable. */}
+              <Button
+                variant="secondary"
+                onClick={secondOpinion}
+                busy={alternativePending}
+                disabled={lastRequest === null}
+              >
+                {alternativePending
+                  ? t("result.alternative.generating")
+                  : t("result.alternative.generate")}
+              </Button>
               <Button variant="secondary" onClick={handleClear}>
                 {t("result.clear")}
               </Button>
             </div>
+
+            {alternative && (
+              <PlanCompare
+                original={{ planId, data: state.data }}
+                alternative={alternative}
+                chosenPlanId={chosenPlanId}
+                onChoose={choosePlan}
+                busy={choosePending}
+              />
+            )}
 
             <ResultView
               key={state.resultId}

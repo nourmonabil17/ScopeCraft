@@ -132,6 +132,26 @@ const en = {
   "result.tab.backlog": "Sprint Backlog",
   "result.tab.evidence": "Traceability & Evidence",
   "result.clear": "Clear results",
+
+  // ---- Second opinion (compare two plans for one question) ----
+  // "Alternative", not "regenerate": the first plan is not replaced, and saying
+  // so in the label is what stops someone pressing this expecting an undo.
+  "result.alternative.generate": "Get a second opinion",
+  "result.alternative.generating": "Generating a second opinion…",
+  "result.alternative.failed": "Couldn't generate a second opinion. Please try again.",
+  "compare.heading": "The two plans, side by side",
+  "compare.original": "First plan",
+  "compare.alternative": "Second plan",
+  "compare.stories": "User stories",
+  "compare.points": "Committed points",
+  "compare.must": "Must-have stories",
+  // Named rather than "Keep this one" twice: two identical control labels are
+  // indistinguishable to anyone reading the page as a list of controls.
+  "compare.keepOriginal": "Keep the first plan",
+  "compare.keepAlternative": "Keep the second plan",
+  "compare.kept": "Kept",
+  "compare.keepFailed": "Couldn't record which plan you kept. Please try again.",
+  "compare.keptNote": "The plan you keep is the one served if you ask this question again.",
   // Shown only on a cache hit. A miss is every ordinary generation and needs no
   // label; a hit is the one that arrives in under a second and would otherwise
   // read as the model having cut corners.
@@ -151,6 +171,7 @@ const en = {
   "history.points": "points",
   "history.failed": "Generation failed",
   "history.edited": "Edited",
+  "history.chosen": "Kept",
   "history.showing": "Showing your most recent plans.",
   "history.unavailable": "Your plans cannot be loaded right now. Please try again shortly.",
   "history.backToForm": "Back to the plan form",
@@ -392,6 +413,20 @@ const ar: Record<TranslationKey, string> = {
   "result.tab.backlog": "قائمة أعمال السبرنت",
   "result.tab.evidence": "التتبع والأدلة",
   "result.clear": "مسح النتائج",
+  "result.alternative.generate": "احصل على رأي ثانٍ",
+  "result.alternative.generating": "جارٍ إنشاء رأي ثانٍ…",
+  "result.alternative.failed": "تعذّر إنشاء رأي ثانٍ. حاول مرة أخرى.",
+  "compare.heading": "الخطتان جنبًا إلى جنب",
+  "compare.original": "الخطة الأولى",
+  "compare.alternative": "الخطة الثانية",
+  "compare.stories": "قصص المستخدم",
+  "compare.points": "النقاط الملتزم بها",
+  "compare.must": "القصص الواجبة",
+  "compare.keepOriginal": "احتفظ بالخطة الأولى",
+  "compare.keepAlternative": "احتفظ بالخطة الثانية",
+  "compare.kept": "محتفظ بها",
+  "compare.keepFailed": "تعذّر تسجيل الخطة التي احتفظت بها. حاول مرة أخرى.",
+  "compare.keptNote": "الخطة التي تحتفظ بها هي التي ستُقدَّم إذا طرحت السؤال نفسه مرة أخرى.",
   "result.cache.hit": "أُعيد استخدامها من طلبك السابق المطابق",
   "board.saving": "جارٍ الحفظ…",
   "board.saved": "تم الحفظ",
@@ -408,6 +443,7 @@ const ar: Record<TranslationKey, string> = {
   "history.points": "نقطة",
   "history.failed": "فشل الإنشاء",
   "history.edited": "مُعدَّلة",
+  "history.chosen": "محتفظ بها",
   "history.showing": "يتم عرض أحدث خططك.",
   "history.unavailable": "تعذّر تحميل خططك الآن. يُرجى المحاولة بعد قليل.",
   "history.backToForm": "العودة إلى نموذج الخطة",

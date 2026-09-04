@@ -31,6 +31,7 @@ Content-Type: application/json
 | `constraints` | string \| string[] | no | each string max 1000 characters | — |
 | `team_capacity_points` | integer | no | 1–500 | `30` |
 | `sprint_length_days` | integer | no | 5–30 | `14` |
+| `bypass_cache` | boolean | no | skips the stage-4c cache lookup so an identical request generates for real | absent |
 
 Total request body is capped at **16 KB** (`MAX_REQUEST_BODY_BYTES`), enforced by streaming
 the body and aborting once the cap is exceeded.
@@ -110,7 +111,7 @@ in exactly one of `included` / `deferred` — both asserted by test.
 |---|---|
 | `X-Provider-Used` | `nvidia` \| `groq` \| `gemini` — which tier answered. On a cache hit this is the tier that answered *originally* |
 | `X-Prompt-Version` | prompt contract version (currently `v7`) |
-| `X-Cache` | `hit` \| `miss` — whether a provider was called for this request |
+| `X-Cache` | `hit` \| `miss` \| `bypass` — whether a provider was called for this request |
 
 ### Error responses
 
@@ -175,7 +176,7 @@ and carries no PRD fields.
 |---|---|
 | `X-Provider-Used` | Which tier of the failover chain answered |
 | `X-Prompt-Version` | Which prompt produced this plan |
-| `X-Cache` | `hit` when the plan came from a previous identical request of the caller's, `miss` when a provider generated it |
+| `X-Cache` | `hit` when the plan came from a previous identical request of the caller's, `miss` when a provider generated it, `bypass` when the caller sent `bypass_cache` and the lookup was skipped |
 | `X-Plan-Id` | The stored row's id, for `PATCH`. **Absent** when the persistence write failed — the client reads that as "editing works, saving does not" rather than failing on the first edit |
 
 The id travels as a header rather than a body field because the body is a validated Zod
@@ -195,6 +196,46 @@ reads it too, and labels a hit on the results toolbar — only `hit` is treated 
 so a stripped or absent header says nothing rather than asserting a generation. A hit still gets its own
 `X-Plan-Id` — a fresh row, so editing the board here cannot overwrite the original
 plan's board.
+
+### `bypass_cache` — asking the same question twice
+
+An identical request hashes identically, so A3 serves the stored plan verbatim: a caller who
+wants a *second opinion* rather than a repeat would get the first plan's bytes back. Setting
+`bypass_cache: true` skips the lookup and generates for real, producing a second, independent
+plan for the same question.
+
+Three properties, all deliberate:
+
+- **It is not part of the cache key.** `requestHash` covers the fields that change what a
+  provider would say; this changes only whether one is asked. Both plans therefore file under
+  the same `request_hash`, which is what pairs them.
+- **It is read after the daily budget**, at stage 4c, so it cannot be used to generate without
+  being counted. Every path through this route writes one `plans` row and the quota counts rows.
+- **`X-Cache` reports `bypass`, not `miss`.** A miss means the table was searched and had
+  nothing; here it was never searched. The UI treats only `hit` as a claim, so both render no
+  cache label.
+
+---
+
+## `POST /api/scopecraft/[id]/choose`
+
+Records which of several plans for one question the caller is keeping. Writes `plans.chosen_at`
+and nothing else — it can touch neither the model's output nor the human's board edits.
+
+**Request:** no body. The plan is named by the path.
+
+**Responses**
+
+| Status | When |
+|---|---|
+| `204` | Marked. The previously kept plan sharing this `request_hash` is cleared in the same statement |
+| `401` | No session |
+| `404` | No such plan, **or it belongs to someone else** — deliberately the same answer, so the endpoint cannot be used to discover real ids |
+
+The mark and the clear are one statement, because two statements can fail between them and
+leave either two plans claiming to be kept or none. `findCachedPlan` orders by
+`chosen_at desc nulls last, created_at desc`, so the kept plan — not merely the newest — is
+what a later identical request is served.
 
 ---
 

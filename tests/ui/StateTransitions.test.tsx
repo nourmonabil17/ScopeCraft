@@ -827,3 +827,69 @@ describe("State views · primitives", () => {
     expect(screen.getByTestId("error-state")).toHaveAttribute("role", "alert");
   });
 });
+// The client half of "ask the same question again".
+//
+// The route is what actually skips the cache; the only thing the page can get
+// wrong is failing to ask it to — which would silently return the first plan's
+// bytes as if they were a second opinion, and the comparison would show two
+// identical columns with no sign anything had gone wrong.
+describe("State 3 · a second opinion", () => {
+  const ALT = {
+    ...FIXTURE,
+    problem: "A different framing of the same problem",
+  };
+
+  async function generateThenAskAgain(user: ReturnType<typeof userEvent.setup>) {
+    const fetchMock = jest
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(jsonResponse(FIXTURE, { headers: { "X-Plan-Id": "plan-a" } }))
+      .mockResolvedValueOnce(
+        jsonResponse(ALT, { headers: { "X-Plan-Id": "plan-b", "X-Cache": "bypass" } })
+      );
+
+    renderWithProviders(<ScopeCraftPage />);
+    await submitValidIdea(user);
+    await screen.findByTestId("result-view");
+    await user.click(screen.getByRole("button", { name: /second opinion/i }));
+    await screen.findByTestId("plan-compare");
+    return fetchMock;
+  }
+
+  it("asks the same question with the cache bypassed", async () => {
+    const user = userEvent.setup();
+    const fetchMock = await generateThenAskAgain(user);
+
+    const first = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
+    const second = JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string);
+
+    // The same question, or it is not a second opinion about anything.
+    expect(second.idea).toBe(first.idea);
+    expect(second.team_capacity_points).toBe(first.team_capacity_points);
+    // The one difference, and the whole point.
+    expect(first.bypass_cache).toBeUndefined();
+    expect(second.bypass_cache).toBe(true);
+  });
+
+  // The first plan is not replaced. Someone may already have been editing its
+  // board, and a second opinion that overwrote it would discard that work.
+  it("keeps the first plan on screen beside the second", async () => {
+    const user = userEvent.setup();
+    await generateThenAskAgain(user);
+
+    expect(screen.getByTestId("result-view")).toBeInTheDocument();
+    expect(screen.getByTestId("compare-side-original")).toBeInTheDocument();
+    expect(screen.getByTestId("compare-side-alternative")).toBeInTheDocument();
+  });
+
+  it("records the kept plan against that plan's own id", async () => {
+    const user = userEvent.setup();
+    const fetchMock = await generateThenAskAgain(user);
+    fetchMock.mockResolvedValueOnce(jsonResponse(null, { status: 204 }));
+
+    await user.click(screen.getByRole("button", { name: /keep the second plan/i }));
+
+    const [url, init] = fetchMock.mock.calls.at(-1) ?? [];
+    expect(url).toBe("/api/scopecraft/plan-b/choose");
+    expect(init?.method).toBe("POST");
+  });
+});

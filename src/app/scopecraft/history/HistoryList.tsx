@@ -33,6 +33,9 @@ export interface PlanSummary {
   sprintDays: number;
   providerUsed: string | null;
   edited: boolean;
+  /** This plan was kept over an alternative answer to the same question, so it
+   *  is the one A3 serves if that question is asked again. */
+  chosen: boolean;
   createdAt: string;
 }
 
@@ -154,6 +157,14 @@ export function HistoryList({ plans }: { plans: PlanSummary[] | null }) {
                 // reshaped from one left as the model produced it, which is the
                 // product's central distinction.
                 <span className={styles.badgeEdited}>{t("history.edited")}</span>
+              )}
+              {plan.chosen && (
+                // Not merely decorative: this is the plan the cache will serve
+                // for a repeat of the same question, so a reader comparing two
+                // rows needs to know which way that decision went.
+                <span className={styles.badgeChosen} data-testid="history-chosen">
+                  {t("history.chosen")}
+                </span>
               )}
               {plan.providerUsed && (
                 <span className={styles.badgeProvider}>{plan.providerUsed}</span>

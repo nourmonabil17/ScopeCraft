@@ -247,7 +247,15 @@ export async function POST(req: NextRequest) {
   // schema-checked by Zod on the way in and its deterministic fields were
   // already overwritten server-side before it was stored, so re-running either
   // would only be able to agree with itself.
-  const cached = await findCachedPlan(userId, requestHash(parsed.data));
+  //
+  // Skipped entirely when the caller asked for a second opinion. Note the short
+  // circuit is on the LOOKUP, not on the result: querying and then discarding
+  // the answer would spend a round trip to learn nothing. `bypass_cache` is
+  // read here rather than anywhere earlier so that no path past the meter above
+  // can be opened by setting it.
+  const cached = parsed.data.bypass_cache
+    ? null
+    : await findCachedPlan(userId, requestHash(parsed.data));
   if (cached) {
     // duration_ms = 0 and attempts = 0 are both literally true: the generate
     // step did not run and no provider was called. Zero is what separates these
@@ -321,7 +329,12 @@ export async function POST(req: NextRequest) {
       headers: {
         "X-Provider-Used": providerUsed,
         "X-Prompt-Version": promptVersion,
-        "X-Cache": "miss",
+        // "bypass" is not a miss. A miss says the table was searched and had
+        // nothing; on this path it was never searched, and collapsing the two
+        // would make the cache look like it was failing to hit when it was
+        // never asked. Only "hit" is a claim the client renders, so both read
+        // as "no cache label" there.
+        "X-Cache": parsed.data.bypass_cache ? "bypass" : "miss",
         // A header rather than a body field: the body is a validated Zod
         // contract that the model's output has to satisfy, and an id is not
         // part of the plan. It travels the same way the other two provenance
@@ -439,6 +452,12 @@ const REQUEST_HASH_VERSION = "h1";
 /**
  * Cache key over the request fields that actually change the answer.
  *
+ * `bypass_cache` is deliberately absent too, for the opposite reason: it does
+ * not describe the product at all, and it changes only whether this table is
+ * consulted rather than what a provider would say. Hashing it would file a
+ * second opinion under a different key from the plan it is an opinion about,
+ * which is precisely the pairing the comparison relies on.
+ *
  * `sprint_length_days` is deliberately absent. It is validated and stored, but
  * nothing in src/lib reads it — it reaches neither the prompt nor the sprint
  * arithmetic, so two requests differing only in sprint length produce identical
@@ -469,7 +488,16 @@ interface CachedPlan {
 }
 
 /**
- * The caller's most recent successful plan for an identical request, or null.
+ * The plan the caller kept for an identical request, or failing that their most
+ * recent one, or null.
+ *
+ * The ordering is not incidental. A caller can hold two plans for one question —
+ * an identical request generated a second time on purpose — and mark one as the
+ * one they are keeping. Ordering by `created_at` alone would then hand back the
+ * plan they rejected, and only on the THIRD request, long after the choice was
+ * made. `nulls last` is what keeps that from also demoting the ordinary case:
+ * every plan nobody has chosen between has `chosen_at` null, and those still
+ * order newest-first among themselves.
  *
  * Scoped to one user. A global cache would hit more often and save more tokens,
  * but it turns response time into an oracle: a fast answer would tell you that
@@ -498,7 +526,7 @@ async function findCachedPlan(userId: string, hash: string): Promise<CachedPlan 
         and status = 'ok'
         and response is not null
         and prompt_version = ${PROMPT_VERSION}
-      order by created_at desc
+      order by chosen_at desc nulls last, created_at desc
       limit 1`;
     return row ?? null;
   } catch (error) {

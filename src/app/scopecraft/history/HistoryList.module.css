@@ -125,6 +125,7 @@
    Sharp corners, not pills: Direction A. */
 .badgeFailed,
 .badgeEdited,
+.badgeChosen,
 .badgeProvider {
   font-size: var(--text-xs);
   padding-block: var(--space-1);
@@ -136,6 +137,18 @@
 .badgeFailed {
   color: var(--c-danger);
   background: var(--c-danger-surface);
+}
+
+/* The plan kept over an alternative. Separated from .badgeEdited by BORDER
+   WEIGHT, not by a second hue — the same argument Chip makes: two accent-ish
+   badges side by side are one greyscale print away from being the same badge.
+   Text is --c-text on --c-panel-recessed, the strongest pair the palette has,
+   rather than a third colour nothing has measured. */
+.badgeChosen {
+  color: var(--c-text);
+  background: var(--c-panel-recessed);
+  border-color: var(--c-rule-strong);
+  font-weight: 700;
 }
 
 /* The one flag worth showing: a plan the human reshaped. Accent on the
