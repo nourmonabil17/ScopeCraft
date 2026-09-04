@@ -1180,13 +1180,13 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 29 | Frontend | ~~**Frontend architecture**~~ **WRITTEN 2026-09-04** | `docs/frontend-architecture.md` | ✅ Done in 11.4.2 — routes, component tree, the seven-state union, the pre-paint scripts, the `.dark` decision, the token/CSS-Modules model, the breakpoint audit, RTL, the client/server boundary, and what is not covered |
 | 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 580 tests with no document saying what is covered, what is not, and how manual QA runs |
 | 31 | QA | **Manual QA evidence** | `docs/evidence/qa/` | 6.5 produces findings with nowhere to live |
-| 32 | Operations | **Runbook / troubleshooting** | `docs/runbook.md` | What to do when providers fail, the database is down, or sign-in breaks. Every known finding is a runbook entry |
+| 32 | Operations | ~~**Runbook / troubleshooting**~~ **WRITTEN 2026-09-04** | `docs/runbook.md` | ✅ Done in 11.4.6 — eight symptoms, each *what you see → how to confirm → what to do*. Seeded from `known-limitations.md` and `decision-log.md`, **not** from `CLAUDE.md` §9 as this row originally said: that file is gitignored and cannot source a team-facing document |
 | 33 | Submission | ~~**Known limitations**~~ **WRITTEN 2026-09-03** | `docs/known-limitations.md` | ✅ Done in 11.4.5 — 19 entries, each Accepted (a weighed trade-off) or Open (a real gap with an owner and a next step), with a sign-off block |
 | 34 | Submission | ~~**Demo script**~~ **WRITTEN 2026-09-03** | `docs/demo-script.md` | ✅ Done in 11.4.7 — a timed 3:00 running order, the recovery paths, the questions, and the five claims not to make |
 | 35 | Defense | **Frontend defense prep** | `docs/defense-prep-frontend.md` | Only the backend row has one; three members have none |
 | 36 | Defense | **Integration defense prep** | `docs/defense-prep-integration.md` | as above |
 | 37 | Defense | **Evaluation & safety defense prep** | `docs/defense-prep-evaluation.md` | as above |
-| 38 | Process | **Changelog** | `CHANGELOG.md` | No tag, no release notes, no way to see what changed between sessions |
+| 38 | Process | ~~**Changelog**~~ **WRITTEN 2026-09-04** | `CHANGELOG.md` | ✅ Done in 11.4.12 — four deploys, each with what was verified live. Starts at 2026-09-04 and says so rather than reconstructing a history nobody recorded. **Still no tag** (14.8.2) |
 
 *(A `CONTRIBUTING.md` was considered and rejected: branch rules live in `architecture.md` §5
 and the four gates live in `CLAUDE.md`. A third home for the same rules is drift waiting to
@@ -1197,6 +1197,13 @@ happen. Revisit if the team grows.)*
 - [ ] **11.3.1** `README.md` — Authentication section reflects the endpoint being gated
       (3.6.4); environment table gains `DATABASE_URL` and `DAILY_PLAN_LIMIT`; Docker quick
       start; **add the documentation index from 11.5.1**.
+      **Three of four done 2026-09-04**, staying open for the fourth. The environment table
+      now carries `DATABASE_URL` and `DAILY_PLAN_LIMIT` — the first was missing entirely, so
+      a reader who configured from this README alone got `503 STORAGE_UNAVAILABLE` — the
+      documentation index is in, and a Deployment section was added that the file did not
+      have at all. **Still missing: the Docker quick start.** Also corrected while there: the
+      "No persistence" limitation, false since the `plans` table shipped, and the CI
+      description, which predated the audit and secret-scan steps.
 - [ ] **11.3.2** `docs/architecture.md` — pipeline diagram gains stage 0, stage 4b and stage 4c; §4a
       boundary section updated; the "no authentication" MVP non-goal in §4 explicitly marked
       reversed with a pointer to the decision log.
@@ -1278,8 +1285,16 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
       The split that makes the document worth having is **Accepted** (weighed and chosen,
       with the reasoning) versus **Open** (a real gap with an owner and a next step). An
       accepted entry with no reasoning behind it is a bug in the document.
-- [ ] **11.4.6** `docs/runbook.md` — symptom → cause → fix, seeded from the nine known
+- [x] **11.4.6** `docs/runbook.md` — symptom → cause → fix, seeded from the nine known
       findings in `CLAUDE.md` §9.
+      **Written 2026-09-04.** Eight sections, each *what you see → how to confirm → what to
+      do*: `503 STORAGE_UNAVAILABLE`, silent persistence failure, `504`/slow generations, a
+      `429` on the day's first request, the three different `502`s, sign-in, a push that did
+      not change the site, and how to tell what is live.
+      **Seeded from a different source than this row asks for.** `CLAUDE.md` is gitignored
+      (`.gitignore:32`), so it cannot be the source for a team-facing document — a reader
+      would be pointed at a file they do not have. Seeded from `docs/known-limitations.md`
+      and `docs/decision-log.md` instead, both tracked, both carrying the same findings.
 - [x] **11.4.7** `docs/demo-script.md` — three minutes, timed, rehearsed against the live
       site. What to show, in what order, what to say when a provider is slow.
       **Written 2026-09-03. Not yet rehearsed** — the timings are budgeted against the real
@@ -1301,13 +1316,24 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
       from the backend one; never the content.
 - [ ] **11.4.10** `docs/defense-prep-integration.md` — **Nour writes it.**
 - [ ] **11.4.11** `docs/defense-prep-evaluation.md` — **Yasmin writes it.**
-- [ ] **11.4.12** `CHANGELOG.md` — seed from git history, then maintain per release.
+- [x] **11.4.12** `CHANGELOG.md` — seed from git history, then maintain per release.
+      **Written 2026-09-04**, and deliberately **not** seeded from the full git history: it
+      starts at 2026-09-04 and says so. The value of an entry is the *live verification*
+      recorded with it, and that cannot be reconstructed after the fact for older deploys.
+      Four entries, each citing evidence that exists in the repository or was captured
+      against production. Maintaining it is now step 9 of `docs/deployment.md`.
 - [ ] **11.4.13** `docs/evidence/qa/` — where the manual QA record lives.
 
 ### 11.5 Discoverability
 
-- [ ] **11.5.1** Add a documentation index to `README.md` linking all 38 documents by
+- [x] **11.5.1** Add a documentation index to `README.md` linking all 38 documents by
       category. A register that lives only in this plan is a register nobody reads.
+      **Done 2026-09-04.** Four groups — Architecture and design, Operations, Quality and
+      security, Assessment. **Not 38 rows:** it links every document that exists, which is
+      fewer, because a dozen rows in the §11.2 register are documents still to be written and
+      an index of dead links is worse than no index. The five `session*-lead-checklist.md`
+      and `youssef-ai-backend-checklist.md` working-note files are excluded on purpose, and
+      the index says so rather than leaving a reader to wonder.
 - [ ] **11.5.2** Confirm every document says at the top what it is for and who owns it.
 - [ ] **11.5.3** Confirm every internal link resolves and every external link still loads.
 
@@ -1603,10 +1629,16 @@ including what has been verified and what has not.
 - [ ] **14.8.1** Resolve 12.1.1 — bring `main` up to date, or change the documentation that
       calls it the release branch.
 - [ ] **14.8.2** Tag the release.
-- [ ] **14.8.3** Write the `CHANGELOG.md` entry (11.4.12).
+- [x] **14.8.3** Write the `CHANGELOG.md` entry (11.4.12). **Done 2026-09-04**, and it is
+      now a written step in `docs/deployment.md` §9 rather than a thing to remember.
 - [ ] **14.8.4** Update `HANDOFF.md` with the new branch heads.
-- [ ] **14.8.5** Record the deployed commit SHA somewhere a person will find it, so "what is
+- [x] **14.8.5** Record the deployed commit SHA somewhere a person will find it, so "what is
       live" is answerable without guessing.
+      **Done 2026-09-04.** Three answers, ranked by how much they should be trusted, in
+      `docs/runbook.md` §8: `CHANGELOG.md` (written, dated, with what was verified live),
+      `git ls-remote fork main` (authoritative about the code, silent about whether the build
+      passed), and the Vercel dashboard. **14.8.2 is still open** — there are no tags, so a
+      release is findable but not nameable.
 
 ---
 

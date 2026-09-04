@@ -57,6 +57,8 @@ leaks the key to every visitor.
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth app; callback `<origin>/api/auth/callback/github` | — (required, unless `AUTH_GOOGLE_*` is set) |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client; redirect `<origin>/api/auth/callback/google` | — (required, unless `AUTH_GITHUB_*` is set) |
 | `AUTH_URL` | Production origin. Pins the OAuth callback host behind a proxy | derived from the request |
+| `DATABASE_URL` | Postgres connection string. Use the **pooled** one on a serverless host | — (required) |
+| `DAILY_PLAN_LIMIT` | Rolling 24-hour generations per account. Counts attempts, not successes | `20` |
 | `NVIDIA_API_KEY` | NVIDIA NIM — first tier by default, second when `PRIMARY_AI_PROVIDER=groq` | — |
 | `GROQ_API_KEY` | Groq — second tier by default, first in production | — |
 | `GEMINI_API_KEY` | Google Gemini — last tier in both orders | — |
@@ -64,6 +66,11 @@ leaks the key to every visitor.
 | `AI_TIMEOUT_MS` | Per-attempt abort timeout | `30000` |
 | `AI_TOTAL_BUDGET_MS` | Ceiling for the whole failover chain | `50000` |
 | `NVIDIA_MODEL` / `GROQ_MODEL` / `GEMINI_MODEL` | Model ID overrides | see `.env.example` |
+
+**`DATABASE_URL` is not optional.** The daily quota is checked against Postgres before any
+provider is called, and that check fails **closed** — without a reachable database every
+generation returns `503 STORAGE_UNAVAILABLE`. Refusing beats generating unmetered, so an
+outage cannot become a way to spend provider quota without limit.
 
 **At least one AI provider key is required.** A provider with no credential is skipped rather
 than treated as a failure, so a single key still gives a working endpoint — you simply lose
@@ -214,8 +221,10 @@ Secret-leak check — run after a build, and part of the release checklist:
 grep -rqE "AIza[0-9A-Za-z_-]{20,}|gsk_[0-9A-Za-z]{20,}|nvapi-[0-9A-Za-z_-]{20,}" .next/static && echo "SECRET LEAKED" || echo "CLEAN"
 ```
 
-CI (`.github/workflows/ci.yml`) runs tests, type-check, lint and build on every push and
-pull request to `main` and `dev`.
+CI (`.github/workflows/ci.yml`) runs the same four gates on every push and pull request to
+`main` and `dev`, plus `npm audit --omit=dev` before them and the secret scan above after
+the build — that grep used to live only in this README, which meant it ran when somebody
+remembered.
 
 ## Known limitations & safe refusals
 
@@ -300,7 +309,12 @@ packed. This is deliberate — predictable and explainable beats marginally tigh
 **Single default capacity profile.** One team profile, not configurable per team beyond
 the per-request `team_capacity_points`.
 
-**No persistence.** Results are not stored; refreshing loses the generated plan.
+**Persistence is per-account, and a failed save is silent.** Plans are stored in Postgres and
+survive a refresh. But `recordPlan` deliberately swallows an insert failure — a plan the user
+is looking at should not be thrown away because saving it failed — so schema/code skew
+produces a `200`, a working plan, and an empty history. The only signals are server-side
+(`persisted=false` on the generation log line) and a missing `x-plan-id` header. See
+[`docs/runbook.md`](docs/runbook.md) §2.
 
 **A 502 is terminal for the caller.** There is no server-side backoff or queue: when the
 whole chain fails, the client is told to retry. The one automatic retry that does exist is
@@ -327,17 +341,76 @@ scripts/smoke-test.ts                                   Live provider connectivi
 knowledge/scopecraft/                                   Approved corpus (Yasmin)
 tests/                                                  API, tools, evaluation, and UI suites
 next.config.js                                          Security headers + CSP (Youssef)
-docs/architecture.md                                    System architecture (Nour)
-docs/frontend-architecture.md                           Frontend architecture (Yousef)
-docs/contribution-matrix.md                             Verified per-member deliverables (Nour)
-docs/api-contracts.md                                   API + tool contracts (Yousef)
-docs/decision-log.md                                    Research source & decision log
-docs/backend-delivery-summary.md                        Backend handover + PR description (Yousef)
-docs/security-review.md                                 Dependency + provider security review (Yousef)
-docs/source-register.md                                 Approved source register (Yasmin)
-docs/release-checklist.md                               Release checklist (Nour)
+docs/                                                   See Documentation below
 AI_USAGE.md                                              AI usage disclosure (all members)
 ```
+
+## Deployment
+
+**Vercel builds from a fork, not from the team repository.** Pushing to `origin` alone
+updates history and changes nothing about the live site. Both pushes, every time:
+
+```bash
+git push origin dev && git push fork dev:main
+```
+
+Two things happen before that, in this order, and skipping either one fails silently rather
+than loudly: apply `db/schema.sql` if the change names a new column, then set any new
+environment variable in Vercel **and redeploy** — a running deployment does not pick up an
+environment change on its own.
+
+Full procedure, every variable and its failure mode, rollback and credential rotation:
+**[`docs/deployment.md`](docs/deployment.md)**. When something is already broken, start from
+the symptom in **[`docs/runbook.md`](docs/runbook.md)**. What is currently live, and what was
+checked after it went out: **[`CHANGELOG.md`](CHANGELOG.md)**.
+
+## Documentation
+
+### Architecture and design
+
+| Document | What it answers |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | How the system fits together |
+| [`docs/frontend-architecture.md`](docs/frontend-architecture.md) | The 7-state UI and where state lives |
+| [`docs/api-contracts.md`](docs/api-contracts.md) | Every endpoint, request and response shape |
+| [`docs/database-and-auth-design.md`](docs/database-and-auth-design.md) | The schema, and why sessions are JWTs with no adapter |
+| [`docs/decision-log.md`](docs/decision-log.md) | Why things are the way they are — including the decisions that were reversed |
+| [`docs/prompt-versions.md`](docs/prompt-versions.md) | What changed in each prompt version, and what it measurably fixed |
+
+### Operations
+
+| Document | What it answers |
+|---|---|
+| [`docs/deployment.md`](docs/deployment.md) | How to deploy, and the fork trap that has cost the most time |
+| [`docs/runbook.md`](docs/runbook.md) | Something is broken in production — what now |
+| [`CHANGELOG.md`](CHANGELOG.md) | What is live, and what was verified against it |
+| [`docs/local-development.md`](docs/local-development.md) | Running it on your machine, with or without Docker |
+| [`docs/release-checklist.md`](docs/release-checklist.md) | The gate before a release |
+| [`docs/upgrade-checklist.md`](docs/upgrade-checklist.md) | Dependency and platform upgrades |
+| [`HANDOFF.md`](HANDOFF.md) | Current state of the work, for whoever picks it up next |
+
+### Quality and security
+
+| Document | What it answers |
+|---|---|
+| [`docs/known-limitations.md`](docs/known-limitations.md) | The 19 known gaps, each marked *Accepted* or *Open* |
+| [`docs/security-review.md`](docs/security-review.md) | Dependency and provider security review |
+| [`docs/source-register.md`](docs/source-register.md) | The approved knowledge corpus |
+| [`docs/project-plan.md`](docs/project-plan.md) | The master plan and the document register |
+
+### Assessment
+
+| Document | What it answers |
+|---|---|
+| [`AI_USAGE.md`](AI_USAGE.md) | AI usage disclosure — one section per team member |
+| [`docs/contribution-matrix.md`](docs/contribution-matrix.md) | Verified per-member deliverables |
+| [`docs/backend-delivery-summary.md`](docs/backend-delivery-summary.md) | Backend handover |
+| [`docs/defense-prep-backend.md`](docs/defense-prep-backend.md) | Questions to expect, and the honest answers |
+| [`docs/demo-script.md`](docs/demo-script.md) | The live demo, in order |
+
+Not indexed: the four `docs/session*-lead-checklist.md` files and
+`docs/youssef-ai-backend-checklist.md`, which are per-session working notes rather than
+reference material.
 
 ## Team 10
 

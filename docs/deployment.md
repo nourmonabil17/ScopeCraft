@@ -50,23 +50,33 @@ Only the second one moves production. It is live in roughly 25 seconds.
 
 ### Branch topology, as verified on 2026-09-04
 
-Verified with `git ls-remote` and `git rev-list --left-right --count`:
+Verified with `git ls-remote` and `git rev-list --left-right --count`. The commits move; the
+*relationships* are the part worth reading, and they have held all along:
 
 | Ref | Commit | Relationship |
 |---|---|---|
-| `origin/dev` | `d64779e` | The working branch. Source of truth. |
-| `fork/main` | `d64779e` | **Identical to `origin/dev`.** This is what production serves. |
-| `origin/main` | `a98910b` | 28 behind `origin/dev`, 0 ahead. Stale; merging is a pending team decision. |
-| `fork/dev` | `eb110fd` | **124 behind `origin/dev`, 0 ahead. Not used. Not a source of truth.** |
+| `origin/dev` | `a0d63f5` | The working branch. Source of truth. |
+| `fork/main` | `a0d63f5` | **Identical to `origin/dev`.** This is what production serves. |
+| `origin/main` | `a98910b` | 33 behind `origin/dev`, 0 ahead. Stale; merging is a pending team decision. |
+| `fork/dev` | `eb110fd` | **129 behind `origin/dev`, 0 ahead. Not used. Not a source of truth.** |
+
+**Three of those four refs disagree, and only one comparison means anything.** Do not read
+`origin/main` or `fork/dev` as a second opinion about what is live — `fork/main` is the only
+ref Vercel reads, and `origin/dev` is the only one anybody pushes to. Re-measure rather than
+trusting the commits in this table:
+
+```bash
+git ls-remote origin dev && git ls-remote fork main
+```
 
 Two things to take from that table:
 
 - `fork/dev` exists only as a leftover of the fork. Nothing pushes to it and nothing reads
   it. If you find yourself comparing against it, you are comparing against a branch that
   stopped moving over a hundred commits ago.
-- **There are no git tags at all** — none on `origin`, none on `fork`, none locally. "What
-  is live" is currently answerable only by comparing `fork/main` to a commit. Tagging the
-  release is item 14.8.2 in the plan and is still open.
+- **There are still no git tags.** [`../CHANGELOG.md`](../CHANGELOG.md) is now the written
+  answer to "what is live" and `fork/main` is the measured one; a tag would make a release
+  nameable rather than only findable, and §9 below is where one gets cut. Item 14.8.2.
 
 ### Docker is not on this path
 
@@ -335,22 +345,55 @@ answered `503 STORAGE_UNAVAILABLE` instead.
 
 ---
 
-## 9. Release record
+## 9. Record the deploy
 
-After a deploy that is meant to be a release:
+**Do this immediately after §6 passes, not later.** The verification results are the whole
+value of the entry, and nobody reconstructs them a week afterwards — which is exactly why
+[`../CHANGELOG.md`](../CHANGELOG.md) begins on 2026-09-04 rather than at the first deploy.
 
-- [ ] Resolve `origin/main` — bring it up to date, or change the documentation that calls it
-      the release branch. It is currently 28 behind `origin/dev`.
-- [ ] Tag the release. There are no tags yet.
-- [ ] Write the `CHANGELOG.md` entry.
-- [ ] Update `HANDOFF.md` with the new branch heads.
-- [ ] Record the deployed commit SHA somewhere a person will find it, so "what is live" is
-      answerable without guessing.
+Every deploy gets a changelog entry:
+
+```bash
+git ls-remote fork main          # the SHA that is actually live
+```
+
+Add it at the top of `CHANGELOG.md`, newest first: the SHA, the date, what changed, and —
+the part that matters — **what was checked against the live site afterwards**. Write what was
+actually observed. "Not separately verified against production" is a legitimate entry; an
+invented check is not.
+
+A deploy that is meant to be a **release** also gets a tag:
+
+```bash
+git tag -a v0.1.0 -m "First tagged release: auth, persistence, per-story rewrite"
+git push origin v0.1.0
+```
+
+Annotated (`-a`), not lightweight — an annotated tag carries a tagger, a date and a message,
+and is the object a release is cut from. The tag goes to **`origin`**, which is the team
+repository and where history lives. Do not tag on `fork`; the fork is a deploy target, not a
+record.
+
+Then commit the changelog and push it the normal way, which is both remotes:
+
+```bash
+git push origin dev && git push fork dev:main
+```
+
+Still open, and team-owned rather than fixable here:
+
+- [ ] Resolve `origin/main` — bring it up to date, or stop calling it the release branch. It
+      is 33 behind `origin/dev`.
+- [ ] Cut the first tag. There are none yet.
+- [ ] Update `HANDOFF.md` §1.2 with the new branch heads when they move.
 
 ---
 
 ## Related
 
+- [`runbook.md`](runbook.md) — what to do when the deployed site misbehaves, one section
+  per symptom. Read it *after* something breaks; read this one before.
+- [`../CHANGELOG.md`](../CHANGELOG.md) — what is deployed and what was verified live.
 - [`local-development.md`](local-development.md) — running it on your machine, and the full
   schema-application notes.
 - [`database-and-auth-design.md`](database-and-auth-design.md) — what the schema is and why.
