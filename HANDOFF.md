@@ -190,33 +190,45 @@ tracked files and from all of git history. **Do not commit it.**
 documented; none is fixed. 4.1 is one query away from being closed or killed — see §9.
 4.6 is not a finding about the product but about how these records go wrong.
 
-### 4.1 `NVIDIA_API_KEY` appears to be unset in production
+### 4.1 `NVIDIA_API_KEY` is set in production and **fails on every request**
 
-Three consecutive production generations were served by **Groq and Gemini, never NVIDIA** —
-the configured primary. A provider with no credential is *skipped* rather than failed, so
-that pattern is the signature of a missing key in the Vercel environment. Failover works and
-users are unaffected, but the deployed environment does not match `.env.example`.
+**This finding was wrong until 2026-09-04 and is now inverted.** It said for weeks that the
+key was probably *unset*, reasoning that production generations were never served by NVIDIA
+and that "a provider with no credential is skipped, which is the signature". The reasoning was
+sound; the premise was never checked.
 
-**Latency evidence added 2026-09-04, pointing the same way.** Four fresh live generations at
-21.47 / 21.61 / 20.58 / 19.03 s, every one served by `groq`. Locally, when NVIDIA *is*
-configured it burns a full ~30 s timeout before Groq answers — the committed capture shows
-one generation at 33.1 s with `attempts=2` (`docs/evidence/raw/cache-transcript.txt`). No live
-generation came within 8 s of that ceiling. A **skipped** tier costs nothing; a **failing**
-tier costs its timeout, and production is not paying one.
+**What the rows actually say.** Reading `attempts` off the production `plans` table — the one
+query that had never been run:
 
-**Still not proven — do not write it up as proven.** `attempts` is not a response header,
-production's `AI_TIMEOUT_MS` is not visible from outside, and no production row has ever been
-read. **One query settles it.** Four rows now exist carrying the answer, plan ids `cb53652a`,
-`642d5816`, `e1aa6cad`, `5e601422`:
-
-```sql
-select left(id::text,8), provider_used, attempts, duration_ms
-from plans order by created_at desc limit 4;
+```
+5e601422  ok  groq  attempts=2  18618 ms   2026-09-04T01:05
+e1aa6cad  ok  groq  attempts=2  19892 ms   2026-09-04T01:04
+642d5816  ok  groq  attempts=2  19814 ms   2026-09-04T01:04
+cb53652a  ok  groq  attempts=2  19777 ms   2026-09-04T00:45
+3ce1a706  ok  groq  attempts=2  19840 ms   2026-09-04T00:29
+21a21628  ok  groq  attempts=0      0 ms   ← cache hit, no provider called
+52e080e2  ok  groq  attempts=null            ← written before the B2 columns existed
 ```
 
-`attempts=1` → NVIDIA was never called, the key is absent, finding closed. `attempts=2` → it
-*was* called and failed fast, which is a different problem and this finding is wrong. Needs
-the production `DATABASE_URL`, so do it in the same sitting as the rotation in §1.6.
+`attempts` counts providers **actually called**; one skipped for a missing credential does not
+increment it. The chain is nvidia → groq. **`attempts=2` with `provider_used=groq` means NVIDIA
+was called, failed, and Groq picked up.** The key is present and it is being rejected.
+
+**Every production generation is paying for a failed attempt.** Five consecutive requests, all
+`attempts=2`, all ~19.8 s. Locally, a Groq answer *after* NVIDIA times out came in at 33.1 s
+total, so Groq's own share is small — which implies the wasted NVIDIA attempt is a large
+fraction of production's ~19.8 s. **Not decomposed**: that needs the provider warning line from
+the Vercel runtime logs, which has not been read.
+
+**The old latency argument was also overstated, and is withdrawn.** It claimed "when NVIDIA is
+configured it burns a full ~30 s timeout". The dev rows show NVIDIA *succeeding* as primary
+more often than not — `attempts=1`, `provider_used=nvidia`, at 15.1 s and 28.5 s. The timeout
+is one of its behaviours, not its behaviour.
+
+**What to do.** Read the Vercel runtime logs for the provider warning during a generation; it
+names the failure. Then either fix the credential/model or remove `NVIDIA_API_KEY` from Vercel
+so the tier is skipped rather than tried — a skipped tier costs nothing, a rejected one costs a
+round trip on every single request. Removing it is the cheaper of the two and is reversible.
 
 ### 4.2 React hydration error #418 on returning visits
 

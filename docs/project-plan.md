@@ -990,15 +990,20 @@ hardest.
       A cached repeat returned in **0.61 s**. That is a cache hit, not a generation, and is
       deliberately excluded from the mean.
 
-      **An observation this produced, stated as an inference and not a result.** All four were
-      served by `groq`, and none exceeded 22 s. Locally, when NVIDIA is configured it spends a
-      full ~30 s timeout before Groq answers, which put one captured generation at 33.1 s with
-      `attempts=2`. No live generation came close to that ceiling, which is what a *skipped*
-      NVIDIA tier looks like rather than a failing one — consistent with known issue 5,
-      `NVIDIA_API_KEY` being unset in Vercel. **Not proven here:** `attempts` is not exposed
-      in a response header, production's `AI_TIMEOUT_MS` is not known from outside, and no
-      production row has been read. Reading `attempts` off any of these four rows would settle
-      it outright.
+      **The inference this produced was tested, and it was wrong.** The reading recorded here
+      was that no live generation approached the ~30 s ceiling a timing-out NVIDIA tier
+      produces, which looked like a *skipped* tier and therefore a missing key. Reading
+      `attempts` off the production rows on 2026-09-04 says otherwise: all five recent
+      generations are `attempts=2` with `provider_used=groq`, so **NVIDIA was called and
+      failed** on every one. The key is present in Vercel and is being rejected.
+
+      Two corrections follow. The ~30 s timeout is only one of NVIDIA's failure modes — the
+      dev rows show it *succeeding* as primary at 15.1 s and 28.5 s — so the ceiling argument
+      never held. And the live mean of 20.67 s above **includes a wasted provider round trip
+      on every request**, which the local baseline of 12.30 s does not necessarily carry.
+      The 1.68× gap is therefore not a clean local-versus-live comparison; part of it is a
+      failing tier. See `HANDOFF.md` §4.1.
+
 - [x] **9.1.7** Confirm the app degrades rather than crashes. **All four exercised for real.**
       *Database down* (container stopped): `503 STORAGE_UNAVAILABLE` in **8 ms**, failing
       closed before any provider call, and `/scopecraft/history` still answered `200` with an
