@@ -92,7 +92,7 @@ and **nine documents hardcode SHAs that will go stale** — `HANDOFF.md`,
 2026-09-04, so the count is now **ten**), and the three `docs/evidence/raw/*` captures.
 Fix those in a follow-up commit after the rewrite.
 
-### 🔴 1.6 The production database password is exposed and NOT rotated
+### ✅ 1.6 The production database password was exposed — **rotated 2026-09-04**
 
 The `neondb_owner` password on the production Neon branch (`ep-ancient-darkness-ayos140f`)
 has been pasted in plaintext **twice** — once in an earlier session, and again on 2026-09-04
@@ -101,9 +101,20 @@ its error. It is in terminal scrollback and in assistant transcripts. It is **no
 `~/.zsh_history` (checked, `grep -c 'npg_'` returned 0), though that check ran before the
 shell had necessarily flushed — re-check from a fresh terminal.
 
-The production `DATABASE_URL` verified working on 2026-09-04 is still this old password.
+**Rotated by the owner on 2026-09-04, before the live tests in §3 were run**, so the exposed
+`npg_…` value is dead and the four production generations recorded in §4.1 all ran against the
+new credential.
 
-**Fix, in this order — the order matters:**
+**Corroborated rather than taken on trust:** a live signed-in generation returned `200` with
+an `x-plan-id`, which means the running deployment reached Postgres for the quota check and
+completed an insert. A Neon reset that had not been carried through to Vercel would have
+answered `503 STORAGE_UNAVAILABLE` instead. The rotation itself was not observed by the
+assistant — the owner performed it — but its effect was.
+
+The dev branch is a separate endpoint (`ep-rapid-bird-aym70emy`) and was unaffected;
+`npm run db:check` and `npm run capture:cache` both connect.
+
+**The steps, kept because the next rotation needs them in this order:**
 
 1. Neon console → production branch → Roles → reset `neondb_owner`
 2. Vercel → Settings → Environment Variables → `DATABASE_URL` ← the whole new **pooled**
@@ -175,8 +186,9 @@ tracked files and from all of git history. **Do not commit it.**
 
 ## 4. Open findings — real issues, none of them blocking
 
-~~Three things~~ **Five things** were found by testing rather than reading. All are
+~~Three things~~ **Five things** were found by testing rather than reading (4.1–4.5). All are
 documented; none is fixed. 4.1 is one query away from being closed or killed — see §9.
+4.6 is not a finding about the product but about how these records go wrong.
 
 ### 4.1 `NVIDIA_API_KEY` appears to be unset in production
 
@@ -251,6 +263,18 @@ cause than an app bug — **that is an inference, not a result, and it was not d
 Do not report the form as broken for users on this basis, and do not report it as fine
 either. If anyone ever reports a dead Generate button, start here rather than treating it as
 new.
+
+### 4.6 A note on how §1.6 got recorded wrong once
+
+Between the credential being exposed and this handoff being written, the rotation **had
+already been done** — and three documents were written saying it had not. The assistant
+inferred "still pending" from the absence of a statement rather than asking. Corrected
+2026-09-04 on the owner's word.
+
+Kept here because the failure mode generalises: **this repository's docs go wrong most often
+by carrying a stale state forward, not by getting a fact wrong at the moment of writing.** When
+a document asserts that something is still broken, check the assertion has a date and a
+source before acting on it.
 
 ---
 
@@ -416,15 +440,13 @@ GitHub auth is `gh` as `mr-h12`. **Do not add a `Co-Authored-By` trailer** — s
 
 ## 9. Suggested next step
 
-**1. Rotate the production database password (§1.6).** It is exposed, it is not rotated, and
-it is the only item here with a security cost that grows the longer it waits. Everything else
-can slip a day; this should not.
+~~**1. Rotate the production database password.**~~ **Done 2026-09-04 — see §1.6.**
 
-**2. In the same sitting, run the one query in §4.1.** You will already have the production
-`DATABASE_URL` open. Four rows are sitting there with `attempts` on them, and reading it
-closes or kills a finding that has been open for weeks. Two minutes.
+**1. Run the one query in §4.1.** Four rows are sitting in the production `plans` table with
+`attempts` on them, and reading it closes or kills a finding that has been open for weeks.
+Two minutes with the (new) production `DATABASE_URL`.
 
-**3. Merge or close PR #2** (`youssef72003`, still open, confirmed 2026-09-04). It is the only
+**2. Merge or close PR #2** (`youssef72003`, still open, confirmed 2026-09-04). It is the only
 outstanding item that currently *fails* a written acceptance criterion, and it belongs to a
 teammate, so it needs a human decision.
 
