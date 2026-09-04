@@ -1,5 +1,41 @@
 # Prompt Versions
 
+The full-plan prompt is versioned `v1..v7`. The single-story rewrite prompt is
+versioned separately as `s1..s2`, because a plan produced by rewriting one story
+did not come from `v7` and is not the answer a `v7` request would get — sharing
+the string would let `findCachedPlan` serve one as the other.
+
+## s2 — 2026-09-04
+
+Both changes were measured against live runs, not reasoned about.
+
+- **The surrounding stories now carry their existing dependency edges.** `s1`
+  showed the model only `id: summary` lines, so it chose dependencies while
+  blind to the graph it was joining. Rewriting a story that other stories depend
+  on, it would name one of them back — a real story, so the unresolvable-edge
+  filter passed it through — and `scheduleSprints` then rejected the whole plan
+  as a cycle. **One of three live rewrites failed with `502 PLANNING_ERROR`**,
+  discarding a rewrite the caller had already paid provider tokens for. New rule
+  5 states the constraint; `dropCyclicDependencies` in `service.ts` enforces it,
+  because a prompt is a mitigation and not a guarantee. Six consecutive live
+  rewrites after the change: six succeeded, none dropped an edge.
+- **Rule 6 asks for a rewrite rather than a copy-edit.** `s1` returned
+  paraphrases — measured: "to log habit completions *while* offline" became "to
+  log habit completions *when* offline" — which is a change no reader can see,
+  and is why the control was reported as doing nothing. The rule names that
+  failure explicitly and asks for re-estimated points, value and risk.
+
+Known limit, stated rather than hidden: at `temperature: 0.2` two consecutive
+rewrites of the same story often converge on the same text. The rewrite is
+genuinely different from the original; it is not reliably different from the
+previous rewrite.
+
+## s1 — 2026-09-03
+
+- Initial single-story rewrite contract: strict `{"story": {...}}` JSON, the
+  story's own id never renamed, dependencies restricted to ids in the
+  surrounding backlog, and the out-of-domain refusal envelope.
+
 ## v7 — 2026-09-03
 
 - **The rules moved out of the user's message.** `SYSTEM_RULES` now travels as a

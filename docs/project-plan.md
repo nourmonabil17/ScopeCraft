@@ -1178,7 +1178,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 27 | Environment | ~~**Deployment guide**~~ **WRITTEN 2026-09-04** | `docs/deployment.md` | ✅ Done in 11.4.3 — the fork trap is now team-facing rather than living only in `HANDOFF.md` and `CLAUDE.md`; adds the Secret-vs-Config trap, the rotation order, the Vercel ownership single point of failure, the verified branch topology, and the silent-persistence migration hazard |
 | 28 | Environment | **Environment variables reference** | `docs/environment-variables.md` | Eleven variables across three concerns; the README table is outgrowing itself |
 | 29 | Frontend | ~~**Frontend architecture**~~ **WRITTEN 2026-09-04** | `docs/frontend-architecture.md` | ✅ Done in 11.4.2 — routes, component tree, the seven-state union, the pre-paint scripts, the `.dark` decision, the token/CSS-Modules model, the breakpoint audit, RTL, the client/server boundary, and what is not covered |
-| 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 574 tests with no document saying what is covered, what is not, and how manual QA runs |
+| 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 580 tests with no document saying what is covered, what is not, and how manual QA runs |
 | 31 | QA | **Manual QA evidence** | `docs/evidence/qa/` | 6.5 produces findings with nowhere to live |
 | 32 | Operations | **Runbook / troubleshooting** | `docs/runbook.md` | What to do when providers fail, the database is down, or sign-in breaks. Every known finding is a runbook entry |
 | 33 | Submission | ~~**Known limitations**~~ **WRITTEN 2026-09-03** | `docs/known-limitations.md` | ✅ Done in 11.4.5 — 19 entries, each Accepted (a weighed trade-off) or Open (a real gap with an owner and a next step), with a sign-off block |
@@ -1333,8 +1333,10 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
       **520**, a third time after the second-opinion work took it to **548**, and a
       fourth after single-story regeneration took it to **566** across **22** suites
       (283 node / 283 UI), and a **fifth after the quota-parsing and env-documentation
-      guards took it to 574 across 23 suites (291 node / 283 UI)**.
-      Test count consistent across 7 files. Dependency count
+      guards took it to 574 across 23 suites (291 node / 283 UI)**, and a **sixth
+      after the story-rewrite cycle fix took it to 580 (295 node / 285 UI)**.
+      Test count consistent across 8 files — `docs/release-checklist.md` joined the
+      set when its stale 245/245 was corrected. Dependency count
       consistent at **six** across 5 files. Branch heads and SHAs refreshed in `HANDOFF.md`.
       **Screenshot count had drifted:** four places in `upgrade-checklist.md` still said 17.
       They are dated verification records — the contrast-pair figures in them match that era

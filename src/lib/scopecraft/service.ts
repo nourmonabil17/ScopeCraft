@@ -47,8 +47,15 @@ export const PROMPT_VERSION = "v7";
  * Its own string because a plan produced by rewriting one story did not come
  * from v7 and is not the answer a v7 request would get. Sharing the version
  * would let `findCachedPlan` serve one as the other.
+ *
+ * s1 -> s2 on 2026-09-04, for two changes measured against live runs. The
+ * surrounding stories now carry their existing dependency edges, because the
+ * model was choosing dependencies blind to them and closing cycles — one in
+ * three rewrites failed with PLANNING_ERROR. And rule 6 asks for a genuinely
+ * different story: s1 returned paraphrases ("while offline" for "when
+ * offline"), which is a rewrite the reader cannot see.
  */
-export const STORY_PROMPT_VERSION = "s1";
+export const STORY_PROMPT_VERSION = "s2";
 
 /** The model produced something that is neither a valid plan nor a valid refusal. */
 export class SchemaViolationError extends Error {
@@ -368,9 +375,19 @@ user message that follows.
 3. points is 1, 2, 3, 5, 8 or 13. value is 1-5. risk is 1-5.
 4. dependencies may name ONLY ids that appear in the surrounding backlog you are
    shown, and may never name the story's own id.
-5. Rewrite ONLY the story you are asked to rewrite. Do not return the others.
-6. Do not renumber or rename anything.
-7. If the request is not software product planning, return
+5. Each line of <other_stories> shows what that story already depends on. Never
+   name a story that already depends, directly or indirectly, on the story you
+   are rewriting — that is a circular dependency and the plan cannot be
+   scheduled. When in doubt return fewer dependencies; [] is always safe.
+6. This is a REWRITE, not a copy-edit. The person asking has read the story and
+   wants a different take on it: sharpen what the user actually needs, or
+   reconsider the scope, or make the acceptance criteria concretely testable.
+   Swapping a word for a synonym is not a rewrite — "while offline" for "when
+   offline" is a failed answer. Re-estimate points, value and risk to match what
+   you actually wrote rather than echoing the numbers you were given.
+7. Rewrite ONLY the story you are asked to rewrite. Do not return the others.
+8. Do not renumber or rename anything.
+9. If the request is not software product planning, return
    {"out_of_domain": true, "message": "..."} instead.
 `.trim();
 
@@ -388,9 +405,18 @@ export function buildStoryPrompt(plan: ScopeCraftResponse, storyId: string): Pro
   const target = plan.user_stories.find((story) => story.id === storyId);
   if (!target) throw new PlanningError(`no story ${storyId} in this plan`);
 
+  // Each line carries the story's OWN dependencies as well as its summary.
+  // Without them the model is asked to choose dependencies while blind to the
+  // edges that already exist, so it cannot avoid naming a story that already
+  // depends on the one being rewritten — which closes a cycle and fails the
+  // whole request with PLANNING_ERROR. Measured: 1 in 3 live rewrites.
   const others = plan.user_stories
     .filter((story) => story.id !== storyId)
-    .map((story) => `${story.id}: ${story.i_want}`)
+    .map((story) =>
+      story.dependencies.length > 0
+        ? `${story.id} (depends on ${story.dependencies.join(", ")}): ${story.i_want}`
+        : `${story.id}: ${story.i_want}`
+    )
     .join("\n");
 
   return {
@@ -419,6 +445,63 @@ ${fenceUserText(JSON.stringify(target))}
  * that no longer exists. `applyDeterministicTools` is the same function the
  * full generation uses, so the two can never disagree.
  */
+/**
+ * Drops dependencies of a rewritten story that would close a cycle.
+ *
+ * The sibling of the unresolvable-edge filter in `applyDeterministicTools`, and
+ * it exists for the same reason: prompt rule 5 now shows the model the edges
+ * that already exist and asks it not to close a loop, but a prompt is a
+ * mitigation and not a guarantee.
+ *
+ * The failure it prevents is a 502, not a wrong number. `scheduleSprints`
+ * rejects a cycle outright, so one bad edge threw away an otherwise complete
+ * rewrite — measured at 1 in 3 live rewrites of a story that other stories
+ * depend on, because the model was choosing dependencies while blind to the
+ * existing graph.
+ *
+ * Only edges that actually close a loop are dropped. An edge naming a story
+ * nobody has linked back is a real constraint and is kept, the same way the
+ * unresolvable-edge filter keeps every edge that names a story that exists.
+ *
+ * Reachability walks the OTHER stories' edges only. The rewritten story's own
+ * new edges are what is being judged, so including them would let one candidate
+ * edge justify another.
+ */
+function dropCyclicDependencies(
+  rewritten: UserStory,
+  others: readonly UserStory[]
+): UserStory {
+  const edges = new Map(others.map((story) => [story.id, story.dependencies]));
+
+  /** Can `from` reach `target` through the untouched backlog? */
+  const reaches = (from: string, target: string): boolean => {
+    const seen = new Set<string>();
+    const stack = [from];
+    while (stack.length > 0) {
+      const id = stack.pop() as string;
+      if (id === target) return true;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      stack.push(...(edges.get(id) ?? []));
+    }
+    return false;
+  };
+
+  const dependencies = rewritten.dependencies.filter(
+    (dependency) => !reaches(dependency, rewritten.id)
+  );
+
+  if (dependencies.length !== rewritten.dependencies.length) {
+    // Count and ids only — these are story ids this server wrote, not user text.
+    console.warn(
+      `scopecraft.cyclic_dependencies_dropped story=${rewritten.id} ` +
+        `count=${rewritten.dependencies.length - dependencies.length}`
+    );
+  }
+
+  return { ...rewritten, dependencies };
+}
+
 export async function regenerateStory(
   plan: ScopeCraftResponse,
   storyId: string,
@@ -472,8 +555,11 @@ export async function regenerateStory(
   // make room for a rename nobody asked for.
   const rewritten: UserStory = { ...(result as { story: UserStory }).story, id: storyId };
 
+  const others = plan.user_stories.filter((story) => story.id !== storyId);
+  const safe = dropCyclicDependencies(rewritten, others);
+
   const userStories = plan.user_stories.map((story) =>
-    story.id === storyId ? rewritten : story
+    story.id === storyId ? safe : story
   );
 
   const data = applyDeterministicTools(

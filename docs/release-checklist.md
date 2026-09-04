@@ -14,7 +14,7 @@ untouched tick as "true on 2026-08-24", not as "true today".
 ## Pre-release
 - [x] `npm run lint` passes — `eslint . --max-warnings=0`
 - [x] `npm run build` (type-check + production build) passes with no errors
-- [x] `npm test` passes locally — **574/574 tests**, 23 suites (291 node, 283 UI)
+- [x] `npm test` passes locally — **580/580 tests**, 23 suites (295 node, 285 UI)
 - [x] `npx tsc --noEmit` passes locally
 - [x] No secret keys committed to git history — `git grep` for the actual key patterns and
       the real key values used during local testing returns no matches on tracked files

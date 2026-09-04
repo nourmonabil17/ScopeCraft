@@ -933,6 +933,37 @@ describe("State 3 · rewriting one story", () => {
     expect(init?.method).toBe("POST");
   });
 
+  // The gap this closes: the two tests around it prove the button CALLS the
+  // server and that each control is named. Neither asserted that the answer
+  // reaches the screen — so a page that fetched a rewrite, showed the success
+  // toast and rendered the old story would have passed the whole suite. That is
+  // exactly the shape of "it says it worked and nothing changed".
+  it("renders the rewritten story, not the one it replaced", async () => {
+    const user = userEvent.setup();
+    await generateThenRewrite(user);
+
+    await screen.findByText(/US-1 rewritten/i);
+
+    // findAll, not find: the story appears in both the backlog list and the
+    // sprint-board card, and that is correct — a single-element query here fails
+    // for the opposite reason to the one this test is about.
+    expect(await screen.findAllByText(/to be matched automatically/i)).not.toHaveLength(0);
+    expect(screen.queryByText(/a structured backlog/i)).not.toBeInTheDocument();
+  });
+
+  // The points moved 3 -> 13, which is what makes the whole plan worth
+  // recomputing rather than patching one field. If the board keeps the old
+  // number the capacity total it derives is wrong, and silently so.
+  it("shows the recalculated points for the rewritten story", async () => {
+    const user = userEvent.setup();
+    await generateThenRewrite(user);
+
+    await screen.findByText(/US-1 rewritten/i);
+
+    const points = await screen.findByLabelText(/points for US-1/i);
+    expect(points).toHaveValue(13);
+  });
+
   // Each control names its own story, or a board of them is a list of identical
   // buttons to anyone reading the page as a list of controls.
   it("names the story in every rewrite control", async () => {

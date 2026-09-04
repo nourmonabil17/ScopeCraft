@@ -2448,6 +2448,83 @@ describe("regenerating a single story", () => {
     expect(data.user_stories.map((s) => s.id).sort()).toEqual(["US-1", "US-2"]);
   });
 
+  // A rewrite that closes a dependency cycle.
+  //
+  // This was a live 502, reproduced at roughly one in three rewrites on
+  // 2026-09-04. `buildStoryPrompt` showed the model only "id: summary" for the
+  // surrounding stories, so it chose dependencies while blind to the edges that
+  // already existed. Rewriting a story that others depend on, it would name one
+  // of them back. That edge names a story that EXISTS, so the unresolvable-edge
+  // filter passed it straight through, and `scheduleSprints` then rejected the
+  // entire plan as a cycle — throwing away an otherwise complete rewrite the
+  // caller had already paid provider tokens for.
+  describe("when the model closes a dependency cycle", () => {
+    /** US-2 depends on US-1, so US-1 depending back on US-2 is a loop. */
+    const LINKED = {
+      ...PARENT_OUTPUT,
+      user_stories: [
+        PARENT_OUTPUT.user_stories[0],
+        { ...PARENT_OUTPUT.user_stories[1], dependencies: ["US-1"] },
+      ],
+    };
+    const linkedParent = applyDeterministicTools(
+      LINKED as unknown as Parameters<typeof applyDeterministicTools>[0],
+      CAPACITY
+    );
+
+    it("drops the offending edge and still returns a schedulable plan", async () => {
+      answerWith({ ...REWRITTEN, dependencies: ["US-2"] });
+      const { data } = await regenerateStory(linkedParent, "US-1", CAPACITY);
+
+      expect(data.user_stories.find((s) => s.id === "US-1")?.dependencies).toEqual([]);
+      expect(data.sprint_plan.included).toContain("US-1");
+    });
+
+    // Indirect loops matter as much as direct ones, and are the case a human
+    // reviewing the prompt output would miss: US-1 -> US-3 -> US-2 -> US-1.
+    it("follows the graph rather than only checking direct edges", async () => {
+      const CHAIN = {
+        ...PARENT_OUTPUT,
+        user_stories: [
+          PARENT_OUTPUT.user_stories[0],
+          { ...PARENT_OUTPUT.user_stories[1], dependencies: ["US-1"] },
+          {
+            id: "US-3", as_a: "student", i_want: "to export the plan",
+            so_that: "we can share it", acceptance_criteria: ["given/when/then"],
+            points: 2, value: 3, risk: 1, dependencies: ["US-2"],
+          },
+        ],
+      };
+      const chainParent = applyDeterministicTools(
+        CHAIN as unknown as Parameters<typeof applyDeterministicTools>[0],
+        CAPACITY
+      );
+
+      answerWith({ ...REWRITTEN, dependencies: ["US-3"] });
+      const { data } = await regenerateStory(chainParent, "US-1", CAPACITY);
+
+      expect(data.user_stories.find((s) => s.id === "US-1")?.dependencies).toEqual([]);
+      expect(data.user_stories).toHaveLength(3);
+    });
+
+    // The guard drops only what closes a loop. An edge naming a story that has
+    // no path back is a real constraint and losing it would be losing planning
+    // information to fix a different problem.
+    it("keeps a dependency that closes nothing", async () => {
+      answerWith({ ...REWRITTEN, dependencies: ["US-2"] });
+      const { data } = await regenerateStory(parent, "US-1", CAPACITY);
+
+      expect(data.user_stories.find((s) => s.id === "US-1")?.dependencies).toEqual(["US-2"]);
+    });
+
+    // The prompt half of the same fix. The model cannot avoid a loop it cannot
+    // see, so the edges travel with the summaries.
+    it("shows the existing edges to the model", () => {
+      const prompt = buildStoryPrompt(linkedParent, "US-1");
+      expect(prompt.user).toContain("US-2 (depends on US-1)");
+    });
+  });
+
   // Mirrors the v7 assertion on the plan prompt: instructions and untrusted
   // data must not share a role, and the rules must be byte-identical across
   // requests or provider-side prefix caching cannot engage.
@@ -2591,7 +2668,7 @@ describe("POST /api/scopecraft/[id]/story/[storyId]", () => {
     expect(fragments).toContain("insert into plans");
     expect(fragments).not.toContain("update plans");
     expect(insert.slice(1)).toContain(PLAN_ID);          // derived_from
-    expect(insert.slice(1)).toContain("s1");             // its own prompt version
+    expect(insert.slice(1)).toContain("s2");             // its own prompt version
   });
 
   it("returns a plan whose arithmetic matches the rewritten story", async () => {
