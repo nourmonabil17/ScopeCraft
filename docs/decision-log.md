@@ -1659,3 +1659,50 @@ nonce or hash policy and saying so is more useful than closing the row.
     is a change of provider or of provider API, not work in this repository. Kept
     open at the item rather than deleted, so it is not re-proposed as a fresh
     idea by someone reading the prefix-caching literature.
+
+49. **NVIDIA is removed from the production provider chain, and the three-tier
+    design is two tiers there — 2026-09-04.**
+
+    The failover chain nvidia → groq → gemini is a documented design decision.
+    Production now runs it with the first tier absent, which is a reversal of a
+    frozen decision and therefore belongs here rather than in a dashboard's
+    audit log.
+
+    **What forced it.** `plans.attempts` — added by B2 six commits earlier —
+    showed five consecutive production generations at `attempts=2` with
+    `provider_used=groq`. That column counts providers *actually called*, and a
+    tier skipped for a missing credential does not increment it, so the number
+    could only mean NVIDIA was called and rejected. Every production request was
+    paying for a failed provider round trip before it got an answer.
+
+    **The measurement, because "it felt slow" is not a reason to delete a
+    redundancy tier.** Five generations before removal: 18618, 19892, 19814,
+    19777, 19840 ms, mean **19588**. One generation after removing
+    `NVIDIA_API_KEY` from Vercel and redeploying: `attempts=1`,
+    **5332 ms**. The failed attempt cost **~14.3 s per request, 73% of the
+    total**. Production is now faster than the local development environment,
+    which still has NVIDIA configured and still pays for it.
+
+    **What was traded.** Production has two tiers of failover, not three. If
+    Groq has an outage, only Gemini stands between the user and a
+    `502 PROVIDER_ERROR`. That is a real reduction in redundancy, accepted
+    because a tier that fails 100% of the time is not redundancy — it is a
+    14-second tax that also cannot be relied on in an outage.
+
+    **What was not established, and it matters for the reversal.** Nobody
+    diagnosed *why* NVIDIA rejected the requests. Wrong model id, expired
+    credential, region restriction — the provider warning in the Vercel runtime
+    log names it, and that log was never read. Re-adding the key without reading
+    it first would restore the 14 s tax along with the tier.
+
+    **The honest weakness of the number.** The "before" is five tightly clustered
+    runs; the "after" is one. The direction is not in doubt, but 5332 ms is a
+    single sample and should not be quoted as a settled figure. Three more
+    generations would make it comparable to the four-run baseline in project plan
+    9.1.6.
+
+    **Reversal is one variable and a redeploy.** Nothing in the code changed —
+    `PRIMARY_AI_PROVIDER` is still `nvidia` and the provider module still lists
+    three tiers. The chain shortens in production only because
+    `generateWithFallback` skips a provider with no credential, which is
+    behaviour this repository already had and already tested.

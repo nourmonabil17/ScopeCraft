@@ -1004,6 +1004,19 @@ hardest.
       The 1.68× gap is therefore not a clean local-versus-live comparison; part of it is a
       failing tier. See `HANDOFF.md` §4.1.
 
+      **Re-measured after the fix, same day.** `NVIDIA_API_KEY` was removed from Vercel and
+      the project redeployed, so the tier is skipped instead of tried. The next production
+      generation recorded `attempts=1` and **`duration_ms` 5332** against a five-run mean of
+      **19588** before it. The wasted attempt was worth **~14.3 s per request, 73% of the
+      total**. Production is now 3.67× faster than it was, and 2.3× faster than the local
+      baseline in this item — local still has NVIDIA configured and still pays for it.
+
+      **The measurement above stands as recorded, and is now historical.** 20.67 s was the
+      real live mean on the contaminated configuration; it is not deleted, because it is what
+      the site actually served that afternoon. **The "after" is one generation** — the
+      direction is not in doubt against five tightly clustered "before" runs, but 5332 ms is a
+      single sample. Three more would make it comparable to the four-run baseline.
+
 - [x] **9.1.7** Confirm the app degrades rather than crashes. **All four exercised for real.**
       *Database down* (container stopped): `503 STORAGE_UNAVAILABLE` in **8 ms**, failing
       closed before any provider call, and `/scopecraft/history` still answered `200` with an
