@@ -34,6 +34,7 @@ import {
   type IntakeFormValues,
 } from "@/components/scopecraft/presets";
 import { Button } from "@/components/ui/Button";
+import { Chip } from "@/components/ui/Chip";
 import styles from "./page.module.css";
 
 /** Matches the X-Provider-Used header the API sets. NVIDIA is the primary
@@ -55,6 +56,9 @@ type UiState =
       data: ScopeCraftResponse;
       providerUsed: ProviderUsed | "unknown";
       promptVersion: string;
+      /** X-Cache said "hit": this plan was served from the caller's own
+       *  earlier identical request (Module A3) and no provider was called. */
+      servedFromCache: boolean;
     }
   | { status: "empty" }
   | { status: "validation_error"; message: string; issues: ValidationIssue[] }
@@ -245,6 +249,11 @@ export default function ScopeCraftPage() {
         data,
         providerUsed,
         promptVersion,
+        // Only "hit" is a claim worth making. Anything else — "miss", a header
+        // stripped by a proxy, an older deployment that never set it — means
+        // "not known to be cached", and the chip stays off. Read this way round
+        // so a missing header can never assert something that did not happen.
+        servedFromCache: res.headers.get("X-Cache") === "hit",
       });
     } catch {
       setState({
@@ -324,6 +333,16 @@ export default function ScopeCraftPage() {
         {state.status === "success" && (
           <>
             <div className={styles.resultsToolbar}>
+              {/* Only on a hit, and only as a label — no aria-live. It arrives
+                  in the same render as the plan itself, so the result is
+                  already the announcement; a live region here would speak over
+                  it to say something less important.
+
+                  This is the client half of Module A3. The route has set
+                  X-Cache since A3 shipped and nothing read it, which made a
+                  0.6-second answer indistinguishable from a suspiciously fast
+                  model rather than an explained one. */}
+              {state.servedFromCache && <Chip testId="cache-chip">{t("result.cache.hit")}</Chip>}
               {/* Save state is announced politely rather than assertively: it
                   changes on a debounce timer, and an assertive region would
                   interrupt a screen-reader user mid-sentence while they edit. */}

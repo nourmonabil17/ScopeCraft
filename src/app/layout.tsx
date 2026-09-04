@@ -264,6 +264,105 @@ ${tokenCss()}
       scroll-behavior: auto !important;
     }
   }
+
+  /* Print. A PRD exists to be handed to someone, and the browser already
+     exports PDF — so this is a stylesheet, not a dependency and not a second
+     renderer that could disagree with the screen.
+
+     EVERY SELECTOR HERE IS SEMANTIC, AND HAS TO BE. This block cannot see CSS
+     Module class names: they are hashed at build time, so a class like
+     resultsToolbar is a different string in every build and a rule naming it
+     would work in dev and silently stop working in production — and a backtick
+     cannot appear anywhere in this comment either, because the whole
+     stylesheet is one template literal. Element names and ARIA roles
+     are the only stable handles from here — which the result view already is,
+     because it was built to be read by a screen reader.
+
+     Colour is NOT here. It is a token concern and lives in
+     src/lib/design/css.ts, so that a dark-theme reader does not print pale
+     grey on white.
+
+     THE ONE RULE THAT IS NOT OBVIOUS is the tabpanel reveal. The three tabs are
+     alternative views of one plan, not three documents — on screen exactly one
+     panel is shown, but a printed plan missing its backlog and its evidence is
+     a third of a plan. Revealed by role rather than a blanket [hidden]
+     override, which would also unhide the welcome dialog and anything else
+     legitimately hidden. */
+  @media print {
+    @page {
+      margin: 16mm;
+    }
+
+    /* Chrome and controls nobody can operate on paper. The skip link lives
+       inside <header>, so it leaves with it, and the intake form is the
+       question the printed page is already the answer to. */
+    header,
+    form,
+    [role="tablist"],
+    button,
+    dialog {
+      display: none !important;
+    }
+
+    [role="tabpanel"][hidden] {
+      display: block !important;
+    }
+
+    /* Browsers strip background colours when printing unless the reader ticks
+       "Background graphics", which is off by default. That is normally a
+       courtesy — it saves toner on decoration. Here it destroys information:
+       a MUST chip is .solid, which is background var(--c-text) with
+       var(--c-ground) text, so a stripped background prints white on white and
+       the single most important label in the document disappears. The risk
+       register's impact and likelihood chips fail the same way, and so does the
+       capacity meter's fill.
+
+       Measured, not assumed: printToPDF with printBackground:false against a
+       real plan is what produced the blank chips.
+
+       Safe to force globally ONLY because the palette above is already the
+       light one. Under the dark theme this same rule would ask the printer to
+       lay down a near-black page. The two rules are a pair; do not keep this
+       one without that one.
+
+       Not a fix in Chip.module.css: MoSCoW is encoded by fill weight as a WCAG
+       1.4.1 obligation (decision-log entry 34), and making .solid printable by
+       giving up its fill would undo the reason the component exists. */
+    * {
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+
+    /* The board's points field is data on paper, not a control. Its value
+       still prints; only the affordance goes. */
+    input {
+      appearance: none;
+      border: 0 !important;
+      padding: 0 !important;
+      background: transparent !important;
+      color: inherit !important;
+    }
+
+    /* A requirement split across a page boundary is the one layout failure
+       that actually costs the reader something. <section> is the hook because
+       ResultView gives each of the 11 PRD fields its own. */
+    section,
+    li {
+      break-inside: avoid;
+    }
+
+    h1, h2, h3, h4 {
+      break-after: avoid;
+    }
+
+    /* The evidence panel cites the Scrum Guide and GitHub's issues docs. A
+       printed citation with no URL is not a citation. */
+    a[href^="http"]::after {
+      content: " (" attr(href) ")";
+      font-size: 0.85em;
+      word-break: break-all;
+    }
+  }
 `;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

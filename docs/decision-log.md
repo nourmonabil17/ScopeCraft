@@ -1792,3 +1792,73 @@ nonce or hash policy and saying so is more useful than closing the row.
     provider warning line naming NVIDIA's exact failure was never seen. The
     conclusion "timeout" rests on the timing signature and on the 30 s
     experiment, not on the log. That is strong, and it is not the same as read.
+
+51. **The print stylesheet, and the two things it made visible — 2026-09-04.**
+
+    Three small enhancements landed together: a print stylesheet, a label on
+    plans served from the A3 cache, and a print button beside the existing
+    exports. Two of the three are worth recording; the button is not.
+
+    **A PRD exists to be handed to someone, and nothing here could produce a
+    handable copy.** There was no `@media print` rule anywhere in `src/`, so
+    printing produced the app — sticky header, intake form, toggles, tab
+    controls — wrapped around a third of the plan. No dependency was added:
+    every browser already writes PDF, and what was missing was a stylesheet
+    telling it what to leave out.
+
+    **Colour is a token concern, structure is not.** The palette override lives
+    in `src/lib/design/css.ts`, generated from the light tokens the same way
+    the reduced-motion block is generated from the motion scale — so a colour
+    added later is honoured without anyone remembering. It names both `:root`
+    and `:root.dark`, deliberately: `:root.dark` is (0,2,0) against bare
+    `:root`'s (0,1,0), so a print block naming only `:root` loses to the dark
+    theme and prints pale grey on white. The structural rules — what is hidden,
+    what is revealed, the page margin — are in `layout.tsx`, and every selector
+    in them is an element name or an ARIA role. That is a constraint, not a
+    style preference: CSS Module class names are hashed at build time, so a
+    rule naming one works in dev and silently stops working in production.
+
+    **The rule that is not obvious:** the three tabs are alternative views of
+    one plan, not three documents. On screen exactly one panel is shown, so
+    without `[role="tabpanel"][hidden] { display: block }` a printed plan
+    silently loses its backlog and its evidence — two thirds of the document,
+    with nothing on the page to say they were dropped. Revealed by role rather
+    than a blanket `[hidden]` override, which would also unhide the welcome
+    dialog.
+
+    **A defect this found in itself.** Browsers strip background colours when
+    printing unless the reader ticks "Background graphics", which is off by
+    default. A MUST chip is `.solid` — `background: var(--c-text)` behind
+    `var(--c-ground)` text — so a stripped background prints white on white and
+    the single most important label in the document disappears. The risk
+    register's impact chips and the capacity meter fail the same way. Measured,
+    not assumed: `Page.printToPDF` with `printBackground: false` against a real
+    plan is what produced the blank chips. Fixed with `print-color-adjust:
+    exact`, which is safe **only** because the palette above is already the
+    light one — the two rules are a pair. Not fixed in `Chip.module.css`:
+    MoSCoW is encoded by fill weight as a WCAG 1.4.1 obligation (entry 34), and
+    making `.solid` printable by giving up its fill would undo the reason the
+    component exists.
+
+    **`X-Cache` had been set and never read.** A3 shipped the header in
+    `80531ca` and nothing in `src/` consumed it, so a hit — which returns in
+    well under a second because no provider is called — was indistinguishable
+    on screen from a model that had cut corners. The chip reads the header the
+    route already sets; no API change. Only `hit` is treated as a claim: a
+    missing header, a stripped one, or an older deployment all mean "not known
+    to be cached" and the chip stays off, so an absent header can never assert
+    something that did not happen. Verified end to end against a real Postgres —
+    the miss row recorded `attempts=2, duration_ms=34240`, the hit `attempts=0,
+    duration_ms=0`, which is what makes the label true rather than decorative.
+    `docs/project-plan.md` 5.1.3 said "the UI does not read it" and is corrected.
+
+    **A latent break in `capture:ui`, found by running the gate.** Case 4 posts
+    to an instance with dead credentials to photograph the error state, and it
+    used the same idea as case 1. Since A3 both instances share one
+    `DATABASE_URL`, so case 1's successful generation was cached and case 4 was
+    answered from `plans` at stage 4c — a plan, not an error. The capture had
+    not been run between `80531ca` and this change, so nothing surfaced it; the
+    22nd screenshot on disk was stale rather than wrong. Case 4 now posts an
+    idea of its own, which can never enter the cache because the only instance
+    it is ever sent to cannot succeed. This is the argument for the gate: the
+    failure was invisible to every other check in the repository.

@@ -997,7 +997,7 @@ recorded here so they are not quietly added later.
       nor its same-day reversal appear anywhere in it.
 - [ ] **H2 — Decision-log entries** for the rewrite decision, the
       dependency-free constraint, and the motion-only interactivity scope.
-      ~~Currently at 30 entries.~~ **Corrected 2026-09-04: 50 entries.** The
+      ~~Currently at 30 entries.~~ ~~**Corrected 2026-09-04: 50 entries.**~~ **51 entries.** The
       count was stale by twenty; the three entries this point actually asks
       for are still unwritten.
 - [ ] **H3 — Drifting numbers.** Test count, screenshot count, dependency count,

@@ -657,9 +657,12 @@ The seams. Each is a place where two correct halves make one broken whole.
       Two codes are new since this step was written — `NOT_FOUND` and `STORAGE_UNAVAILABLE`.
 - [x] **5.1.3** Confirm the response headers the UI depends on still arrive.
       `X-Provider-Used`, `X-Prompt-Version` and the new `X-Plan-Id`, all three present.
-      A fourth joined them in A3: `X-Cache` (`hit` / `miss`). The UI does not read it — it
-      exists so a cache hit is distinguishable from a generation, since `X-Provider-Used` on
-      a hit names the tier that answered the *original* request.
+      A fourth joined them in A3: `X-Cache` (`hit` / `miss`). It exists so a cache hit is
+      distinguishable from a generation, since `X-Provider-Used` on a hit names the tier
+      that answered the *original* request. ~~The UI does not read it~~ — **corrected
+      2026-09-04:** it does now. A hit renders a chip on the results toolbar
+      (`result.cache.hit`); a `miss`, a stripped header and an older deployment all read
+      the same way — no claim, no chip. Decision-log entry 51.
 - [x] **5.1.4** Confirm provider failover still works with auth in play. **Verified** —
       with `NVIDIA_API_KEY` empty and a session present, `groq` answered.
 - [x] **5.1.5** Confirm the deterministic boundary survived the round trip. **This step
@@ -1165,7 +1168,7 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 27 | Environment | **Deployment guide** | `docs/deployment.md` | The fork-deploy trap lives only in `HANDOFF.md` and `CLAUDE.md`, neither team-facing |
 | 28 | Environment | **Environment variables reference** | `docs/environment-variables.md` | Eleven variables across three concerns; the README table is outgrowing itself |
 | 29 | Frontend | ~~**Frontend architecture**~~ **WRITTEN 2026-09-04** | `docs/frontend-architecture.md` | ✅ Done in 11.4.2 — routes, component tree, the seven-state union, the pre-paint scripts, the `.dark` decision, the token/CSS-Modules model, the breakpoint audit, RTL, the client/server boundary, and what is not covered |
-| 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 508 tests with no document saying what is covered, what is not, and how manual QA runs |
+| 30 | QA | **QA & test plan** | `docs/qa-test-plan.md` | 520 tests with no document saying what is covered, what is not, and how manual QA runs |
 | 31 | QA | **Manual QA evidence** | `docs/evidence/qa/` | 6.5 produces findings with nowhere to live |
 | 32 | Operations | **Runbook / troubleshooting** | `docs/runbook.md` | What to do when providers fail, the database is down, or sign-in breaks. Every known finding is a runbook entry |
 | 33 | Submission | ~~**Known limitations**~~ **WRITTEN 2026-09-03** | `docs/known-limitations.md` | ✅ Done in 11.4.5 — 19 entries, each Accepted (a weighed trade-off) or Open (a real gap with an owner and a next step), with a sign-off block |
@@ -1307,7 +1310,8 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
 - [ ] **11.6.5** Update `HANDOFF.md` **last**, after everything else.
 - [x] **11.6.6** Verify the five numbers that drift and appear in ~6 files each: **test
       count, screenshot count, dependency count, branch heads, commit SHAs.**
-      **Swept 2026-09-04.** Test count consistent at **508** across 7 files. Dependency count
+      **Swept 2026-09-04**, and again the same day after the print stylesheet took it to
+      **520**. Test count consistent across 7 files. Dependency count
       consistent at **six** across 5 files. Branch heads and SHAs refreshed in `HANDOFF.md`.
       **Screenshot count had drifted:** four places in `upgrade-checklist.md` still said 17.
       They are dated verification records — the contrast-pair figures in them match that era

@@ -46,6 +46,29 @@ function reducedMotionBlock(): string {
     .join("\n");
 }
 
+/**
+ * The light palette, re-declared for print.
+ *
+ * Paper is white. The dark theme's text is a pale grey chosen to sit on a near
+ * black ground, and printing it puts pale grey on white — the one contrast pair
+ * this project measures everywhere else and would have shipped unmeasured here.
+ *
+ * A token concern rather than a per-file one, for exactly the reason the
+ * reduced-motion block above is: every component already reads its colour from
+ * `var(--c-*)`, so redefining the properties reaches all of them at once and a
+ * component added later inherits the behaviour without remembering anything.
+ *
+ * Both selectors, and the order matters. `:root.dark` is (0,2,0) against bare
+ * `:root`'s (0,1,0), so a print block naming only `:root` would lose to the
+ * dark theme and print white-on-black — which is the failure this exists to
+ * prevent, arriving silently and only on paper.
+ */
+function printColorBlock(): string {
+  return Object.entries(tokens.color.light)
+    .map(([role, value]) => `      --c-${kebab(role)}: ${value};`)
+    .join("\n");
+}
+
 /** The full token stylesheet. Injected by src/app/layout.tsx. */
 export function tokenCss(): string {
   return `
@@ -82,6 +105,16 @@ ${colorBlock("dark")}
   @media (prefers-reduced-motion: reduce) {
     :root {
 ${reducedMotionBlock()}
+    }
+  }
+
+  /* Print takes the light palette whichever theme is on screen. See
+     printColorBlock. The structural print rules — what is hidden, what is
+     revealed, page margins — live in layout.tsx; only colour is a token. */
+  @media print {
+    :root,
+    :root.dark {
+${printColorBlock()}
     }
   }
 `;

@@ -139,6 +139,23 @@ export function ExportActions({ data, board }: ExportActionsProps) {
           <span aria-hidden="true">⬇</span>
           {t("export.downloadJson")}
         </Button>
+        {/* No third export format, and no PDF library. The browser's print
+            dialogue already writes PDF on every platform this app runs on; the
+            only thing missing was a stylesheet telling it what to leave out,
+            which is the @media print block in layout.tsx.
+
+            No toast either, unlike its two neighbours. Those report on
+            something invisible — a clipboard write, a file dropped in
+            Downloads — whereas the print dialogue is its own confirmation,
+            and announcing "printing" behind a modal nobody can see is noise.
+
+            window.print() is synchronous and blocks until the dialogue is
+            dismissed. That is exactly why it must not be given a status line
+            to reset afterwards. */}
+        <Button variant="secondary" className={styles.button} onClick={() => window.print()}>
+          <span aria-hidden="true">🖨</span>
+          {t("export.print")}
+        </Button>
       </div>
       <p
         className={`${styles.status} ${status.kind === "error" ? styles.statusError : ""}`}

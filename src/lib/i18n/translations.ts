@@ -132,6 +132,10 @@ const en = {
   "result.tab.backlog": "Sprint Backlog",
   "result.tab.evidence": "Traceability & Evidence",
   "result.clear": "Clear results",
+  // Shown only on a cache hit. A miss is every ordinary generation and needs no
+  // label; a hit is the one that arrives in under a second and would otherwise
+  // read as the model having cut corners.
+  "result.cache.hit": "Reused from your earlier identical request",
   "board.saving": "Saving…",
   "board.saved": "Saved",
   "board.saveFailed": "Changes could not be saved",
@@ -268,6 +272,11 @@ const en = {
     "Couldn't copy automatically. Select and copy the text manually.",
   "export.downloaded": "Backlog JSON exported successfully!",
   "export.downloadFailed": "Couldn't prepare the download. Please try again.",
+  // Hands the job to the browser's own print dialogue, which is also where
+  // "Save as PDF" lives on every platform. The label says both because the
+  // second is what people actually want and would not think to look for
+  // behind the word "print".
+  "export.print": "Print / Save as PDF",
 
   // ---- Toast ----
   "toast.dismiss": "Dismiss notification",
@@ -383,6 +392,7 @@ const ar: Record<TranslationKey, string> = {
   "result.tab.backlog": "قائمة أعمال السبرنت",
   "result.tab.evidence": "التتبع والأدلة",
   "result.clear": "مسح النتائج",
+  "result.cache.hit": "أُعيد استخدامها من طلبك السابق المطابق",
   "board.saving": "جارٍ الحفظ…",
   "board.saved": "تم الحفظ",
   "board.saveFailed": "تعذّر حفظ التغييرات",
@@ -515,6 +525,7 @@ const ar: Record<TranslationKey, string> = {
   "export.copyFailed": "تعذر النسخ تلقائيًا. حدد النص وانسخه يدويًا.",
   "export.downloaded": "تم تصدير قائمة الأعمال JSON بنجاح!",
   "export.downloadFailed": "تعذر تجهيز التنزيل. حاول مرة أخرى.",
+  "export.print": "طباعة / حفظ بصيغة PDF",
 
   // ---- Toast ----
   "toast.dismiss": "إغلاق الإشعار",

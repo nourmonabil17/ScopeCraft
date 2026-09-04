@@ -374,6 +374,54 @@ describe("State 3 · success", () => {
     );
   });
 
+  // Module A3's client half. The route has set X-Cache since A3 shipped and
+  // nothing read it, so a cache hit — which returns in well under a second
+  // because no provider is called — was indistinguishable on screen from a
+  // model that had cut corners.
+  //
+  // Both directions are asserted. A chip that is simply always rendered would
+  // pass the first test on its own while making the claim meaningless.
+  it("labels a plan served from the cache", async () => {
+    jest
+      .spyOn(global, "fetch")
+      .mockResolvedValue(jsonResponse(FIXTURE, { headers: { "X-Cache": "hit" } }));
+
+    const user = userEvent.setup();
+    renderWithProviders(<ScopeCraftPage />);
+    await submitValidIdea(user);
+    await screen.findByTestId("result-view");
+
+    expect(screen.getByTestId("cache-chip")).toHaveTextContent(/reused from your earlier/i);
+  });
+
+  it("says nothing when the plan was actually generated", async () => {
+    jest
+      .spyOn(global, "fetch")
+      .mockResolvedValue(jsonResponse(FIXTURE, { headers: { "X-Cache": "miss" } }));
+
+    const user = userEvent.setup();
+    renderWithProviders(<ScopeCraftPage />);
+    await submitValidIdea(user);
+    await screen.findByTestId("result-view");
+
+    expect(screen.queryByTestId("cache-chip")).not.toBeInTheDocument();
+  });
+
+  // A proxy that strips the header, or a deployment predating A3, must read as
+  // "not known to be cached" rather than as a cache hit. Asserted separately
+  // from the miss case because the two arrive by different routes and only one
+  // of them is the app's own doing.
+  it("claims nothing when the header is absent entirely", async () => {
+    jest.spyOn(global, "fetch").mockResolvedValue(jsonResponse(FIXTURE));
+
+    const user = userEvent.setup();
+    renderWithProviders(<ScopeCraftPage />);
+    await submitValidIdea(user);
+    await screen.findByTestId("result-view");
+
+    expect(screen.queryByTestId("cache-chip")).not.toBeInTheDocument();
+  });
+
   it("exposes the three panels as a keyboard-operable tablist", async () => {
     jest.spyOn(global, "fetch").mockResolvedValue(jsonResponse(FIXTURE));
 

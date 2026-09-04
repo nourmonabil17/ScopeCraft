@@ -190,7 +190,9 @@ response text would see the two as different. Measured in
 
 `X-Cache` exists because without it a hit is indistinguishable from a real generation:
 `X-Provider-Used` on a hit names the tier that answered the *original* request, which
-would otherwise read as a provider call that never happened. A hit still gets its own
+would otherwise read as a provider call that never happened. Since 2026-09-04 the UI
+reads it too, and labels a hit on the results toolbar — only `hit` is treated as a claim,
+so a stripped or absent header says nothing rather than asserting a generation. A hit still gets its own
 `X-Plan-Id` — a fresh row, so editing the board here cannot overwrite the original
 plan's board.
 

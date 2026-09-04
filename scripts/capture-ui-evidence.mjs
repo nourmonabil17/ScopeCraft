@@ -297,7 +297,29 @@ async function shot(name, note) {
 const VALID_IDEA =
   "A web app that helps university students form study groups by matching them on course, availability and preferred study style.";
 
-async function fillForm() {
+/**
+ * The provider-failure case needs an idea of its own, and this is not cosmetic.
+ *
+ * Since A3, a repeat of an idea this user has already generated is answered
+ * from `plans` at stage 4c — before any provider is called. Case 4 posts to an
+ * instance with dead credentials to prove the error state, but both instances
+ * share one DATABASE_URL, so posting VALID_IDEA there hits the row case 1 just
+ * wrote and returns a plan. The dead credentials are never reached and the
+ * capture reports "expected the error state, got success".
+ *
+ * Latent since A3 rather than newly broken: `capture:ui` had not been run
+ * between 80531ca and this change, so nothing surfaced it. Found by running
+ * the gate, which is the argument for the gate.
+ *
+ * A distinct fixed string is enough, and is preferred over a per-run nonce.
+ * This idea is only ever posted to the dead-credential instance, which by
+ * construction can never succeed, so it can never enter the cache — and a
+ * fixed value keeps the capture reproducible.
+ */
+const UNCACHEABLE_IDEA =
+  "A workshop booking tool that lets a bike repair shop schedule jobs, track parts, and tell customers when their bike is ready.";
+
+async function fillForm(idea = VALID_IDEA) {
   // Set values through the native setter so React's onChange actually fires;
   // assigning .value directly updates the DOM but not React state.
   await evaluate(`
@@ -308,7 +330,7 @@ async function fillForm() {
         Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v);
         el.dispatchEvent(new Event('input', { bubbles: true }));
       };
-      set(document.querySelector('textarea[name="idea"]'), ${JSON.stringify(VALID_IDEA)});
+      set(document.querySelector('textarea[name="idea"]'), ${JSON.stringify(idea)});
       set(document.querySelector('textarea[name="constraints"]'), 'Team of four, five weeks, no paid APIs.');
       return true;
     })()
@@ -746,7 +768,10 @@ try {
     const probe = await fetch(`${BAD_BASE}/scopecraft`, { method: "GET" });
     if (!probe.ok) throw new Error(String(probe.status));
     await goto(`${BAD_BASE}/scopecraft`);
-    await fillForm();
+    // Not VALID_IDEA — see UNCACHEABLE_IDEA. Case 1 has already cached that
+    // one for this user, and a cache hit would answer before the dead
+    // credentials are ever reached.
+    await fillForm(UNCACHEABLE_IDEA);
     await submit();
     const bad = await waitForResult(60_000);
     if (bad === "error") {

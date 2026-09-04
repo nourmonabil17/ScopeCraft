@@ -169,9 +169,13 @@ describe("tokenCss", () => {
   it("emits every colour role as a --c- property in both themes", () => {
     for (const role of Object.keys(tokens.color.light)) {
       const kebab = role.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
-      // Once in :root, once in :root.dark.
+      // Once in :root, once in :root.dark, and once more in @media print —
+      // where the light value is re-declared so paper never gets the dark
+      // palette. Asserted as an exact 3 rather than loosened to "at least
+      // two", so deleting the print block fails here as well as in its own
+      // describe below. Same trade the motion scale makes above.
       const occurrences = css.split(`--c-${kebab}:`).length - 1;
-      expect(occurrences).toBe(2);
+      expect(occurrences).toBe(3);
     }
   });
 
@@ -223,6 +227,33 @@ describe("tokenCss", () => {
   // A bare prefers-color-scheme block would break that, silently.
   it("never defines colours inside a prefers-color-scheme media query", () => {
     expect(css).not.toContain("prefers-color-scheme");
+  });
+
+  // Paper is white. Printing the dark palette puts its pale grey text on it,
+  // which is the one contrast pair this file measures everywhere else and
+  // would otherwise ship unmeasured — visible only to someone who actually
+  // pressed print while the dark theme was on.
+  describe("print takes the light palette", () => {
+    const block = css.slice(css.indexOf("@media print"));
+
+    it("emits the query at all", () => {
+      expect(css).toContain("@media print");
+    });
+
+    it("redefines every colour role, not a hand-picked few", () => {
+      for (const [role, value] of Object.entries(tokens.color.light)) {
+        const kebab = role.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+        expect(block).toContain(`--c-${kebab}: ${value};`);
+      }
+    });
+
+    // The rule that makes it work at all. `:root.dark` is (0,2,0) and bare
+    // `:root` is (0,1,0), so a print block naming only :root loses to the dark
+    // theme and prints white-on-black — passing every review, because reviews
+    // are not run against a printer.
+    it("names :root.dark, or it loses to the dark theme", () => {
+      expect(block).toContain(":root.dark");
+    });
   });
 });
 
@@ -344,5 +375,61 @@ describe("the legacy token layer is gone", () => {
     const declaration = rule.slice(0, rule.indexOf("}"));
     expect(declaration).toContain("var(--motion-");
     expect(declaration).not.toMatch(/\d+m?s/);
+  });
+});
+
+// The print stylesheet, asserted from disk for the same reason the header's
+// target sizes are: jsdom resolves no CSS, and no test environment in this
+// project has a printer. Every one of these rules is invisible until someone
+// presses print, which is the definition of a rule that needs a test.
+describe("the print stylesheet", () => {
+  const layout = readFileSync("src/app/layout.tsx", "utf8");
+  const block = layout.slice(layout.indexOf("@media print"));
+
+  it("exists", () => {
+    expect(layout).toContain("@media print");
+  });
+
+  // The one non-obvious rule. The three tabs are alternative views of ONE
+  // plan: on screen exactly one panel is shown, so without this a printed
+  // plan silently loses its backlog and its evidence — two thirds of the
+  // document, with nothing on the page to say they were dropped.
+  it("reveals the hidden tab panels, so a printed plan is the whole plan", () => {
+    expect(block).toMatch(/\[role="tabpanel"\]\[hidden\]\s*\{\s*display:\s*block\s*!important/);
+  });
+
+  // ...but by role, not by a blanket [hidden] override, which would also
+  // unhide the welcome dialog and anything else legitimately hidden.
+  it("never unhides everything at once", () => {
+    expect(block).not.toMatch(/^\s*\[hidden\]\s*\{/m);
+  });
+
+  // Measured with printToPDF against a real plan, printBackground:false —
+  // which is what every browser's print dialogue does unless the reader ticks
+  // "Background graphics". Without this rule a MUST chip is .solid, i.e.
+  // var(--c-text) behind var(--c-ground) text, and prints white on white: the
+  // most important label in the document, gone, with nothing on the page to
+  // say it was ever there.
+  //
+  // Paired with the light-palette block in css.ts and only safe because of it.
+  // Forcing exact colour while the dark palette was live would ask the printer
+  // for a near-black page.
+  it("forces backgrounds to print, or the solid MoSCoW chips vanish", () => {
+    expect(block).toMatch(/print-color-adjust:\s*exact/);
+  });
+
+  it("drops the chrome nobody can operate on paper", () => {
+    for (const selector of ["header", "form", '[role="tablist"]', "button"]) {
+      expect(block).toContain(selector);
+    }
+  });
+
+  // CSS Module class names are hashed at build time, so a rule naming one
+  // works in dev and silently stops working in production. Semantic selectors
+  // are the only stable handle this global block has.
+  it("selects nothing by CSS Module class name", () => {
+    const withoutComments = block.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(withoutComments).not.toMatch(/\$\{styles\./);
+    expect(withoutComments).not.toMatch(/\.[a-z][a-zA-Z]*\s*[,{]/);
   });
 });
