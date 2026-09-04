@@ -114,7 +114,12 @@ for the per-IP layer sign-in cannot cover. Designed in
 
 ## 5. Repository & Branch Rules
 
-- `main` — always deployable, protected, no direct pushes
+- `main` — always deployable. **Not protected: there is no branch-protection rule on it,**
+  and a direct push to it succeeds. Verified 2026-09-04 against the GitHub API (`404` from
+  the branch-protection endpoint) and demonstrated by a direct fast-forward push that went
+  through. This line previously claimed the opposite. Enabling protection is a team decision
+  and needs admin on the team repository; until someone makes it, the rule below is a
+  convention people follow, not one the platform enforces.
 - `dev` — integration branch, all feature branches merge here first
 - One GitHub issue per member per session
 - Every merge to `dev`/`main` requires a reviewed pull request (no self-merge without review)

@@ -1377,15 +1377,28 @@ the result of running out of time. **Write 11.4.1–11.4.5 first; treat the rest
 
 ### 12.1 Branch state
 
-- [ ] **12.1.1** **`main` is 16 commits behind `dev`.** Decide whether `main` becomes the
+- [x] **12.1.1** **`main` is 16 commits behind `dev`.** Decide whether `main` becomes the
       release branch it is documented as, or whether the documentation changes to match
       reality. Either is fine; the current mismatch is not.
+      **Resolved 2026-09-04 by catching `main` up.** It had drifted to **36** behind by then,
+      not 16 — the figure in this item was never updated and is left as written rather than
+      quietly corrected. `main` was a strict ancestor of `dev` (0 ahead), so this was a
+      fast-forward: nothing to merge, nothing to lose. **This does not make `main` a release
+      branch.** Nothing deploys from it and nothing keeps it current; it is level today
+      because somebody levelled it.
 - [ ] **12.1.2** Confirm `fork/main` matches what production actually serves.
 - [ ] **12.1.3** Clean up the three stale feature branches on the fork
       (`feature/backend-production-v2`, `feature/joe-intake-wizard`,
       `feature/youssef-updates`) once their PRs are resolved.
-- [ ] **12.1.4** Confirm branch protection matches `architecture.md` §5, which claims `main`
+- [x] **12.1.4** Confirm branch protection matches `architecture.md` §5, which claims `main`
       is protected with no direct pushes.
+      **Confirmed 2026-09-04, and it does not match. There is no protection rule on `main`.**
+      `GET /repos/nourmonabil17/ScopeCraft/branches/main/protection` returns **404**, and the
+      12.1.1 fast-forward above was itself a direct push to `main` that succeeded — so this is
+      demonstrated, not just queried. `architecture.md` §5 line 117 corrected to say what is
+      actually true. **Enabling the rule is a team decision** and needs admin on the team
+      repository: it is not something to switch on unilaterally, since it would immediately
+      change how everyone else pushes.
 
 ### 12.2 CI
 
@@ -1626,8 +1639,10 @@ including what has been verified and what has not.
 
 ### 14.8 Release record
 
-- [ ] **14.8.1** Resolve 12.1.1 — bring `main` up to date, or change the documentation that
-      calls it the release branch.
+- [x] **14.8.1** Resolve 12.1.1 — bring `main` up to date, or change the documentation that
+      calls it the release branch. **Both, 2026-09-04.** Fast-forwarded `origin/main` to
+      `d23f638`, and corrected the documents that described it as protected or as the branch
+      production comes from. Neither was true.
 - [x] **14.8.2** Tag the release.
       **Done 2026-09-04.** `v0.1.0`, annotated, at `40dd493` — the commit that was live when
       it was cut — and pushed to **`origin`**, the team repository, not to the fork. The fork

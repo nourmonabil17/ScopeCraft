@@ -55,15 +55,15 @@ Verified with `git ls-remote` and `git rev-list --left-right --count`. The commi
 
 | Ref | Commit | Relationship |
 |---|---|---|
-| `origin/dev` | `56dd81f` | The working branch. Source of truth. |
-| `fork/main` | `56dd81f` | **Identical to `origin/dev`.** This is what production serves. |
-| `origin/main` | `a98910b` | 34 behind `origin/dev`, 0 ahead. Stale; merging is a pending team decision. |
-| `fork/dev` | `eb110fd` | **130 behind `origin/dev`, 0 ahead. Not used. Not a source of truth.** |
+| `origin/dev` | `d23f638` | The working branch. Source of truth. |
+| `fork/main` | `d23f638` | **Identical to `origin/dev`.** This is what production serves. |
+| `origin/main` | `d23f638` | Caught up 2026-09-04 by fast-forward. Was 36 behind, 0 ahead. |
+| `fork/dev` | `eb110fd` | **132 behind `origin/dev`, 0 ahead. Not used. Not a source of truth.** |
 
-**Three of those four refs disagree, and only one comparison means anything.** Do not read
-`origin/main` or `fork/dev` as a second opinion about what is live — `fork/main` is the only
-ref Vercel reads, and `origin/dev` is the only one anybody pushes to. Re-measure rather than
-trusting the commits in this table:
+**Only `fork/dev` is now out of step**, and it is a leftover nothing reads. Even so, do not
+treat `origin/main` as a second opinion about what is live: it is caught up today because
+somebody caught it up, and nothing keeps it that way. `fork/main` is the only ref Vercel
+reads. Re-measure rather than trusting the commits in this table:
 
 ```bash
 git ls-remote origin dev && git ls-remote fork main
@@ -383,8 +383,10 @@ git push origin dev && git push fork dev:main
 
 Still open, and team-owned rather than fixable here:
 
-- [ ] Resolve `origin/main` — bring it up to date, or stop calling it the release branch. It
-      is 33 behind `origin/dev`.
+- [x] Resolve `origin/main` — brought up to date 2026-09-04. It was a strict ancestor of
+      `dev`, so this was a fast-forward with nothing to merge and nothing to lose:
+      `git push origin origin/dev:main`. **It does not stay current on its own**; nothing
+      deploys from it and nothing updates it.
 - [x] Cut the first tag. `v0.1.0`, 2026-09-04, at `40dd493`. The next one is a judgement
       call about what counts as a release, not a repeat of this step.
 - [ ] Update `HANDOFF.md` §1.2 with the new branch heads when they move.

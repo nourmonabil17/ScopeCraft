@@ -271,10 +271,10 @@ In order of how much you should trust the answer:
 move — it names what was released, never what is deployed right now. If you reach for it to
 answer this question you will be right only until the next deploy.
 
-**Three refs disagree and that is normal.** `origin/main` is behind and is a pending team
-decision; `fork/dev` stopped moving over a hundred commits ago and is not a source of
-anything. Only `fork/main == origin/dev` is meaningful. The table in
-[`deployment.md`](deployment.md) §1 has the measured numbers.
+**One ref is out of step, and it does not matter.** `fork/dev` stopped moving over a hundred
+commits ago and is not a source of anything. `origin/main` was caught up on 2026-09-04, but
+nothing keeps it current — do not read it as confirmation. Only `fork/main` is what Vercel
+serves. The table in [`deployment.md`](deployment.md) §1 has the measured numbers.
 
 **Not available:** there is no `/api/health` endpoint, no `HEALTHCHECK` in the `Dockerfile`,
 and no health check on the compose `web` service. A container that boots and then 500s every
