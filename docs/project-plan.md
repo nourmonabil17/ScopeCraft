@@ -34,7 +34,7 @@ in this table, the plan does not cover it and the table is wrong — fix the tab
 | Wiring between all of the above | — | [5](#module-5--integration--wiring-it-together) |
 | Tests, evidence capture, manual QA | `tests/`, `scripts/capture-*` | [6](#module-6--qa--testing) |
 | Performance, cost, reliability | — | [9](#module-9--performance--reliability) |
-| All documentation (38 documents) | `README.md`, `docs/`, root files | [11](#module-11--documentation) |
+| All documentation (39 documents) | `README.md`, `docs/`, root files | [11](#module-11--documentation) |
 | Repository, branches, PRs, CI | `.github/`, git remotes | [12](#module-12--repository-ci--process) |
 | Rubric coverage, defense, demo | handbook CSVs | [13](#module-13--submission--defense) |
 | Deployment & release | Vercel, fork `main` | [14](#module-14--deployment--release) |
@@ -164,8 +164,8 @@ Eleven commits carry a `Co-Authored-By` trailer.
 - [ ] **0.3.3** **In the same sitting**, fix every invalidated SHA: `HANDOFF.md`,
       `docs/youssef-ai-backend-checklist.md`, `docs/evidence/curl-evidence.md`,
       `docs/evidence/provider-fallback-log.md`, `docs/evidence/ui/ui-evidence.md`,
-      `docs/evidence/ui/accessibility-checklist.md`, and three files under
-      `docs/evidence/raw/`. Never "later" — some are graded artifacts.
+      `docs/evidence/ui/accessibility-checklist.md`, `docs/evidence/cache-evidence.md`,
+      and three files under `docs/evidence/raw/`. Never "later" — some are graded artifacts.
 - [ ] **0.3.4** Force-push to both remotes and tell the team before they pull.
 - [ ] **0.3.5** If no: close it in `HANDOFF.md` §1.5 rather than leaving it open forever.
 
@@ -513,6 +513,46 @@ boundary is not closed.
 - [x] **3.4.7** Verify with `DAILY_PLAN_LIMIT=2` locally and three generations.
 - [x] **3.4.8** Write down what it does **not** solve: it is per-account, not per-IP.
 
+### 3.4b Application-layer request cache
+
+Shipped 2026-09-04 as A3 in [`upgrade-checklist.md`](upgrade-checklist.md). Numbered `3.4b`
+rather than appended at `3.7`, because it lives beside the rate limit in the pipeline and
+reads the same table — putting it after the read/write APIs would misrepresent where it sits.
+
+- [x] **3.4b.1** Add `plans.request_hash`: sha256 over `(hash version, idea, constraints,
+      team_capacity_points)`. In the `create table` block **and** as an `alter table ... add
+      column if not exists`, because `create table if not exists` does nothing at all on a
+      database that already holds the table.
+- [x] **3.4b.2** Place the lookup at **stage 4c** — after the quota at 4b, before
+      `runScopeCraft` at 5. In front of the quota, a replayed request would bypass the meter
+      entirely, which is the one thing the meter exists to prevent.
+- [x] **3.4b.3** Scope it **per user**. A global cache hits more often and saves more tokens,
+      but it turns response time into an oracle: a fast answer would reveal that somebody
+      else had already generated that exact idea.
+- [x] **3.4b.4** Filter to `status = 'ok'`, `response is not null` and
+      `prompt_version = PROMPT_VERSION`. The table keeps failed rows on purpose and an error
+      is not a cached answer; a v7 plan must not answer a v8 request.
+- [x] **3.4b.5** A hit writes its **own** `plans` row with `attempts = 0` and returns a fresh
+      `X-Plan-Id`. History stays complete, and an edit made after a hit cannot overwrite the
+      original plan's board. It counts against the daily quota — the limit is plans per day,
+      not provider calls per day.
+- [x] **3.4b.6** Prove no provider is called on a repeat **by a provider spy, not by timing**.
+      `tests/api/scopecraft.test.ts` → "Module A3 · application-layer cache". Confirmed to
+      fail against a stubbed-out lookup before being kept.
+- [x] **3.4b.7** Capture it live. `npm run capture:cache` writes
+      [`docs/evidence/cache-evidence.md`](evidence/cache-evidence.md): dev branch miss
+      **35.86 s** / hit **0.62 s**; production miss **21.47 s** / hit **0.61 s**. The rows
+      carry `attempts=2` then `attempts=0`, which is the actual proof.
+- [x] **3.4b.8** Record what the round trip changes. A hit is **not** byte-identical to the
+      miss: the plan passes through a `jsonb` column and Postgres does not preserve object key
+      order in that type. Same data, same byte count, different order — reproduced on both
+      the dev and production branches, so it is a property of the column type. Harmless to a
+      JSON client and outside the Zod contract, recorded so it does not read as a bug later.
+- [ ] **3.4b.9** Nothing evicts a cached row. It stops being served when `PROMPT_VERSION`
+      moves, which is the only change that makes it wrong. **Open by decision, not oversight** —
+      a TTL would be a second expiry rule with nothing asking for it. Revisit only if a plan
+      is ever wrong for a reason other than the prompt.
+
 ### 3.5 Read and write APIs for the frontend
 
 ~~Blocked on 4.3.1 and 4.4.1.~~ **Both answered yes on 2026-08-27**, so 3.5 was built with
@@ -617,6 +657,9 @@ The seams. Each is a place where two correct halves make one broken whole.
       Two codes are new since this step was written — `NOT_FOUND` and `STORAGE_UNAVAILABLE`.
 - [x] **5.1.3** Confirm the response headers the UI depends on still arrive.
       `X-Provider-Used`, `X-Prompt-Version` and the new `X-Plan-Id`, all three present.
+      A fourth joined them in A3: `X-Cache` (`hit` / `miss`). The UI does not read it — it
+      exists so a cache hit is distinguishable from a generation, since `X-Provider-Used` on
+      a hit names the tier that answered the *original* request.
 - [x] **5.1.4** Confirm provider failover still works with auth in play. **Verified** —
       with `NVIDIA_API_KEY` empty and a session present, `groq` answered.
 - [x] **5.1.5** Confirm the deterministic boundary survived the round trip. **This step
@@ -927,6 +970,17 @@ hardest.
       live site by whoever holds the account. Four timed generations would then finish this
       item against the local baseline above. Know the cost before running it — four rows in
       the production `plans` table and four real provider calls.
+
+      **Unblocked 2026-09-04. One of the four datapoints now exists.** The account holder
+      signed in on the live site, and a generation through that session completed in
+      **21.47 s** wall clock (`x-provider-used: groq`, `x-cache: miss`) against the local
+      baseline of 10.8 / 11.3 / 13.5 / 13.6 s above. A cached repeat of the same request
+      returned in **0.61 s** — that is a cache hit, not a generation, and is not comparable
+      to the baseline.
+
+      Still open, deliberately: this item asks for **four** timed generations and there is
+      one. Three more finish it, at a cost of three production rows and three real provider
+      calls. Not run unprompted.
 - [x] **9.1.7** Confirm the app degrades rather than crashes. **All four exercised for real.**
       *Database down* (container stopped): `503 STORAGE_UNAVAILABLE` in **8 ms**, failing
       closed before any provider call, and `/scopecraft/history` still answered `200` with an
@@ -1014,7 +1068,7 @@ A graded row in its own right, not a subsection of the frontend.
 
 ## Module 11 — Documentation
 
-**38 documents.** 29 exist, 9 do not. Status is honest, not aspirational.
+**39 documents.** 30 exist, 9 do not. Status is honest, not aspirational.
 
 Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ missing**
 
@@ -1045,8 +1099,9 @@ Legend: **✅ current** · **⚠️ exists but stale or incomplete** · **❌ mi
 | 21 | Evidence | UI evidence | `docs/evidence/ui/ui-evidence.md` | ✅ 22 screenshots | 11.3.9 |
 | 22 | Evidence | Accessibility checklist | `docs/evidence/ui/accessibility-checklist.md` | ✅ measured | 10.1.5 |
 | 23 | Evidence | Raw captures | `docs/evidence/raw/` | ✅ | 6.4.6 |
-| 24 | Historical | Session 1–4 lead checklists | `docs/session[1-4]-lead-checklist.md` | ✅ dated records | **do not rewrite** |
-| 25 | Historical | Completion checklist | `docs/scopecraft-completion-checklist.html` | ✅ superseded banner intact | **do not rewrite** |
+| 24 | Evidence | Request-cache evidence | `docs/evidence/cache-evidence.md` | ✅ dev + production | 3.4b.7 |
+| 25 | Historical | Session 1–4 lead checklists | `docs/session[1-4]-lead-checklist.md` | ✅ dated records | **do not rewrite** |
+| 26 | Historical | Completion checklist | `docs/scopecraft-completion-checklist.html` | ✅ superseded banner intact | **do not rewrite** |
 
 ### 11.2 Register — what is missing, and why each is needed
 
@@ -1075,7 +1130,7 @@ happen. Revisit if the team grows.)*
 - [ ] **11.3.1** `README.md` — Authentication section reflects the endpoint being gated
       (3.6.4); environment table gains `DATABASE_URL` and `DAILY_PLAN_LIMIT`; Docker quick
       start; **add the documentation index from 11.5.1**.
-- [ ] **11.3.2** `docs/architecture.md` — pipeline diagram gains stage 0 and stage 4b; §4a
+- [ ] **11.3.2** `docs/architecture.md` — pipeline diagram gains stage 0, stage 4b and stage 4c; §4a
       boundary section updated; the "no authentication" MVP non-goal in §4 explicitly marked
       reversed with a pointer to the decision log.
 - [ ] **11.3.3** `docs/database-and-auth-design.md` — move every shipped row out of "design
@@ -1399,12 +1454,20 @@ a schema-less database fails on the first generation; a schema with no app is in
 ### 14.6 Post-deploy verification — against the live site, not localhost
 
 - [ ] **14.6.1** Sign in with GitHub. Confirm the header shows your name.
-- [ ] **14.6.2** Generate a plan. Confirm `X-Provider-Used`, `X-Prompt-Version` and
-      `X-Plan-Id` all arrive.
+      **Half-met 2026-09-04 and left open on purpose.** A sign-in on the live site did
+      happen and the header showed the account name, but *which* provider was used was not
+      observed, and this item names GitHub specifically. Ticking it would be a guess.
+- [x] **14.6.2** Generate a plan. Confirm `X-Provider-Used`, `X-Prompt-Version` and
+      `X-Plan-Id` all arrive. **Done 2026-09-04** on a live signed-in generation:
+      `x-provider-used: groq`, `x-prompt-version: v7`,
+      `x-plan-id: cb53652a-e46e-4e62-807d-69c8ef127689`, plus the new `x-cache: miss`.
 - [ ] **14.6.3** Edit the sprint board, reload the plan from history, confirm the edit
       survived **and** that the score recomputed rather than replayed.
 - [ ] **14.6.4** Confirm a row landed in the Neon database, attributed to the right user.
-- [ ] **14.6.5** `curl` the endpoint with no cookie — expect `401`, not a plan.
+- [x] **14.6.5** `curl` the endpoint with no cookie — expect `401`, not a plan.
+      **Done 2026-09-04** against production: `401` with
+      `{"error":true,"code":"UNAUTHORIZED","message":"Please sign in to generate a plan."}`
+      and no plan fields.
 - [ ] **14.6.6** Check the `Set-Cookie` header: `HttpOnly`, `SameSite=Lax`, and `Secure` in
       production. Read the header, not the config.
 - [ ] **14.6.7** Re-verify all six security headers on the live response.

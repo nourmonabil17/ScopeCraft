@@ -1607,3 +1607,55 @@ nonce or hash policy and saying so is more useful than closing the row.
     errors, so plans would stop persisting **silently**. Apply the file to both
     Neon branches first — one nullable column is additive and the old code never
     names it.
+
+48. **A2 is closed as unverifiable rather than done, and the number it rested on
+    was wrong — 2026-09-04, Module A, A2.**
+
+    A2 asked to let provider-side prompt caching engage, with the check "two
+    identical back-to-back live calls, cached-token counts recorded in evidence".
+    It is being closed without a tick. The reasoning is worth keeping because
+    "we could not measure it" and "it does not work" are different claims and
+    only the first one is supported.
+
+    **What was measured.** Five direct calls to Groq's `openai/gpt-oss-120b`,
+    each carrying the real `SYSTEM_RULES` as a system message and a different
+    short user message — the shape prefix caching is supposed to exploit.
+    Every response returned the same `usage` keys: `queue_time`, `prompt_tokens`,
+    `prompt_time`, `completion_tokens`, `completion_time`, `total_tokens`,
+    `completion_tokens_details`. There is no `prompt_tokens_details` and no
+    `cached_tokens`. Response headers carry `cache-control: no-store` and
+    `cf-cache-status: DYNAMIC`, both of which describe HTTP response caching
+    rather than KV reuse. `prompt_time` ranged 0.027–0.168 s with no downward
+    trend, which is scheduling noise and cannot carry the claim.
+
+    Reproduce it by POSTing to `https://api.groq.com/openai/v1/chat/completions`
+    with `SYSTEM_RULES` as the system message and reading `usage` off the raw
+    JSON. The probe was a throwaway and is deliberately not committed: a capture
+    script for a negative result would be a third thing to maintain, and the
+    finding is one HTTP call to re-check.
+
+    **A1 had already done A2's work.** The condition prefix caching needs is a
+    stable, byte-identical system prefix, and A1 produced exactly that when it
+    split the rules into a real system message. There was never a second change
+    to make. What A2 actually wanted was *confirmation*, and confirmation is what
+    the provider does not expose.
+
+    **A3 dissolved the check's original shape.** "Two identical back-to-back live
+    calls" no longer reach a provider at all — stage 4c answers the second one
+    from Postgres. Anyone returning to this has to compare two *different*
+    requests sharing the system prefix instead, which is why the probe used
+    distinct user messages.
+
+    **The item's own arithmetic was wrong and is corrected in place.** It claimed
+    `SYSTEM_RULES` is "~230 tokens". A request carrying the rules plus a
+    ten-token user message reports **663 prompt tokens**, putting the rules near
+    650 — out by nearly a factor of three. The conclusion drawn from it survives,
+    since 650 is still below Gemini's ~1024-token context-cache minimum, so
+    explicit Gemini caching still buys nothing. But a conclusion that happens to
+    survive a wrong premise is not the same as a checked one, and the struck-out
+    text is left visible rather than silently replaced.
+
+    **What would close A2:** a provider that reports cached prompt tokens. That
+    is a change of provider or of provider API, not work in this repository. Kept
+    open at the item rather than deleted, so it is not re-proposed as a fresh
+    idea by someone reading the prefix-caching literature.

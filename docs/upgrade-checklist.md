@@ -106,9 +106,45 @@ The three findings from reading [`providers.ts`](../src/lib/ai/providers.ts) and
       vLLM-backed NIM KV reuse both need. No SDK, no new dependency — the work is
       keeping the prefix stable and confirming it. *Check:* two identical
       back-to-back live calls, cached-token counts recorded in evidence.
-      **Not in scope:** Gemini explicit context caching. `SYSTEM_RULES` is ~230
-      tokens, well under Gemini's ~1024-token cache minimum, so it would buy
+      **Not in scope:** Gemini explicit context caching. ~~`SYSTEM_RULES` is ~230
+      tokens~~, well under Gemini's ~1024-token cache minimum, so it would buy
       nothing. Recorded here so it is not re-proposed later.
+
+      **Cannot be closed by its own check. Measured 2026-09-04, left unticked.**
+      The check asks for "cached-token counts recorded in evidence". Groq does
+      not report one. Five direct calls to `openai/gpt-oss-120b` carrying the
+      real `SYSTEM_RULES` as a system message returned the same `usage` shape
+      every time:
+
+      ```
+      queue_time, prompt_tokens, prompt_time, completion_tokens,
+      completion_time, total_tokens, completion_tokens_details
+      ```
+
+      No `prompt_tokens_details`, no `cached_tokens`. The response headers carry
+      only HTTP caching — `cache-control: no-store`, `cf-cache-status: DYNAMIC` —
+      which describes the response, not KV reuse. `prompt_time` ranged
+      0.027–0.168 s across the five with no downward trend: noise, not evidence.
+
+      **A1 already did A2's work.** The system prefix is stable and
+      byte-identical across every request, which is the condition prefix caching
+      needs, and it is met. Whether Groq exploits it is *unobservable from the
+      client*, which is not the same as unmet. Nothing here is a code change
+      waiting to be made.
+
+      **A3 removed the check's original shape.** "Two identical back-to-back live
+      calls" no longer reach a provider at all — the second is served from the
+      application cache. Any future attempt has to use two *different* requests
+      that share the system prefix, which is what the probe above did.
+
+      **A number in this item was wrong.** `SYSTEM_RULES` is not ~230 tokens. A
+      request carrying it plus a ten-token user message reports **663 prompt
+      tokens**, so the rules are roughly 650 — out by nearly 3×. The Gemini
+      conclusion is unchanged, since 650 is still under the ~1024 minimum, but
+      the figure it rested on was not right.
+
+      **What would close it:** a provider that reports cached tokens. Not work in
+      this repository. Decision-log entry 48.
 
 - [x] **A3 — Cache identical requests at the application layer.**
       Hash `(idea + constraints + team_capacity_points)` and check it before
@@ -172,6 +208,20 @@ The three findings from reading [`providers.ts`](../src/lib/ai/providers.ts) and
       **Not in scope:** invalidation. A cached plan is never evicted; it stops
       being served when `PROMPT_VERSION` moves, which is the only change that
       makes it wrong. Recorded here so a TTL is not re-proposed as an oversight.
+
+### Module A — closed 2026-09-04
+
+**A1 and A3 done and evidenced. A2 closed as unverifiable, not as done.**
+
+A3 is the one that mattered: identical requests never reach a provider, proven by a
+provider spy and captured on two databases. A2 turned out to need nothing built — A1
+had already made the prefix stable, which was the whole prerequisite — and its check
+cannot be run because the provider does not report the number it asks for.
+
+The module leaves two things open on purpose, both recorded above rather than quietly
+dropped: cached-token reporting (A2, blocked on the provider, not on this repository)
+and cache eviction (`3.4b.9` in the project plan — nothing evicts a row, and nothing
+has asked for a TTL).
 
 ---
 
@@ -944,8 +994,8 @@ recorded here so they are not quietly added later.
       nor its same-day reversal appear anywhere in it.
 - [ ] **H2 — Decision-log entries** for the rewrite decision, the
       dependency-free constraint, and the motion-only interactivity scope.
-      ~~Currently at 30 entries.~~ **Corrected 2026-09-04: 47 entries.** The
-      count was stale by seventeen; the three entries this point actually asks
+      ~~Currently at 30 entries.~~ **Corrected 2026-09-04: 48 entries.** The
+      count was stale by eighteen; the three entries this point actually asks
       for are still unwritten.
 - [ ] **H3 — Drifting numbers.** Test count, screenshot count, dependency count,
       branch heads, commit SHAs — each appears in roughly six files and all five
