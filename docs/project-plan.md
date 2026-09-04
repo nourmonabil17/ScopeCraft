@@ -1004,18 +1004,27 @@ hardest.
       The 1.68× gap is therefore not a clean local-versus-live comparison; part of it is a
       failing tier. See `HANDOFF.md` §4.1.
 
-      **Re-measured after the fix, same day.** `NVIDIA_API_KEY` was removed from Vercel and
-      the project redeployed, so the tier is skipped instead of tried. The next production
-      generation recorded `attempts=1` and **`duration_ms` 5332** against a five-run mean of
-      **19588** before it. The wasted attempt was worth **~14.3 s per request, 73% of the
-      total**. Production is now 3.67× faster than it was, and 2.3× faster than the local
-      baseline in this item — local still has NVIDIA configured and still pays for it.
+      **Re-measured after the fix, same day, four runs against four.** `NVIDIA_API_KEY` was
+      removed from Vercel and the project redeployed, so the tier is skipped instead of tried.
 
-      **The measurement above stands as recorded, and is now historical.** 20.67 s was the
-      real live mean on the contaminated configuration; it is not deleted, because it is what
-      the site actually served that afternoon. **The "after" is one generation** — the
-      direction is not in doubt against five tightly clustered "before" runs, but 5332 ms is a
-      single sample. Three more would make it comparable to the four-run baseline.
+      | Configuration | n | `attempts` | `duration_ms` | mean | range |
+      |---|---|---|---|---|---|
+      | Live, NVIDIA configured and failing | 5 | 2 | 18618 / 19892 / 19814 / 19777 / 19840 | **19588** | 1274 (7%) |
+      | Live, NVIDIA removed | 4 | 1 | 5332 / 5640 / 3395 / 4391 | **4690** | 2245 (48%) |
+      | Local baseline, above | 4 | — | 10800 / 11300 / 13500 / 13600 | **12300** | 2800 (23%) |
+
+      The wasted attempt was worth **~14.9 s per request, 76% of the total**. Production is
+      **4.18× faster** than it was and **2.6× faster than the local baseline** — local still
+      has NVIDIA configured and still pays for it.
+
+      **Relative variance got worse, not better.** The pre-fix band was 7% of its mean because
+      a fixed ~15 s cost dominated; post-fix it is **48%**. Absolute spread is comparable
+      (1274 ms → 2245 ms); what changed is that Groq's own variability is no longer hidden
+      behind something large. Quote the mean with its range.
+
+      **The 20.67 s figure above stands as recorded and is now historical.** It was the real
+      live mean on the contaminated configuration — what the site actually served that
+      afternoon — and is not deleted.
 
 - [x] **9.1.7** Confirm the app degrades rather than crashes. **All four exercised for real.**
       *Database down* (container stopped): `503 STORAGE_UNAVAILABLE` in **8 ms**, failing

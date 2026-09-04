@@ -205,18 +205,21 @@ production generations came back `attempts=2` with `provider_used=groq`, which m
 **The fix and its cost, measured.** `NVIDIA_API_KEY` was removed from Vercel and the project
 redeployed, so the tier is now skipped rather than tried.
 
-| | `attempts` | `duration_ms` |
-|---|---|---|
-| Before (5 generations) | 2 | 18618 / 19892 / 19814 / 19777 / 19840 — mean **19588** |
-| After (1 generation) | **1** | **5332** |
+| | `attempts` | `duration_ms` | mean |
+|---|---|---|---|
+| Before, 5 runs | 2 | 18618 / 19892 / 19814 / 19777 / 19840 | **19588** |
+| After, 4 runs | **1** | 5332 / 5640 / 3395 / 4391 | **4690** |
 
-**The failed attempt was costing ~14.3 s on every production request — 73% of the total.**
-Production generation went from ~19.6 s to 5.3 s, 3.67× faster, and is now **2.3× faster than
-the local baseline** of 12.30 s, because locally NVIDIA is still configured and still tried.
+**The failed attempt was costing ~14.9 s on every production request — 76% of the total.**
+Production generation went from ~19.6 s to ~4.7 s, **4.18× faster**, and is now **2.6× faster
+than the local baseline** of 12300 ms, because locally NVIDIA is still configured and still
+tried.
 
-**Caveat, said plainly: the "after" is one generation.** The "before" is five and tightly
-clustered, so the direction is not in doubt, but 5332 ms is a single sample and should not be
-quoted as a settled figure.
+**The variance moved the other way, and that is worth knowing.** Pre-fix runs sat in a 1274 ms
+band — 7% of the mean — because a fixed ~15 s cost dominated everything else. Post-fix the
+band is 2245 ms on a much smaller mean, **48%**. Absolute spread is similar; *relative* spread
+is seven times worse. What is left is Groq's own variable response time with nothing large in
+front of it, so quote the mean with its range, not on its own.
 
 **What this costs.** Production's failover chain is now effectively two tiers, groq → gemini,
 not three. Less redundancy in exchange for 14 s a request. Reversible at any time: re-add

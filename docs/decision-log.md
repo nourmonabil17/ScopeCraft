@@ -1677,11 +1677,11 @@ nonce or hash policy and saying so is more useful than closing the row.
 
     **The measurement, because "it felt slow" is not a reason to delete a
     redundancy tier.** Five generations before removal: 18618, 19892, 19814,
-    19777, 19840 ms, mean **19588**. One generation after removing
-    `NVIDIA_API_KEY` from Vercel and redeploying: `attempts=1`,
-    **5332 ms**. The failed attempt cost **~14.3 s per request, 73% of the
-    total**. Production is now faster than the local development environment,
-    which still has NVIDIA configured and still pays for it.
+    19777, 19840 ms, mean **19588**. Four after removing `NVIDIA_API_KEY` from
+    Vercel and redeploying, every one `attempts=1`: 5332, 5640, 3395, 4391 ms,
+    mean **4690**. The failed attempt cost **~14.9 s per request, 76% of the
+    total** — **4.18× faster** now, and **2.6× faster than the local development
+    environment**, which still has NVIDIA configured and still pays for it.
 
     **What was traded.** Production has two tiers of failover, not three. If
     Groq has an outage, only Gemini stands between the user and a
@@ -1695,11 +1695,18 @@ nonce or hash policy and saying so is more useful than closing the row.
     log names it, and that log was never read. Re-adding the key without reading
     it first would restore the 14 s tax along with the tier.
 
-    **The honest weakness of the number.** The "before" is five tightly clustered
-    runs; the "after" is one. The direction is not in doubt, but 5332 ms is a
-    single sample and should not be quoted as a settled figure. Three more
-    generations would make it comparable to the four-run baseline in project plan
-    9.1.6.
+    **What the extra runs changed, and what they did not.** The first version of
+    this entry rested on a single post-fix sample and said so. Three more were
+    run: 5640, 3395, 4391 ms. The mean moved from 5332 to 4690 — the direction
+    was never in doubt, and the magnitude barely moved.
+
+    What they did reveal is a shift in *variance* that one sample could not show.
+    Pre-fix runs sat within 1274 ms, **7%** of their mean, because a fixed ~15 s
+    cost dominated everything else. Post-fix the band is 2245 ms on a much
+    smaller mean, **48%**. Absolute spread is comparable; relative spread is
+    seven times worse, because what remains is Groq's own variable response time
+    with nothing large in front of it. The mean is only honest quoted with its
+    range, and anyone setting a latency budget from this should use the range.
 
     **Reversal is one variable and a redeploy.** Nothing in the code changed —
     `PRIMARY_AI_PROVIDER` is still `nvidia` and the provider module still lists
