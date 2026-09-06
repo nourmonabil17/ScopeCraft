@@ -14,6 +14,7 @@
 // to recover the code it already knew.
 
 import {
+  InjectionArtifactError,
   OutOfDomainError,
   PlanningError,
   SchemaViolationError,
@@ -38,8 +39,12 @@ export function mapGenerationError(error: unknown): GenerationFailure {
 
   // Distinct from PROVIDER_ERROR: the provider answered, twice, with output
   // that does not satisfy the contract. Reachability is not the problem.
-  if (error instanceof SchemaViolationError) {
+    if (error instanceof SchemaViolationError) {
     return { code: "SCHEMA_VIOLATION", message: "The AI provider returned an unusable response. Please try again.", status: 502 };
+  }
+
+  if (error instanceof InjectionArtifactError) {
+    return { code: "INJECTION_DETECTED", message: "The AI response could not be verified as safe and was discarded. Please try again.", status: 502 };
   }
 
   // Typed provider failures. `.code` is authoritative; the legacy message

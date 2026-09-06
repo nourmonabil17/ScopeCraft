@@ -345,6 +345,12 @@ export const ERROR_CODES = [
   "RATE_LIMITED",
   "PLANNING_ERROR",
   "SCHEMA_VIOLATION",
+  // 502 — the response was schema-valid but its content shows signs a prompt
+  // injection succeeded (system-prompt leak, jailbreak tell, leaked fence
+  // token). See prompt-guard.ts. Distinct from SCHEMA_VIOLATION: the shape
+  // was fine, the content wasn't trustworthy.
+  "INJECTION_DETECTED",
+  "PROVIDER_ERROR",
   "PROVIDER_ERROR",
   "TIMEOUT",
 ] as const;

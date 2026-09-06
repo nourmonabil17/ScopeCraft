@@ -34,7 +34,13 @@ import {
   PlanningError,
   type ScoringInput,
 } from "./tools";
-import { toMoscow } from "./taxonomy";
+import {
+  toMoscow,
+  classifyRequestDomain,
+  findOffDomainLeak,
+  extractPlanTextFields,
+} from "./taxonomy";
+import { scanPlanForInjection } from "./prompt-guard";
 
 export { PlanningError };
 
@@ -63,6 +69,21 @@ export class SchemaViolationError extends Error {
   constructor() {
     super("SCHEMA_VIOLATION");
     this.name = "SchemaViolationError";
+  }
+}
+
+/**
+ * The response was schema-valid but its content shows evidence a prompt
+ * injection succeeded — see prompt-guard.ts. Kept distinct from
+ * SchemaViolationError deliberately: that error means the shape was wrong,
+ * this one means the shape was fine and the content wasn't trustworthy. The
+ * two failures have different causes and should not be folded into one code.
+ */
+export class InjectionArtifactError extends Error {
+  readonly code = "injection_detected";
+  constructor(public readonly reason: string) {
+    super("INJECTION_DETECTED");
+    this.name = "InjectionArtifactError";
   }
 }
 
@@ -215,6 +236,37 @@ export function applyDeterministicTools(
   result: ProviderOutput,
   capacityPoints: number
 ): ScopeCraftResponse {
+  // OUTPUT-side domain check (taxonomy.ts). Rule 4 of SYSTEM_RULES asks the
+  // model to self-report an out-of-domain request as an OutOfDomain envelope;
+  // ModelReplySchema only checks that the reply is shaped like a valid PRD or
+  // a valid refusal, not what the PRD prose actually says. A model that
+  // ignores Rule 4 and answers directly — in valid PRD shape — passed every
+  // check above this line before this existed. Run here, in the one function
+  // both runScopeCraft and regenerateStory funnel through, so neither path can
+  // skip it. One leaked field is enough to reject the whole response, the same
+  // way the request-side check in runScopeCraft rejects the whole request.
+  const leak = findOffDomainLeak(result);
+  if (leak.offDomain) {
+    throw new OutOfDomainError(
+      `server-side domain classifier: matched ${leak.matchedPattern}`
+    );
+  }
+
+  // OUTPUT-side injection check (prompt-guard.ts). Same reasoning, different
+  // threat: this catches a model that kept valid PRD shape while its content
+  // shows the input-side defenses in buildPrompt() were bypassed — a leaked
+  // system-prompt phrase, a jailbreak tell, or an echoed fence token. Schema
+  // validation alone cannot see this, because the compromised text is still
+  // a perfectly well-formed string in a perfectly well-formed field.
+  const injectionCheck = scanPlanForInjection(extractPlanTextFields(result));
+  if (!injectionCheck.clean) {
+    // Safe to log verbatim: the matched value is drawn from prompt-guard.ts's
+    // own fixed signature list, never from attacker-controlled text, so this
+    // line cannot leak anything a user submitted.
+    console.warn(`scopecraft.injection_detected matched="${injectionCheck.matched}"`);
+    throw new InjectionArtifactError(injectionCheck.matched ?? "unknown");
+  }
+
   // Drop dependency edges that do not name a story in this response.
   //
   // Measured on 2026-08-27 over 12 live generations of the same idea: one run
@@ -304,6 +356,25 @@ export function applyDeterministicTools(
 export async function runScopeCraft(
   request: ScopeCraftRequest
 ): Promise<ServiceResult> {
+  // REQUEST-side domain check (taxonomy.ts), before any provider is called.
+  // Mirrors getClarification in schema.ts: a free, deterministic rejection
+  // costs nothing, where a round trip to a provider costs a generation and
+  // counts against the caller's daily budget. This is a coarser check than
+  // the output-side one in applyDeterministicTools — biased hard toward not
+  // rejecting product-shaped ideas — so an obvious off-domain ask ("what
+  // medication should I take for a migraine") never reaches a provider at
+  // all, while a genuinely ambiguous one still gets a real generation and is
+  // caught downstream if it turns out to be a leak.
+  const constraintsTextForCheck = constraintsToText(request.constraints);
+  const requestCheck = classifyRequestDomain(
+    [request.idea, constraintsTextForCheck ?? ""].join("\n")
+  );
+  if (requestCheck.offDomain) {
+    throw new OutOfDomainError(
+      `server-side domain classifier: matched ${requestCheck.matchedPattern}`
+    );
+  }
+
   const prompt = buildPrompt(request.idea, constraintsToText(request.constraints));
 
   // One retry on schema violation: structured-output models occasionally emit a
